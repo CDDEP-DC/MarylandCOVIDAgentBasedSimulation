@@ -254,6 +254,10 @@ def cleanUp(modelPopNames):
     # Cleanup population data
     i = 0
     RegionalList = []
+    # check ParameterSet.PopDataFolder is defined, if not create
+    if not os.path.isdir(ParameterSet.PopDataFolder):
+        os.mkdir(ParameterSet.PopDataFolder)
+
     for filename in os.listdir(ParameterSet.PopDataFolder):
         if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle"):
             RegionalList.append(i)
