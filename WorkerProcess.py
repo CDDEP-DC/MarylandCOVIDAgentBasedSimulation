@@ -63,6 +63,9 @@ def RunTimeForward(q, i, tend, nextEventTime, modelPopNames,RegionReconciliation
         Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle", R)
     if ParameterSet.debugmodelevel >= ParameterSet.debugtimer:
         t5 = time.time()
+    #check that queues directory exists
+    if not os.path.isdir(ParameterSet.QueueFolder):
+        os.makedirs(ParameterSet.QueueFolder)
     Utils.FileWrite(ParameterSet.QueueFolder + "/" + str(modelPopNames) + str(i) + "Queue.pickle", offPopQueueEvents)
     hospOccupancyList = R.getHospitalOccupancy()
     if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
