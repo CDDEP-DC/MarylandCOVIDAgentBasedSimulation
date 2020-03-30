@@ -247,7 +247,7 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
             if ParameterSet.ModelRunning == 'Wuhan':
                 x = datetime(2020, 1, 23) - timedelta(days=timeRange[len(timeRange)-1]-tend) 
             else:          
-                x = datetime(2020, 2, 1) + timedelta(days=tend) 
+                x = datetime(2020, 1, 1) + timedelta(days=tend) 
             
             #print("End:",tend," (",(x.strftime('%Y-%m-%d')),") Time:",t3-t1,"(",t3-t2,") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH," R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE)
             

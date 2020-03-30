@@ -101,7 +101,7 @@ def main():
             if 'worse' in interventionnames[intnum]:
                 Utils.JiggleParameters('worse')
             if 'distance' in interventionnames[intnum]:
-                ParameterSet.InterventionDate = random.randint(44,60)
+                ParameterSet.InterventionDate = random.randint(75,91)
                 ParameterSet.InterventionEndDate = ParameterSet.InterventionDate + 75
             else:
                 ParameterSet.InterventionDate = -1
