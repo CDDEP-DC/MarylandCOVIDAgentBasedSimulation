@@ -46,11 +46,11 @@ Recovered = -1
 Dead = -2
 
 #DiseaseVariables:
-IncubationTime = 14
+IncubationTime = 6.1
 totalContagiousTime = 9
 symptomaticTime = 6
-hospitalSymptomaticTime = 14
-hospTime = 7
+hospitalSymptomaticTime = 12
+hospTime = 4
 EDVisit = .8
 preContagiousTime = 2
 postContagiousTime = 6

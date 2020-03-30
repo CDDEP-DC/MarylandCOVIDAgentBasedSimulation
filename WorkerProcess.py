@@ -64,14 +64,18 @@ def RunTimeForward(q, i, tend, nextEventTime, modelPopNames,RegionReconciliation
     if ParameterSet.debugmodelevel >= ParameterSet.debugtimer:
         t5 = time.time()
     Utils.FileWrite(ParameterSet.QueueFolder + "/" + str(modelPopNames) + str(i) + "Queue.pickle", offPopQueueEvents)
+    
     hospOccupancyList = R.getHospitalOccupancy()
     if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
         CurrentHospOccList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
     else:
         CurrentHospOccList = {}
-     
-    CurrentHospOccList[tend] = hospOccupancyList
     Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle", CurrentHospOccList)
+    
+    R0Stats = R.getR0Stats()
+    R0StatsList = {}
+    R0StatsList[i] = R0Stats
+    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle", R0StatsList)
     
     if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
         t6 = time.time()

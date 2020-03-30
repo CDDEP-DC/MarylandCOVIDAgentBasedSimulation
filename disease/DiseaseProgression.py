@@ -83,8 +83,7 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
                 while hospTime > symptomaticTime:
                     hospTime = gammavariate(ParameterSet.hospTime, 1)
                     symptomaticTime+=1
-                x = random()     
-                if x < ParameterSet.ICURate:
+                if random() < ParameterSet.ICURate:
                     # If they went to the hospital and are hospitalized, their recovery is longer, so we add hospital time here
                     ICUTime = gammavariate(ParameterSet.ICUtime,1)
                     PostICUTime = gammavariate(ParameterSet.PostICUTime, 1)
@@ -99,7 +98,7 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
                     SE = SimEvent.PersonHospExitICUEvent(timeNow+incubationTime+preContagiousTime+hospTime+ICUTime, HouseholdId, PersonId, Hospital)
                     queueEvents.append(SE)                
                 
-                else:                    
+                else:             
                     # If they went to the hospital and are hospitalized, their recovery is longer, so we add hospital time here
                     symptomaticTime += gammavariate(ParameterSet.hospitalSymptomaticTime, 1)
                         

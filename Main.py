@@ -28,6 +28,17 @@ import events.SimulationEvent as SE
 
 def main():
 
+    if not os.path.exists(ParameterSet.PopDataFolder):
+        os.makedirs(ParameterSet.PopDataFolder)
+        
+    if not os.path.exists(ParameterSet.QueueFolder):
+        os.makedirs(ParameterSet.QueueFolder)
+        
+    if not os.path.exists(ParameterSet.ResultsFolder):
+        os.makedirs(ParameterSet.ResultsFolder)
+        
+
+
     endTime = 181
     stepLength = 1
     dateTimeObj = datetime.now()
@@ -91,6 +102,22 @@ def main():
     ParameterSet.AGAsymptomaticRate = [ParameterSet.AG04AsymptomaticRate, ParameterSet.AG517AsymptomaticRate, ParameterSet.AG1849AsymptomaticRate,ParameterSet.AG1849AsymptomaticRate,ParameterSet.AG1849AsymptomaticRate, ParameterSet.AG5064AsymptomaticRate,ParameterSet.AG65AsymptomaticRate]
     ParameterSet.AGMortalityRate = [ParameterSet.AG04MortalityRate,ParameterSet.AG517MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG5064MortalityRate,ParameterSet.AG65MortalityRate]
 
+    IncubationTime = 6.1
+    totalContagiousTime = 9
+    symptomaticTime = 6
+    hospitalSymptomaticTime = 12
+    hospTime = 4
+    EDVisit = .8
+    preContagiousTime = 2
+    postContagiousTime = 6
+    ICURate = .6
+    ICUtime = 12
+    PostICUTime = 5
+    
+    #ProbabilityOfTransmissionPerContact = .015 ## 0.015 --> 1.3-1.6
+    ProbabilityOfTransmissionPerContact = 0.02
+    
+    
     RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide = GlobalModel.modelSetup(Model, modelPopNames,combineLocations=True)
     #ParameterSet.Intervention='SCHOOL'
     #ParameterSet.InterventionDate=44 #3/16 --> assumes 2/1 start

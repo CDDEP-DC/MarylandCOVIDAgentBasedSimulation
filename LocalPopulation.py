@@ -64,8 +64,9 @@ class LocalPopulation:
         self.numHospitalizedICU = 0
         self.numDead = 0
         
+        self.R0Calc = [0]*101
+            
         #self.infectionEvents = []
-
         # Event queue is a dictionary
         self.eventQueue = {}
 
@@ -128,6 +129,9 @@ class LocalPopulation:
         hospstats['admissions'] = self.HospitalNewInfectionList
         hospstats['edvisits'] = self.HospitalNewEDList
         return hospstats
+        
+    def getR0Stats(self):
+        return self.R0Calc    
 
     def reportNumInfected(self):
         return {self.LocalPopulationId: self.numInfected}
@@ -225,7 +229,7 @@ class LocalPopulation:
                             self.DefinedAgents -= HHSize
                             self.EphermeralAgents += HHSize
                             del self.hhset[HHID]
-                            print(npersons," = ",numnotdefinedagents," + ",numdefinedagents," + ",numrecovereddeadagents)
+                            #print(npersons," = ",numnotdefinedagents," + ",numdefinedagents," + ",numrecovereddeadagents)
                     else:
                         print("Need to throw error here2 ... something went wrong")
                         
@@ -244,18 +248,21 @@ class LocalPopulation:
                     personId = SE.getPersonId()
                     Hospital = SE.getHospital()
                     if isinstance(SE,SimEvent.PersonHospCritEvent) or isinstance(SE,SimEvent.PersonHospICUEvent): 
+                        
                         self.HospitalInfectionList[Hospital]+=1
-                        self.HospitalICUInfectionList[Hospital]+=1
+                        if isinstance(SE,SimEvent.PersonHospICUEvent):
+                            self.HospitalICUInfectionList[Hospital]+=1
+                            self.numHospitalizedICU += 1
                         self.HospitalNewInfectionList[Hospital]+=1
                         self.hhset[HHID].setHouseholdPersonHospStatus(personId,1,Hospital)
                         self.numHospitalized += 1
-                        self.numHospitalizedICU += 1
                     elif isinstance(SE,SimEvent.PersonHospExitICUEvent):
                         self.HospitalICUInfectionList[Hospital]-=1
                         self.numHospitalizedICU -= 1
+                        self.HospitalICUInfectionList[Hospital]-=1
                     else:
                         self.HospitalNewEDList[Hospital]+=1
-                    #print("Patient went to " + str(Hospital)," right: ",testHHid," nuhhosp:",self.numHospitalized,self.HospitalInfectionList)
+                        
                 elif isinstance(SE,SimEvent.HouseholdInfectionEvent):
                         #print("house")
                         HHID = SE.getHouseholdId()
@@ -307,36 +314,34 @@ class LocalPopulation:
                                     self.LocalPopulationId,self.HospitalTransitionMatrixList,
                                                   agentId,ageCohort)
         offPopQueueEvents = []
+        numinfR = 0
         # if they were infected then queue events will be returned
         if queueEvents:
-            
             self.numSusceptible -= 1
             self.numIncubating += 1 
             self.numAgentsInfected += 1
             susnum = self.hhset[HHID].numHouseholdMembersSusceptible()
+            
             #agentEvents = { 'agent':agentId,'household':HHID,'numInfections':0,'numHHinf':0,'numRinf':0}
             for QE in queueEvents:
                 if isinstance(QE,SimEvent.NonLocalInfectionEvent):
                     self.numNewRandomInfections += 1
+                    numinfR += 1
                     #agentEvents['numInfections'] +=1
                     #agentEvents['numRinf'] +=1
                     offPopQueueEvents.append(QE)
                 else:
                     if isinstance(QE,SimEvent.HouseholdInfectionEvent):
-                        numtries = 0
-                        while susnum > 0:
+                        if susnum > 0:
                             self.numNewHHInfections += 1
+                            numinfR += 1
                             susnum -= 1
-                            numtries += 1
-                            if numtries > 100:
-                                #print(HHSize+1," ",maxval," ",numdefinedagents, " " , infectperson)
-                                print("LOOP ERROR")
-                                break
                         #agentEvents['numInfections'] +=1
                         #agentEvents['numHHinf'] +=1
                         
                     if isinstance(QE,SimEvent.LocalInfectionEvent):
                         self.numNewRandomInfections += 1
+                        numinfR += 1
                         #agentEvents['numInfections'] += 1
                         #agentEvents['numRinf'] += 1
                     ts = QE.getEventTime()
@@ -344,7 +349,14 @@ class LocalPopulation:
             #self.infectionEvents.append(agentEvents)
             #print(agentEvents)
             #print("InfAgents:",self.numAgentsInfected," RInf:",self.numNewRandomInfections," HInf:",self.numNewHHInfections," Inf:",self.numNewRandomInfections+self.numNewHHInfections," R0:",(self.numNewRandomInfections+self.numNewHHInfections) / self.numAgentsInfected, " HHSize:",self.hhset[HHID].getHouseholdSize())
+        else:
+            # subtract infections that didn't happen --- solely for R0 calculation - will be off by Localpop but will work globally
+            self.numNewRandomInfections -= 1
         #print("After infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)            
+        if numinfR > 100:
+            self.R0Calc[100]+=1
+        else:
+            self.R0Calc[numinfR]+=1
         return offPopQueueEvents
 
     def getInfectionEvents(self):

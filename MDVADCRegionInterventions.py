@@ -40,10 +40,10 @@ def main():
 
     runs = 10000
     modelPopNames = 'ZipCodes'
-    Model = 'Maryland'  # select model
+    Model = 'MDDCVAregion'  # select model
     GlobalModel.cleanUp(modelPopNames)
  
-    ParameterSet.ResultsFolder = ParameterSet.ResultsFolder + "/MarylandInt"
+    ParameterSet.ResultsFolder = ParameterSet.ResultsFolder + "/MDDCVAregionInt"
     if not os.path.exists(ParameterSet.ResultsFolder):
         os.makedirs(ParameterSet.ResultsFolder)
     
@@ -52,23 +52,10 @@ def main():
     #intervenionreduction1 = [1,.9,.9]
     #intervenionreduction2 = [0,0,0]
     #intervenionreductionSchool = [1,.5,.5]
-    interventionnames = ['worse','worsedistance.10','worsedistance.25','worsedistance.40']
-    intervenionreduction1 = [1,.9,.75,.6]
-    intervenionreduction2 = [0,0,0,0]
-    intervenionreductionSchool = [1,.5,.5,.5]
-    
-    #DiseaseVariables:
-    ParameterSet.IncubationTime = 11
-    ParameterSet.totalContagiousTime = 5
-    ParameterSet.symptomaticTime = 6
-    ParameterSet.hospitalSymptomaticTime = 14
-    ParameterSet.hospTime = 7
-    ParameterSet.EDVisit = .8
-    ParameterSet.preContagiousTime = 2
-    ParameterSet.postContagiousTime = 6
-    ParameterSet.ICUtime = 14
-    ParameterSet.PostICUTime = 5
-    ParameterSet.ImportationRate = 2
+    interventionnames = ['baseline','worse','baddistance.75','baddistance.25','baddistance.50']
+    intervenionreduction1 = [1,1,.75,.25,.5]
+    intervenionreduction2 = [0,0,0,0,0]
+    intervenionreductionSchool = [1,.5,.5,.5,.5]
     
     for run in range(0,runs):
         stepLength = 1
@@ -107,17 +94,18 @@ def main():
                       
         for intnum in range(0,len(interventionnames)):
             if 'seasonality' in interventionnames[intnum]:
-                endTime = 334
+                endTime = 365
             else:
-                endTime = 50
+                endTime = 300
             ParameterSet.Intervention = interventionnames[intnum]
             if 'worse' in interventionnames[intnum]:
                 Utils.JiggleParameters('worse')
             if 'distance' in interventionnames[intnum]:
-                ParameterSet.InterventionDate = random.randint(84,92)
+                ParameterSet.InterventionDate = random.randint(44,60)
+                ParameterSet.InterventionEndDate = ParameterSet.InterventionDate + 75
             else:
                 ParameterSet.InterventionDate = -1
-            ParameterSet.InterventionEndDate = random.randint(151,160)
+                ParameterSet.InterventionEndDate = -1
             ParameterSet.InterventionReduction = intervenionreduction1[intnum]
             ParameterSet.InterventionReduction2 = intervenionreduction1[intnum]
             ParameterSet.InterventionReductionSchool = intervenionreductionSchool[intnum]

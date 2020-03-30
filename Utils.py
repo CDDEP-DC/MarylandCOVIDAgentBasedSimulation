@@ -56,8 +56,17 @@ def JiggleParameters(case='reg'):
     
     baseEDVisit = .8
     
+    ParameterSet.IncubationTime = random.randint(5,9)
+    ParameterSet.totalContagiousTime = random.randint(4,12)
+    ParameterSet.symptomaticTime = random.randint(5,9)
+    ParameterSet.hospitalSymptomaticTime = random.randint(8,17)
+    ParameterSet.hospTime = random.randint(2,5)
+    ParameterSet.preContagiousTime = random.randint(1,3)
+    ParameterSet.postContagiousTime = random.randint(1,6)
+    ParameterSet.ICUtime = random.randint(12,15)
+    ParameterSet.PostICUTime = random.randint(5,9)
     
-    ParameterSet.householdcontactRate = random.randint(30,60)
+    ParameterSet.householdcontactRate = random.randint(5,15)
     
     ParameterSet.AG04AsymptomaticRate = min(baseAG04AsymptomaticRate+random.choice((-1, 1))*baseAG04AsymptomaticRate*.05*random.random(),1)
     ParameterSet.AG04HospRate = random.randint(0,75)/10000
@@ -102,7 +111,7 @@ def JiggleParameters(case='reg'):
         ParameterSet.EDVisit = min(baseEDVisit+random.choice((-1, 1))*baseEDVisit*.05*random.random(),1)
         ParameterSet.ProbabilityOfTransmissionPerContact = random.randint(45,55)/1000
         ParameterSet.ICURate = random.randint(40,60)/100
-        ParameterSet.symptomaticContactRateReduction = 1
+        ParameterSet.symptomaticContactRateReduction = .5
     else:
         ParameterSet.EDVisit = min(baseEDVisit+random.choice((-1, 1))*baseEDVisit*.1*random.random(),1)
         ParameterSet.ProbabilityOfTransmissionPerContact = random.randint(28,36)/1000

@@ -247,18 +247,30 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
             if ParameterSet.ModelRunning == 'Wuhan':
                 x = datetime(2020, 1, 23) - timedelta(days=timeRange[len(timeRange)-1]-tend) 
             else:          
-                x = datetime(2020, 1, 1) + timedelta(days=tend) 
-            if Ai > 0:
-                R0 = In / Ai
-                R0R = InR / Ai
-                R0HH = InH / Ai
-            else:
-                R0 = 0
-                R0R = 0
-                R0HH = 0
+                x = datetime(2020, 2, 1) + timedelta(days=tend) 
+            
             #print("End:",tend," (",(x.strftime('%Y-%m-%d')),") Time:",t3-t1,"(",t3-t2,") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH," R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE)
-            print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE, " A:",Ai," In:",In," InR:",InR," InH:",InH)
-        
+            
+            R0Stats = [0]*101
+            for i in range(0,len(RegionalList)):
+                if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle"):
+                    R0StatsList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
+                    for key in R0StatsList.keys():
+                        R0Stat = R0StatsList[key]
+                        for rkey in R0Stat.keys():
+                            rvals = R0Stat[rkey]
+                            for r in range(0,len(rvals)):
+                                R0Stats[r] += rvals[r]
+            rnum = 0
+            rdenom = 0
+            for i in range(1,len(R0Stats)):
+                rdenom += R0Stats[i]
+                rnum += R0Stats[i]*i            
+            
+            #print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE, " A:",Ai," In:",In," InR:",InR," InH:",InH)
+            print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(rnum/rdenom,2))
+            
+                
         if totS+totN+totInf+totC+totR+totD != totvalue:
             exit()
         

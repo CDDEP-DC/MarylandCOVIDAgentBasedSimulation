@@ -11,13 +11,43 @@ import Utils
 
 import os
 
-def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,HospitalNames=[],endTime=0):
+def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,ParameterVals,HospitalNames=[],endTime=0):
 
     print('Writing Results')
+    
+    csvFile = ParameterSet.ResultsFolder+"/Parameters_"+model+"_"+resultsName+".csv"
+    try:
+        with open(csvFile, 'w') as f:
+            for key in ParameterVals.keys():
+                f.write("%s,%s\n" % (key,ParameterVals[key]))
+            f.write("\n")
+
+    except IOError:
+        print("I/O error")
+
+   
+    
     totdays = len(results.keys())
-    output = np.empty((totdays,14),dtype=int)
+    output = np.empty((totdays,12),dtype=int)
     csvFile = ParameterSet.ResultsFolder+"/ResultsByDay_"+model+"_"+resultsName+".csv"
 
+    R0Stats = [0]*101
+    for i in range(0,len(RegionalList)):
+        if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle"):
+            R0StatsList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
+            for key in R0StatsList.keys():
+                R0Stat = R0StatsList[key]
+                for rkey in R0Stat.keys():
+                    rvals = R0Stat[rkey]
+                    for r in range(0,len(rvals)):
+                        R0Stats[r] += rvals[r]
+    rnum = 0
+    rdenom = 0
+    for i in range(1,len(R0Stats)):
+        rdenom += R0Stats[i]
+        rnum += R0Stats[i]*i     
+        
+    R0 = rnum/rdenom
     for day in results.keys():
         sus = 0
         inc = 0
@@ -31,10 +61,6 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
         R0HH = 0
         totHI = 0
         totHE = 0
-        In = 0
-        InR = 0
-        InH = 0
-        Ai = 0
         totICU = 0
         numInfList = results[day]
         for reg in numInfList.keys():
@@ -50,24 +76,19 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
                     rec += lpdict['R']
                     sus += lpdict['S']
                     dead += lpdict['D']
-                    In += lpdict['In']
-                    InR += lpdict['InR']
-                    InH += lpdict['InH']
-                    Ai += lpdict['Ai']
                     totHI += lpdict['HI']
                     totHE += lpdict['HE']
         
-        if Ai > 0:
-            R0 = In / Ai
-            R0R = InR / Ai
-            R0HH = InH / Ai
-        output[(day - 1), :] = [day, sus, inc, inf, col, rec, dead, hos,R0,R0R,R0HH,totHI,totHE,totICU]
+        output[(day - 1), :] = [day, sus, inc, inf, col, rec, dead, hos,R0,totHI,totHE,totICU]
 
-    titles = ['Day', 'Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','R0','R0R','R0HH','NewAdmissions','EDVisits','ICU']
+    titles = ['Day', 'Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','R0','NewAdmissions','EDVisits','ICU']
     
+           
     np.savetxt(csvFile,np.vstack([titles,output]),delimiter=",", fmt='%5s')
     
     
+                
+                #for key2 in tydict:
     hospstatsnames = ['occupancy','admissions','edvisits','ICU']
 
     HospitalOccupancyByDay = {}

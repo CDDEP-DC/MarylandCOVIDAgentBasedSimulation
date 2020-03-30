@@ -20,6 +20,7 @@ import data.ConstructInteractionMatrix
 import data.Maryland.ProcessDataMD
 import data.Maryland.ProcessDataMDED
 import data.landscan.GridExtraction
+import data.MDDCVAregion.ProcessDataMDDCVAED
 
 
 def USHRRRegionInteractionMatrix():
@@ -90,6 +91,40 @@ def TestVersionRandomMatrix(numpops=10,hospitals=5):
         
     return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalColNames
 
+def MDVADCInteractionMatrix():
+    if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
+        print("Loading Maryland/DC/Virgina Zipcode Centroid ...")
+    MDPop = pd.read_csv('data/MDDCVAregion/MDDCVAregionCentroid.csv')
+    MDPop = MDPop.dropna(subset=['POPULATION'])
+    MDPop = MDPop[MDPop.POPULATION != 0].copy()
+    # delete all rows not in ED Matrix
+    NoEDZip = MDPop[(MDPop['ZIP_CODE'] == 20656) |
+                    (MDPop['ZIP_CODE'] == 20701) |
+                    (MDPop['ZIP_CODE'] == 20771) |
+                    (MDPop['ZIP_CODE'] == 21031) |
+                    (MDPop['ZIP_CODE'] == 21240)].index
+    MDPop = MDPop.drop(NoEDZip)
+    # ZipNames = np.asarray(MDPop['ZIP_CODE'])
+    PopulationData = np.asarray(MDPop['POPULATION'])
+    LongCentroid = np.asarray(MDPop['Longitude'])
+    LatCentroid = np.asarray(MDPop['Latitude'])
+    MDHospitalData = data.MDDCVAregion.ProcessDataMDDCVAED.InputData('data/MDDCVAregion', MDPop) # Process movement network
+    HospitalTransitionRate = MDHospitalData.TranCH
+    HospitalColNames = MDHospitalData.ProviderNamesColumn # Dictionary of hospital names to adj matrix column
+
+    numpops = len(PopulationData)  # number of HRRs
+    if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
+        print("Loaded: ", numpops, " Populations, with a total population of ", sum(PopulationData), " (mean:",
+              sum(PopulationData) / len(PopulationData), " max:", max(PopulationData), " min:", min(PopulationData))
+
+    if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
+        print("Creating Interaction Matrix ...")
+    
+    InteractionMatrix = data.ConstructInteractionMatrix. \
+        CreateInteractionMatrix(LongCentroid, LatCentroid, PopulationData)
+    
+    return PopulationData, InteractionMatrix, HospitalTransitionRate, HospitalColNames
+    
 def MarylandInteractionMatrix():
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Loading Maryland Zipcode Centroid ...")
@@ -110,7 +145,7 @@ def MarylandInteractionMatrix():
     MDHospitalData = data.Maryland.ProcessDataMDED.InputData('data/Maryland', MDPop) # Process movement network
     HospitalTransitionRate = MDHospitalData.TranCH
     HospitalColNames = MDHospitalData.ProviderNamesColumn # Dictionary of hospital names to adj matrix column
-    
+
     numpops = len(PopulationData)  # number of HRRs
     if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
         print("Loaded: ", numpops, " Populations, with a total population of ", sum(PopulationData), " (mean:",
@@ -179,6 +214,8 @@ def modelSetup(version, modelPopNames=None, combineLocations=False, TestNumPops 
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames = TestVersionRandomMatrix(TestNumPops)
     elif version == 'Maryland' or version == 'MarylandFit':
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames = MarylandInteractionMatrix()
+    elif version == 'MDDCVAregion':
+        PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames = MDVADCInteractionMatrix()
     elif version == 'Wuhan':
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, WuhanCoordDict = WuhanInteractionMatrix(XRes,YRes)
     else:
@@ -281,3 +318,9 @@ def cleanUp(modelPopNames):
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Removed "+ParameterSet.QueueFolder+"/"+str(modelPopNames)+str(i)+"Queue.pickle")
         except:
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Queue ", i, " did not exist")                
+            
+        try:
+            os.remove(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
+            if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Removed "+ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
+        except:
+            if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Pop ", i, " R0Stats did not exist")

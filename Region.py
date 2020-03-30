@@ -58,6 +58,7 @@ class Region:
 
         offPopQueueEvents = []
         regionStats = {}
+        R0Stats = {}
         hospitalStats = {}
         numEvents = 0
         minEventTime = ParameterSet.MAXIntVal
@@ -71,7 +72,7 @@ class Region:
                 minEventTime = math.floor(nextEventTime)
             offPopQueueEvents.extend(op)
             regionStats[LPKey] = LP.reportPopulationStats()
-            
+            R0Stats = LP.getR0Stats()
             if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
                 t2 = time.time()
             if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
@@ -157,3 +158,10 @@ class Region:
             LP = self.Locations[LPKey]
             hospLists[LPKey] = LP.getHospitalOccupancy()
         return hospLists
+        
+    def getR0Stats(self):
+        R0Lists = {}
+        for LPKey in self.Locations.keys():
+            LP = self.Locations[LPKey]
+            R0Lists[LPKey] = LP.getR0Stats()
+        return R0Lists    
