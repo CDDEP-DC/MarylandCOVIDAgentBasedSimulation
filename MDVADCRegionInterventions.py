@@ -52,7 +52,8 @@ def main():
     #intervenionreduction1 = [1,.9,.9]
     #intervenionreduction2 = [0,0,0]
     #intervenionreductionSchool = [1,.5,.5]
-    interventionnames = ['baseline','worse','baddistance.75','baddistance.25','baddistance.50']
+    interventionnames = ['worse','baddistance.75','baddistance.25','baddistance.50']
+    #interventionnames = ['worse']
     intervenionreduction1 = [1,1,.75,.25,.5]
     intervenionreduction2 = [0,0,0,0,0]
     intervenionreductionSchool = [1,.5,.5,.5,.5]
@@ -96,9 +97,9 @@ def main():
             if 'seasonality' in interventionnames[intnum]:
                 endTime = 365
             else:
-                endTime = 300
+                endTime = 275
             ParameterSet.Intervention = interventionnames[intnum]
-            if 'worse' in interventionnames[intnum]:
+            if 'worse' in interventionnames[intnum] or 'bad' in interventionnames[intnum]:
                 Utils.JiggleParameters('worse')
             if 'distance' in interventionnames[intnum]:
                 ParameterSet.InterventionDate = random.randint(75,91)
