@@ -70,6 +70,7 @@ def RunTimeForward(q, i, tend, nextEventTime, modelPopNames,RegionReconciliation
         CurrentHospOccList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
     else:
         CurrentHospOccList = {}
+    CurrentHospOccList[tend] = hospOccupancyList  
     Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle", CurrentHospOccList)
     
     R0Stats = R.getR0Stats()

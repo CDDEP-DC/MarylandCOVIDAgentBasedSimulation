@@ -49,6 +49,7 @@ class LocalPopulation:
         self.HospitalICUInfectionList = []
         self.HospitalNewInfectionList = []
         self.HospitalNewEDList = []
+        xsum = 0
         for i in range(0,len(HospitalTransitionMatrixList)):
             self.HospitalInfectionList.append(0)
             self.HospitalNewInfectionList.append(0)

@@ -109,7 +109,7 @@ def main():
             if 'seasonality' in interventionnames[intnum]:
                 endTime = 334
             else:
-                endTime = 50
+                endTime = 300
             ParameterSet.Intervention = interventionnames[intnum]
             if 'worse' in interventionnames[intnum]:
                 Utils.JiggleParameters('worse')

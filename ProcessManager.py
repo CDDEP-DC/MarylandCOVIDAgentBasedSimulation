@@ -266,9 +266,12 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
             for i in range(1,len(R0Stats)):
                 rdenom += R0Stats[i]
                 rnum += R0Stats[i]*i            
-            
+            if rdenom > 0:
+                R0Val = rnum/rdenom
+            else:
+                R0Val = 0
             #print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE, " A:",Ai," In:",In," InR:",InR," InH:",InH)
-            print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(rnum/rdenom,2))
+            print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(R0Val,2))
             
                 
         if totS+totN+totInf+totC+totR+totD != totvalue:
