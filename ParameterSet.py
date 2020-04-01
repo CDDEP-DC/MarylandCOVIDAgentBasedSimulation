@@ -11,6 +11,8 @@ WuhanMktRegionId = -1
 ImportationRate = 1
 ImportationRatePower = 1
 
+StopQueueDate = 1000
+
 ## debuggingmode
 debugmodelevel = 3
 debugerror = 1
@@ -57,6 +59,7 @@ postContagiousTime = 6
 ICURate = .6
 ICUtime = 12
 PostICUTime = 5
+
 
 #ProbabilityOfTransmissionPerContact = .015 ## 0.015 --> 1.3-1.6
 ProbabilityOfTransmissionPerContact = 0.001 #.02 ## 0.01 --> 2

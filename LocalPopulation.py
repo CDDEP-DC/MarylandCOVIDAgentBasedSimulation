@@ -325,12 +325,14 @@ class LocalPopulation:
             
             #agentEvents = { 'agent':agentId,'household':HHID,'numInfections':0,'numHHinf':0,'numRinf':0}
             for QE in queueEvents:
+                ts = QE.getEventTime()
                 if isinstance(QE,SimEvent.NonLocalInfectionEvent):
                     self.numNewRandomInfections += 1
                     numinfR += 1
                     #agentEvents['numInfections'] +=1
                     #agentEvents['numRinf'] +=1
-                    offPopQueueEvents.append(QE)
+                    if ts <= ParameterSet.StopQueueDate:
+                        offPopQueueEvents.append(QE)
                 else:
                     if isinstance(QE,SimEvent.HouseholdInfectionEvent):
                         if susnum > 0:
@@ -345,8 +347,8 @@ class LocalPopulation:
                         numinfR += 1
                         #agentEvents['numInfections'] += 1
                         #agentEvents['numRinf'] += 1
-                    ts = QE.getEventTime()
-                    self.eventQueue[ts] = QE
+                    if ts <= ParameterSet.StopQueueDate:
+                        self.eventQueue[ts] = QE
             #self.infectionEvents.append(agentEvents)
             #print(agentEvents)
             #print("InfAgents:",self.numAgentsInfected," RInf:",self.numNewRandomInfections," HInf:",self.numNewHHInfections," Inf:",self.numNewRandomInfections+self.numNewHHInfections," R0:",(self.numNewRandomInfections+self.numNewHHInfections) / self.numAgentsInfected, " HHSize:",self.hhset[HHID].getHouseholdSize())

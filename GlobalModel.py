@@ -91,6 +91,52 @@ def TestVersionRandomMatrix(numpops=10,hospitals=5):
         
     return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalColNames
 
+def IndiaInteractionMatrix():
+    if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
+        print("Loading Inda Centroid ...")
+    iPop = pd.read_csv('data/India/IndiaCentroid.csv')
+    iPop = iPop.dropna(subset=['POPULATION'])
+    iPop = iPop[iPop.POPULATION != 0].copy()
+    # delete all rows not in ED Matrix
+    PopulationData = np.asarray(iPop['POPULATION'])
+    LongCentroid = np.asarray(iPop['Longitude'])
+    LatCentroid = np.asarray(iPop['Latitude'])
+    
+    numpops = len(PopulationData)  # number of HRRs
+    if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
+        print("Loaded: ", numpops, " Populations, with a total population of ", sum(PopulationData), " (mean:",
+              sum(PopulationData) / len(PopulationData), " max:", max(PopulationData), " min:", min(PopulationData))
+
+    if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
+        print("Creating Interaction Matrix ...")
+    
+    InteractionMatrix = data.ConstructInteractionMatrix. \
+        CreateInteractionMatrix(LongCentroid, LatCentroid, PopulationData)
+    # fake data don't care about hospitals
+    HospitalInteractionMatrix = np.empty([numpops, hospitals], np.single)
+    HospitalTransitionRate = np.empty([numpops, hospitals], np.single)
+
+    for i in range(0, numpops):
+        PopulationData.append(random.randint(3000, 20000))
+
+    for i in range(0, numpops):
+        for j in range(0, hospitals):
+            HospitalInteractionMatrix[i][j] = (random.random())
+
+    for i in range(0, numpops):
+        rowSum = 0.0
+        for j in range(0, hospitals):
+            rowSum = rowSum + HospitalInteractionMatrix[i, j]
+        for j in range(0, hospitals):
+            HospitalTransitionRate[i][j] = HospitalInteractionMatrix[i, j] / rowSum
+
+    HospitalColNames = []
+    for i in range(0,hospitals):
+        HospitalColNames.append(str(i))
+        
+    return PopulationData, InteractionMatrix, HospitalTransitionRate, HospitalColNames    
+    
+    
 def MDVADCInteractionMatrix():
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Loading Maryland/DC/Virgina Zipcode Centroid ...")
@@ -216,6 +262,8 @@ def modelSetup(version, modelPopNames=None, combineLocations=False, TestNumPops 
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames = MarylandInteractionMatrix()
     elif version == 'MDDCVAregion':
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames = MDVADCInteractionMatrix()
+    elif version == 'IndiaSIM':
+        PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames = IndiaInteractionMatrix()
     elif version == 'Wuhan':
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, WuhanCoordDict = WuhanInteractionMatrix(XRes,YRes)
     else:

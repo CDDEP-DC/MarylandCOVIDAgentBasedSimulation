@@ -30,6 +30,7 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     totdays = len(results.keys())
     output = np.empty((totdays,12),dtype=int)
     csvFile = ParameterSet.ResultsFolder+"/ResultsByDay_"+model+"_"+resultsName+".csv"
+    csvFileR0 = ParameterSet.ResultsFolder+"/R0_"+model+"_"+resultsName+".csv"
 
     R0Stats = [0]*101
     for i in range(0,len(RegionalList)):
@@ -43,10 +44,12 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
                         R0Stats[r] += rvals[r]
     rnum = 0
     rdenom = 0
-    for i in range(1,len(R0Stats)):
+    for i in range(0,len(R0Stats)):
         rdenom += R0Stats[i]
         rnum += R0Stats[i]*i     
         
+    np.savetxt(csvFileR0,R0Stats,delimiter=",", fmt='%5s')
+            
     R0 = rnum/rdenom
     for day in results.keys():
         sus = 0

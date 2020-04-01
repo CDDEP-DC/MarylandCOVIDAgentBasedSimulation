@@ -22,7 +22,7 @@ def main():
 
     #interventionnames = ['seasonality2','seasonality','distance.10','highcontact','worse','baseline']
     #interventionnames = ['distance.10'] #,'worse']
-    interventionnames = ['worsedistance.10']
+    interventionnames = ['worse']
     interventionruns = [0] * len(interventionnames)
     
     for intnum in range(0,len(interventionnames)):
@@ -47,7 +47,7 @@ def main():
         numHruns = 0
         numSruns = 0
         for filename in os.listdir(LocalData):
-            if interventionnames[intnum] in filename:
+            if interventionnames[intnum] in filename and not 'distance' in filename:
                 print(filename)
                 if "Hospital" in filename:
                     datain = pd.read_csv(LocalData+"/"+filename)

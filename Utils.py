@@ -36,23 +36,19 @@ def JiggleParameters(case='reg'):
     #B1=0.49997542 B2=0.49990543 gamma1=0.32194843 gamma2=0.0300116  gamma3=0.21929508    
     #agecohort 0 -- 0-4                     
     baseAG04AsymptomaticRate = .99
-    baseAG04HospRate = 0.0
        
     #agecohort 1 -- 5-17
     baseAG517AsymptomaticRate = .97
-    baseAG517HospRate = 0.009
             
     #agecohort 2 -- 18-49
     baseAG1849AsymptomaticRate = .81
-    baseAG1849HospRate = 0.008
             
     #agecohort 3 -- 50-64
     baseAG5064AsymptomaticRate = .84
-    baseAG5064HospRate = 0.03
             
     #agecohort 4 -- 65+
     baseAG65AsymptomaticRate = .63
-    baseAG65HospRate = 0.14
+
     
     baseEDVisit = .8
     
@@ -82,7 +78,7 @@ def JiggleParameters(case='reg'):
     #agecohort 2 -- 18-49
     if case == 'worse':
         ParameterSet.AG1849AsymptomaticRate = min(baseAG1849AsymptomaticRate+random.choice((-1, 1))*baseAG1849AsymptomaticRate*.1*random.random(),1)
-        ParameterSet.AG1849HospRate = random.randint(150,350)/10000
+        ParameterSet.AG1849HospRate = random.randint(7,15)/100
     else:
         ParameterSet.AG1849AsymptomaticRate = min(baseAG1849AsymptomaticRate+random.choice((-1, 1))*baseAG1849AsymptomaticRate*.1*random.random(),1)
         ParameterSet.AG1849HospRate = random.randint(40,120)/10000
@@ -90,7 +86,7 @@ def JiggleParameters(case='reg'):
     #agecohort 3 -- 50-64
     if case == 'worse':
         ParameterSet.AG5064AsymptomaticRate = min(baseAG5064AsymptomaticRate+random.choice((-1, 1))*baseAG5064AsymptomaticRate*.1*random.random(),1)
-        ParameterSet.AG5064HospRate = random.randint(30,70)/1000
+        ParameterSet.AG5064HospRate = random.randint(15,25)/100
         ParameterSet.AG5064MortalityRate = 0.08
     else:        
         ParameterSet.AG5064MortalityRate = 0.0207
@@ -100,7 +96,7 @@ def JiggleParameters(case='reg'):
     #agecohort 4 -- 65+
     if case == 'worse':
         ParameterSet.AG65AsymptomaticRate = min(baseAG65AsymptomaticRate+random.choice((-1, 1))*baseAG65AsymptomaticRate*.1*random.random(),1)
-        ParameterSet.AG65HospRate = random.randint(15,25)/100
+        ParameterSet.AG65HospRate = random.randint(30,50)/100
         ParameterSet.AG65MortalityRate = 0.15
     else:   
         ParameterSet.AG65MortalityRate = 0.08

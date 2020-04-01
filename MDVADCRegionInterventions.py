@@ -52,11 +52,11 @@ def main():
     #intervenionreduction1 = [1,.9,.9]
     #intervenionreduction2 = [0,0,0]
     #intervenionreductionSchool = [1,.5,.5]
-    interventionnames = ['worse','baddistance.75','baddistance.25','baddistance.50']
+    interventionnames = ['worse','baddistance.25']
     #interventionnames = ['worse']
-    intervenionreduction1 = [1,1,.75,.25,.5]
-    intervenionreduction2 = [0,0,0,0,0]
-    intervenionreductionSchool = [1,.5,.5,.5,.5]
+    intervenionreduction1 = [1,.25]
+    intervenionreduction2 = [0,0]
+    intervenionreductionSchool = [1,.5]
     
     for run in range(0,runs):
         stepLength = 1
@@ -97,7 +97,7 @@ def main():
             if 'seasonality' in interventionnames[intnum]:
                 endTime = 365
             else:
-                endTime = 275
+                endTime = 125
             ParameterSet.Intervention = interventionnames[intnum]
             if 'worse' in interventionnames[intnum] or 'bad' in interventionnames[intnum]:
                 Utils.JiggleParameters('worse')
