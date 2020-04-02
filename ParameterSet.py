@@ -10,6 +10,7 @@ WuhanMktLocalPopId = -1
 WuhanMktRegionId = -1
 ImportationRate = 1
 ImportationRatePower = 1
+AsymptomaticReducationTrans = 1
 
 StopQueueDate = 1000
 

@@ -73,21 +73,21 @@ def JiggleParameters(case='reg'):
             
     #agecohort 2 -- 18-49
     ParameterSet.AG1849AsymptomaticRate = min(baseAG1849AsymptomaticRate+random.choice((-1, 1))*baseAG1849AsymptomaticRate*.05*random.random(),1)
-    ParameterSet.AG1849HospRate = random.randint(5,15)/100
+    ParameterSet.AG1849HospRate = random.randint(5,10)/100
         
     #agecohort 3 -- 50-64
     ParameterSet.AG5064AsymptomaticRate = min(baseAG5064AsymptomaticRate+random.choice((-1, 1))*baseAG5064AsymptomaticRate*.05*random.random(),1)
-    ParameterSet.AG5064HospRate = random.randint(10,15)/100
+    ParameterSet.AG5064HospRate = random.randint(5,10)/100
     ParameterSet.AG5064MortalityRate = 0.08
 
     #agecohort 4 -- 65+
     ParameterSet.AG65AsymptomaticRate = min(baseAG65AsymptomaticRate+random.choice((-1, 1))*baseAG65AsymptomaticRate*.05*random.random(),1)
-    ParameterSet.AG65HospRate = random.randint(40,50)/100
+    ParameterSet.AG65HospRate = random.randint(16,25)/100
     ParameterSet.AG65MortalityRate = 0.15
 
         
     ParameterSet.EDVisit = min(baseEDVisit+random.choice((-1, 1))*baseEDVisit*.05*random.random(),1)
-    ParameterSet.ProbabilityOfTransmissionPerContact = random.randint(45,55)/1000
+    ParameterSet.ProbabilityOfTransmissionPerContact = random.randint(30,40)/1000
     ParameterSet.ICURate = random.randint(40,60)/100
        
     ParameterSet.symptomaticContactRateReduction = random.randint(30,40)/100 
@@ -96,4 +96,6 @@ def JiggleParameters(case='reg'):
     ParameterSet.AGAsymptomaticRate = [ParameterSet.AG04AsymptomaticRate, ParameterSet.AG517AsymptomaticRate, ParameterSet.AG1849AsymptomaticRate,ParameterSet.AG1849AsymptomaticRate,ParameterSet.AG1849AsymptomaticRate, ParameterSet.AG5064AsymptomaticRate,ParameterSet.AG65AsymptomaticRate]
     ParameterSet.AGMortalityRate = [ParameterSet.AG04MortalityRate,ParameterSet.AG517MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG5064MortalityRate,ParameterSet.AG65MortalityRate]
 
-    ParameterSet.ImportationRate = 8
+    ParameterSet.ImportationRate = 25
+    ParameterSet.AsymptomaticReducationTrans = random.randint(80,90)/100
+    

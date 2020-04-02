@@ -52,11 +52,10 @@ def main():
     #intervenionreduction1 = [1,.9,.9]
     #intervenionreduction2 = [0,0,0]
     #intervenionreductionSchool = [1,.5,.5]
-    interventionnames = ['worse','baddistance.25','baddistance.50']
-    #interventionnames = ['worse']
-    intervenionreduction1 = [1,.25,.5]
+    interventionnames = ['distance.9','distance.75','distance.5','distance.25']
+    intervenionreduction1 = [.1,.25,.5,.75]
     intervenionreduction2 = [0,0]
-    intervenionreductionSchool = [1,.5,.5]
+    intervenionreductionSchool = [.1,.25,.5,.5]
     
     for run in range(0,runs):
         stepLength = 1
@@ -68,31 +67,7 @@ def main():
         
         Utils.JiggleParameters()
         
-        ParameterVals = { 
-            'AG04AsymptomaticRate':ParameterSet.AG04AsymptomaticRate,
-            'AG04HospRate':ParameterSet.AG04HospRate,
-            'AG517AsymptomaticRate':ParameterSet.AG517AsymptomaticRate,
-            'AG517HospRate':ParameterSet.AG517HospRate,
-            'AG1849AsymptomaticRate':ParameterSet.AG1849AsymptomaticRate,
-            'AG1849HospRate':ParameterSet.AG1849HospRate,
-            'AG5064AsymptomaticRate':ParameterSet.AG5064AsymptomaticRate,
-            'AG5064HospRate':ParameterSet.AG5064HospRate,
-            'AG65AsymptomaticRate':ParameterSet.AG65AsymptomaticRate,
-            'AG65HospRate':ParameterSet.AG65HospRate,
-            'IncubationTime':ParameterSet.IncubationTime,
-            'totalContagiousTime':ParameterSet.totalContagiousTime,
-            'hospitalSymptomaticTime':ParameterSet.hospitalSymptomaticTime,
-            'hospTime':ParameterSet.hospTime,
-            'symptomaticTime':ParameterSet.symptomaticTime,
-            'EDVisit':ParameterSet.EDVisit,
-            'preContagiousTime':ParameterSet.preContagiousTime,
-            'postContagiousTime':ParameterSet.postContagiousTime,
-            'householdcontactRate':ParameterSet.householdcontactRate,
-            'ProbabilityOfTransmissionPerContact':ParameterSet.ProbabilityOfTransmissionPerContact,
-            'symptomaticContactRateReduction':ParameterSet.symptomaticContactRateReduction,
-            'ImportationRate':ParameterSet.ImportationRate,
-            'ImportationRatePower':ParameterSet.ImportationRatePower
-        }
+        
                       
         for intnum in range(0,len(interventionnames)):
             if 'seasonality' in interventionnames[intnum]:
@@ -102,7 +77,7 @@ def main():
             ParameterSet.Intervention = interventionnames[intnum]
             Utils.JiggleParameters('worse')
             if 'distance' in interventionnames[intnum]:
-                ParameterSet.InterventionDate = random.randint(46,60)
+                ParameterSet.InterventionDate = random.randint(46,50)
                 ParameterSet.InterventionEndDate = ParameterSet.InterventionDate + 75
             else:
                 ParameterSet.InterventionDate = -1
@@ -111,7 +86,34 @@ def main():
             ParameterSet.InterventionReduction2 = intervenionreduction1[intnum]
             ParameterSet.InterventionReductionSchool = intervenionreductionSchool[intnum]
             resultsNameP = interventionnames[intnum] + "_" + resultsName
-        
+            
+            ParameterVals = { 
+                'AG04AsymptomaticRate':ParameterSet.AG04AsymptomaticRate,
+                'AG04HospRate':ParameterSet.AG04HospRate,
+                'AG517AsymptomaticRate':ParameterSet.AG517AsymptomaticRate,
+                'AG517HospRate':ParameterSet.AG517HospRate,
+                'AG1849AsymptomaticRate':ParameterSet.AG1849AsymptomaticRate,
+                'AG1849HospRate':ParameterSet.AG1849HospRate,
+                'AG5064AsymptomaticRate':ParameterSet.AG5064AsymptomaticRate,
+                'AG5064HospRate':ParameterSet.AG5064HospRate,
+                'AG65AsymptomaticRate':ParameterSet.AG65AsymptomaticRate,
+                'AG65HospRate':ParameterSet.AG65HospRate,
+                'IncubationTime':ParameterSet.IncubationTime,
+                'totalContagiousTime':ParameterSet.totalContagiousTime,
+                'hospitalSymptomaticTime':ParameterSet.hospitalSymptomaticTime,
+                'hospTime':ParameterSet.hospTime,
+                'symptomaticTime':ParameterSet.symptomaticTime,
+                'EDVisit':ParameterSet.EDVisit,
+                'preContagiousTime':ParameterSet.preContagiousTime,
+                'postContagiousTime':ParameterSet.postContagiousTime,
+                'householdcontactRate':ParameterSet.householdcontactRate,
+                'ProbabilityOfTransmissionPerContact':ParameterSet.ProbabilityOfTransmissionPerContact,
+                'symptomaticContactRateReduction':ParameterSet.symptomaticContactRateReduction,
+                'ImportationRate':ParameterSet.ImportationRate,
+                'AsymptomaticReducationTrans':ParameterSet.AsymptomaticReducationTrans,
+                'InterventionDate':ParameterSet.InterventionDate,
+                'ImportationRatePower':ParameterSet.ImportationRatePower
+            }
             #try:
             #ParameterSet.debugmodelevel = ParameterSet.debugerror
             

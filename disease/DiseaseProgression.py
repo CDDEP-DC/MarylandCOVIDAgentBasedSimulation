@@ -196,12 +196,12 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
             else:
                 ContagiousRegularTime = ContagiousTime
             ContagiousInterventionTime = ContagiousTime - ContagiousRegularTime
-            numRandInf = np.random.poisson(contactRate * ContagiousRegularTime * TransProb(timeNow+incubationTime,RegTransProb), 1)[0]  ### this isn't good to be switching between numpy and random
+            numRandInf = np.random.poisson(contactRate * ContagiousRegularTime * TransProb(timeNow+incubationTime,RegTransProb)*ParameterSet.AsymptomaticReducationTrans, 1)[0]  ### this isn't good to be switching between numpy and random
             
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
                          LocalPopulationId, ageCohort, incubationTime, ContagiousRegularTime)
             if numRandInf > 0: queueEvents.extend(SE)
-            numRandInf = np.random.poisson(contactRate * ContagiousInterventionTime * TransProb(timeNow+incubationTime,IntTransProb), 1)[0]  ### this isn't good to be switching between numpy and random
+            numRandInf = np.random.poisson(contactRate * ContagiousInterventionTime * TransProb(timeNow+incubationTime,IntTransProb)*ParameterSet.AsymptomaticReducationTrans, 1)[0]  ### this isn't good to be switching between numpy and random
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
                          LocalPopulationId, ageCohort, incubationTime+ContagiousRegularTime, ContagiousInterventionTime)
             if numRandInf > 0: queueEvents.extend(SE)
