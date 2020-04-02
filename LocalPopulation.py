@@ -260,7 +260,6 @@ class LocalPopulation:
                     elif isinstance(SE,SimEvent.PersonHospExitICUEvent):
                         self.HospitalICUInfectionList[Hospital]-=1
                         self.numHospitalizedICU -= 1
-                        self.HospitalICUInfectionList[Hospital]-=1
                     else:
                         self.HospitalNewEDList[Hospital]+=1
                         
