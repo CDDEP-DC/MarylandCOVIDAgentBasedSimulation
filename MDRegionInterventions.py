@@ -52,10 +52,10 @@ def main():
     #intervenionreduction1 = [1,.9,.9]
     #intervenionreduction2 = [0,0,0]
     #intervenionreductionSchool = [1,.5,.5]
-    interventionnames = ['distance.9','distance.75','distance.5','distance.25','worse']
-    intervenionreduction1 = [.1,.25,.5,.75,1]
-    intervenionreduction2 = [0,0,0,0,0]
-    intervenionreductionSchool = [.1,.25,.5,.5,1]
+    interventionnames = ['distance.9','distance.75','distance.5','distance.25','worse','altdistance.9','altdistance.5']
+    intervenionreduction1 = [.1,.25,.5,.75,1,1,1]
+    intervenionreduction2 = [0,0,0,0,0,.1,.5]
+    intervenionreductionSchool = [.1,.25,.5,.5,1,1,1]
     
     for run in range(0,runs):
         stepLength = 1
