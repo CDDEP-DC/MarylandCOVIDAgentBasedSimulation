@@ -14,7 +14,7 @@ import agents.AgentClasses
 
 class LocalPopulation:
     def __init__(self, LocalPopulationId, npersons, HHSizeDist, HHSizeAgeDist,
-                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList):
+                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationDensity,LocalIdentification,RegionalIdentification):
         """
         initalize class and builds synthetic population for local point
 
@@ -27,6 +27,8 @@ class LocalPopulation:
 
         """
         self.LocalPopulationId = LocalPopulationId
+        self.LocalIdentification = LocalIdentification
+        self.RegionalIdentification = RegionalIdentification
         self.timeNow = 0
         self.RegionId = RegionId
         self.HHSizeDist = HHSizeDist
@@ -36,7 +38,8 @@ class LocalPopulation:
         self.EphermeralAgents = 0
         self.npersons = npersons #save original pop
         self.currHouseholdIDNum = 0
-        
+        self.PopulationDensity = PopulationDensity
+                
         self.numNewRandomInfections = 0
         self.numNewHHInfections = 0
         self.numAgentsInfected = 0
@@ -49,7 +52,14 @@ class LocalPopulation:
         self.HospitalICUInfectionList = []
         self.HospitalNewInfectionList = []
         self.HospitalNewEDList = []
-        xsum = 0
+        self.ageInfectionHosp = []
+        self.ageMortality = []
+        self.ageInfection = []
+        for i in range(0,5):
+            self.ageInfection.append(0)
+            self.ageInfectionHosp.append(0)
+            self.ageMortality.append(0)
+
         for i in range(0,len(HospitalTransitionMatrixList)):
             self.HospitalInfectionList.append(0)
             self.HospitalNewInfectionList.append(0)
@@ -92,7 +102,7 @@ class LocalPopulation:
                 break
 
         # Now create household
-        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, ParameterSet.HHSizeAgeDist)
+        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, ParameterSet.HHSizeAgeDist,self.PopulationDensity)
         self.hhset[self.currHouseholdIDNum] = HH
         self.currHouseholdIDNum += 1
         self.UndefinedAgents -= (HHSize + 1)
@@ -115,12 +125,10 @@ class LocalPopulation:
         stats['H'] = self.numHospitalized
         stats['D'] = self.numDead
         stats['ICU'] = self.numHospitalizedICU
-        stats['In'] = self.numNewRandomInfections+self.numNewHHInfections
-        stats['InR'] = self.numNewRandomInfections
-        stats['InH'] = self.numNewHHInfections
-        stats['Ai'] = self.numAgentsInfected
         stats['HI'] = sum(self.HospitalNewInfectionList)
         stats['HE'] = sum(self.HospitalNewEDList)
+        stats['localpopid'] = self.LocalIdentification
+        stats['regionalid'] = self.RegionalIdentification
         return stats
 
     def getHospitalOccupancy(self):
@@ -134,6 +142,13 @@ class LocalPopulation:
     def getR0Stats(self):
         return self.R0Calc    
 
+    def getAgeStats(self):
+        ageStats = {}
+        ageStats['infection'] = self.ageInfection
+        ageStats['ageInfection'] = self.ageInfectionHosp
+        ageStats['ageMortality'] = self.ageMortality
+        return ageStats
+        
     def reportNumInfected(self):
         return {self.LocalPopulationId: self.numInfected}
 
@@ -175,7 +190,6 @@ class LocalPopulation:
                     xbefore = "Before:"+str(currentStatus)+"-->"+str(SE.getStatus())+" S:"+str(self.numSusceptible)+" N:"+str(self.numIncubating)+" C:"+str(self.numContagious)+" I:"+str(self.numInfected)+" R:"+str(self.numRecovered)+" H:"+str(self.numHospitalized)
                     checkval = self.numSusceptible+self.numIncubating+self.numContagious+self.numInfected+self.numRecovered+self.numDead
                     
-                    
                     #print(currentStatus,SE.getStatus())
                     # If updating to incubating -- patient could only be susceptible
                     if SE.getStatus() == ParameterSet.Incubating:
@@ -211,6 +225,7 @@ class LocalPopulation:
                         elif currentStatus == ParameterSet.Incubating:    
                             self.numIncubating -= 1
                         if SE.getStatus() == ParameterSet.Dead:
+                            self.ageMortality[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
                             self.numDead += 1                      
                         else:
                             self.numRecovered += 1
@@ -249,7 +264,8 @@ class LocalPopulation:
                     personId = SE.getPersonId()
                     Hospital = SE.getHospital()
                     if isinstance(SE,SimEvent.PersonHospCritEvent) or isinstance(SE,SimEvent.PersonHospICUEvent): 
-                        
+                        self.ageInfectionHosp[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
+                        self.ageInfection[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
                         self.HospitalInfectionList[Hospital]+=1
                         if isinstance(SE,SimEvent.PersonHospICUEvent):
                             self.HospitalICUInfectionList[Hospital]+=1
@@ -261,6 +277,7 @@ class LocalPopulation:
                         self.HospitalICUInfectionList[Hospital]-=1
                         self.numHospitalizedICU -= 1
                     else:
+                        self.ageInfection[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
                         self.HospitalNewEDList[Hospital]+=1
                         
                 elif isinstance(SE,SimEvent.HouseholdInfectionEvent):
@@ -307,7 +324,7 @@ class LocalPopulation:
 
     def infectAgent(self, HHID, agentId=-1,ageCohort=-1):
         #print("Before infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
-        queueEvents = \
+        queueEvents, ageCohort = \
             self.hhset[HHID].infectHousehouldMember(self.timeNow,
                                     self.LocalInteractionMatrixList,
                                     self.RegionListGuide,
@@ -315,6 +332,7 @@ class LocalPopulation:
                                                   agentId,ageCohort)
         offPopQueueEvents = []
         numinfR = 0
+        
         # if they were infected then queue events will be returned
         if queueEvents:
             self.numSusceptible -= 1

@@ -41,11 +41,11 @@ class Region:
                 LocalPopulation(GLP.getGlobalId(), GLP.getPopulationAmt(),
                                 GLP.getHHSizeDist(), GLP.getHHSizeAgeDist(),
                                 RegionalInteractionMatrixList[i], self.RegionId,
-                                RegionListGuide,HTM)
+                                RegionListGuide,HTM,GLP.getPopulationDensity(),GLP.getLocalIdentification(),GLP.getRegionalIdentification())
             self.Locations[GLP.getGlobalId()] = LP
             
             if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
-                print("created population ", GLP.getGlobalId(), " in region ",RegionId," with ",
+                print("created population ", GLP.getLocalIdentification(), " (", GLP.getGlobalId(), ") in region ",RegionId," with ",
                       GLP.getPopulationAmt(), " people")
             # print(RegionalInteractionMatrixList[i])
 
@@ -72,7 +72,6 @@ class Region:
                 minEventTime = math.floor(nextEventTime)
             offPopQueueEvents.extend(op)
             regionStats[LPKey] = LP.reportPopulationStats()
-            R0Stats = LP.getR0Stats()
             if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
                 t2 = time.time()
             if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
@@ -164,4 +163,11 @@ class Region:
         for LPKey in self.Locations.keys():
             LP = self.Locations[LPKey]
             R0Lists[LPKey] = LP.getR0Stats()
-        return R0Lists    
+        return R0Lists  
+        
+    def getAgeStats(self):
+        AgeLists = {}
+        for LPKey in self.Locations.keys():
+            LP = self.Locations[LPKey]
+            AgeLists[LPKey] = LP.getAgeStats()
+        return AgeLists        

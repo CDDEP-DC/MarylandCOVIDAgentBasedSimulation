@@ -13,7 +13,7 @@ import disease.DiseaseProgression
 
 
 class Household:
-    def __init__(self, HouseholdID, HHSize, HHSizeAgeDist):
+    def __init__(self, HouseholdID, HHSize, HHSizeAgeDist,PopulationDensity):
         """
         Initialize household class representing a single family/household in
         a location and stores household-specific information
@@ -27,6 +27,8 @@ class Household:
             ageCohort = Utils.multinomial(HHSizeAgeDist[HHSize + 1],
                                           sum(HHSizeAgeDist[HHSize + 1]))
             
+    
+            pdscale = 1/(1+ .25*math.exp(-.001*PopulationDensity))
             numRandomContacts = math.floor(random.gammavariate(
                     ParameterSet.AGGammaShape[ageCohort],ParameterSet.GammaScale))
             numHouseholdContacts = ParameterSet.householdcontactRate
@@ -123,9 +125,11 @@ class Household:
         return self.getPersonHospital(personId)
         
     def getPersonHospital(self,personId):
-        return(self.persons[personId].getHospital())
+        return self.persons[personId].getHospital()
 
-
+    def getPersonAgeCohort(self,personId):
+        return self.persons[personId].getAgeCohort()
+        
 class Person:
     def __init__(self, personID, householdId, ageCohort, status, householdContactRate = 1,
                     randomContactRate=1):
@@ -165,7 +169,7 @@ class Person:
                                                 self.ageCohort,
                                                 areAllHouseholdMembersInfected,
                                                 HospitalTransitionMatrixList,HHSize)
-        return queueEvents
+        return queueEvents, self.ageCohort
 
     def getStatus(self):
         return self.status

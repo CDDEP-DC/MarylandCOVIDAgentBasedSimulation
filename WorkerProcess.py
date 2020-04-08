@@ -22,7 +22,7 @@ def BuildPops(q,i, RegionalLocations, RegionInteractionMatrixList, RegionListGui
 
 
 
-def RunTimeForward(q, i, tend, nextEventTime, modelPopNames,RegionReconciliationEvents,infectNumAgents,LPIDinfect=-1):
+def RunTimeForward(i, tend, nextEventTime, modelPopNames,RegionReconciliationEvents,infectNumAgents,LPIDinfect=-1):
     if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
         t1 = time.time()
     R = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle")
@@ -56,7 +56,11 @@ def RunTimeForward(q, i, tend, nextEventTime, modelPopNames,RegionReconciliation
     nextEventTime = {}
     nextEventTime[i] = minEventTime
     
-    q.put((regionStatsX, nextEventTime))
+    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "RegionStats.pickle", regionStatsX)
+    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "nextEventTime.pickle", nextEventTime)
+    
+    #q.put((regionStatsX, nextEventTime))
+    
     if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
         t4 = time.time()
     if numEvents > 0 or saveRegion == True:
@@ -78,13 +82,19 @@ def RunTimeForward(q, i, tend, nextEventTime, modelPopNames,RegionReconciliation
     R0StatsList[i] = R0Stats
     Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle", R0StatsList)
     
+    LPAgeStats = R.getAgeStats()
+    AgeStatsList = {}
+    AgeStatsList[i] = LPAgeStats
+    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle", AgeStatsList)
+    
     if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
         t6 = time.time()
     if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
         print(str(modelPopNames), i, ": load:", t2 - t1, " run:",
               t3 - t2, " loadQ:", t4 - t3, " write:", t5 - t4,  
               " writeQ:", t6 - t5, " Total:", t6 - t1)
-
+    
+    
 
 def ReconcileInfectionEvents(q, i, RegionReconciliationEvents, modelPopNames):
     minEventTime = ParameterSet.MAXIntVal

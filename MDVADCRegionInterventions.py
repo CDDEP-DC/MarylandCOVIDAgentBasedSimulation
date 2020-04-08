@@ -14,10 +14,27 @@ import PostProcessing
 import ParameterSet
 import Utils
 import GlobalModel
+from ProcessingDataForPresentation import ProcessDataForPresentation as ProcessDataForPresentation
 
 
 def main():
     
+    generatePresentationVals = 0 # set this to 1 if this is the only run across nodes to complete analysis - set to 0 if this is run across several nodes and use ProcessingDataForPresentation file as standalone afterwards to combine
+    runs = 10000 # sets the number of times to run model - results print after each run to ensure that if the job fails the data is still there
+    modelPopNames = 'ZipCodes' # variable for namic files, is not important what it is
+    Model = 'MDDCVAregion'  # select model - defines the model type to run
+    
+    ## Set the interventions to run here - each intervention should have a value for reductions
+    #interventionnames = ['distance.9','distance.75','distance.5','distance.25','worse','altdistance.9','altdistance.5']
+    #interventionnames = ['distance.95','distance.75','distance.5','distance.25','altdistance.9']
+    interventionnames = ['distance.75','distance.50','distance.25','seasonalitydistance.90','seaonalitydistance.50','baseline']
+    intervenionreduction1 = [.25,.5,.25,.1,.5,1]
+    intervenionreduction2 = [0,0,0,0,0,0,0]
+    intervenionreductionSchool = [.25,.5,.25,.1,.5,1]
+    
+    ## alter values related to transmission in Utils file
+    
+    ### Below here is model runs and should not be altered
     if not os.path.exists(ParameterSet.PopDataFolder):
         os.makedirs(ParameterSet.PopDataFolder)
         
@@ -27,37 +44,32 @@ def main():
     if not os.path.exists(ParameterSet.ResultsFolder):
         os.makedirs(ParameterSet.ResultsFolder)
         
-
-    ParameterSet.HHSizeDist = [14.7,26.9,18.6,20.1,10.9,4.8,4]
-    ParameterSet.HHSizeAgeDist = {}
-    ParameterSet.HHSizeAgeDist[1] = [0,0,5.1,3.7,5.9]
-    ParameterSet.HHSizeAgeDist[2] = [0.1,0.8,7.6,9.1,9.3]
-    ParameterSet.HHSizeAgeDist[3] = [1.1,2.8,8.2,4.6,1.9]
-    ParameterSet.HHSizeAgeDist[4] = [1.8,5.7,9,2.8,0.8]
-    ParameterSet.HHSizeAgeDist[5] = [1,3.8,4.5,1.2,0.4]
-    ParameterSet.HHSizeAgeDist[6] = [0.5,1.7,1.9,0.5,0.2]
-    ParameterSet.HHSizeAgeDist[7] = [0.5,1.4,1.5,0.4,0.2]
-
-    runs = 10000
-    modelPopNames = 'ZipCodes'
-    Model = 'MDDCVAregion'  # select model
-    GlobalModel.cleanUp(modelPopNames)
- 
-    ParameterSet.ResultsFolder = ParameterSet.ResultsFolder + "/MDDCVAregionInt"
+    OutputResultsFolder = ParameterSet.ResultsFolder + "/MDDCVAregionInt"
+    if not os.path.exists(OutputResultsFolder):
+        os.makedirs(OutputResultsFolder)
+    else:
+        for filename in os.listdir(OutputResultsFolder):
+            if ".csv" in filename or ".pickle" in filename:
+                os.remove(OutputResultsFolder+"/"+filename)
+                
+    ParameterSet.ResultsFolder = ParameterSet.ResultsFolder + "/MDDCVAregionInt/Results"
     if not os.path.exists(ParameterSet.ResultsFolder):
         os.makedirs(ParameterSet.ResultsFolder)
+    else:
+        for filename in os.listdir(ParameterSet.ResultsFolder):
+            if ".csv" in filename or ".pickle" in filename:
+                os.remove(ParameterSet.ResultsFolder+"/"+filename)    
+           
     
-    #interventionnames = ['seasonality2','seasonality','distance.10','highcontact','worse','baseline']
-    #interventionnames = ['distance.10','worse']
-    #intervenionreduction1 = [1,.9,.9]
-    #intervenionreduction2 = [0,0,0]
-    #intervenionreductionSchool = [1,.5,.5]
-    interventionnames = ['worse','baddistance.25']
-    #interventionnames = ['worse']
-    intervenionreduction1 = [1,.25]
-    intervenionreduction2 = [0,0]
-    intervenionreductionSchool = [1,.5]
+    GlobalModel.cleanUp(modelPopNames)
     
+    dateTimeObj = datetime.now()
+    overallResultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
+                  str(dateTimeObj.day) + str(dateTimeObj.hour) + \
+                  str(dateTimeObj.minute)
+    
+    
+                      
     for run in range(0,runs):
         stepLength = 1
         dateTimeObj = datetime.now()
@@ -68,64 +80,31 @@ def main():
         
         Utils.JiggleParameters()
         
-        ParameterVals = { 
-            'AG04AsymptomaticRate':ParameterSet.AG04AsymptomaticRate,
-            'AG04HospRate':ParameterSet.AG04HospRate,
-            'AG517AsymptomaticRate':ParameterSet.AG517AsymptomaticRate,
-            'AG517HospRate':ParameterSet.AG517HospRate,
-            'AG1849AsymptomaticRate':ParameterSet.AG1849AsymptomaticRate,
-            'AG1849HospRate':ParameterSet.AG1849HospRate,
-            'AG5064AsymptomaticRate':ParameterSet.AG5064AsymptomaticRate,
-            'AG5064HospRate':ParameterSet.AG5064HospRate,
-            'AG65AsymptomaticRate':ParameterSet.AG65AsymptomaticRate,
-            'AG65HospRate':ParameterSet.AG65HospRate,
-            'IncubationTime':ParameterSet.IncubationTime,
-            'totalContagiousTime':ParameterSet.totalContagiousTime,
-            'hospitalSymptomaticTime':ParameterSet.hospitalSymptomaticTime,
-            'hospTime':ParameterSet.hospTime,
-            'EDVisit':ParameterSet.EDVisit,
-            'preContagiousTime':ParameterSet.preContagiousTime,
-            'postContagiousTime':ParameterSet.postContagiousTime,
-            'householdcontactRate':ParameterSet.householdcontactRate,
-            'ProbabilityOfTransmissionPerContact':ParameterSet.ProbabilityOfTransmissionPerContact,
-            'symptomaticContactRateReduction':ParameterSet.symptomaticContactRateReduction,
-            'ImportationRate':ParameterSet.ImportationRate,
-            'ImportationRatePower':ParameterSet.ImportationRatePower
-        }
-                      
         for intnum in range(0,len(interventionnames)):
+            
             if 'seasonality' in interventionnames[intnum]:
-                endTime = 365
+                endTime = 300
             else:
-                endTime = 125
+                endTime = 300
             ParameterSet.Intervention = interventionnames[intnum]
-            if 'worse' in interventionnames[intnum] or 'bad' in interventionnames[intnum]:
-                Utils.JiggleParameters('worse')
+            Utils.JiggleParameters('worse')
             if 'distance' in interventionnames[intnum]:
-                ParameterSet.InterventionDate = random.randint(75,91)
-                ParameterSet.InterventionEndDate = ParameterSet.InterventionDate + 75
+                ParameterSet.InterventionDate = random.randint(46,50)
+                ParameterSet.InterventionEndDate = ParameterSet.InterventionDate + 60
             else:
                 ParameterSet.InterventionDate = -1
                 ParameterSet.InterventionEndDate = -1
             ParameterSet.InterventionReduction = intervenionreduction1[intnum]
-            ParameterSet.InterventionReduction2 = intervenionreduction1[intnum]
+            ParameterSet.InterventionReduction2 = intervenionreduction2[intnum]
             ParameterSet.InterventionReductionSchool = intervenionreductionSchool[intnum]
-            print(ParameterSet.ProbabilityOfTransmissionPerContact)
+            
             resultsNameP = interventionnames[intnum] + "_" + resultsName
-        
-            #try:
+            
             #ParameterSet.debugmodelevel = ParameterSet.debugerror
+            HospitalNames = GlobalModel.RunDefaultModelType(Model, modelPopNames,resultsNameP,endTime,writefolder=OutputResultsFolder)
             
-            RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide = GlobalModel.modelSetup(Model, modelPopNames,combineLocations=True,TestNumPops=10)
-            
-            GlobalModel.RunModel(RegionalList, modelPopNames, endTime, stepLength, resultsNameP, numInfList,LocationImportationRisk=LocationImportationRisk, RegionListGuide=RegionListGuide)
-            
-            results = Utils.FileRead(ParameterSet.ResultsFolder + "/Results_" + resultsNameP + ".pickle")
-         
-            PostProcessing.WriteAggregatedResults(results,Model,resultsNameP,modelPopNames,RegionalList,ParameterVals,HospitalNames,endTime)    
-            GlobalModel.cleanUp(modelPopNames)
-            #except:        
-            #    GlobalModel.cleanUp(modelPopNames)
+            if generatePresentationVals == 1:
+                ProcessDataForPresentation(interventionnames,HospitalNames,readFolder=OutputResultsFolder,writefolder=OutputResultsFolder,resultsName=overallResultsName)
             
 if __name__ == "__main__":
     # execute only if run as a script

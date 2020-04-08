@@ -41,24 +41,24 @@ def JiggleParameters(case='reg'):
     baseAG517AsymptomaticRate = .93
             
     #agecohort 2 -- 18-49
-    baseAG1849AsymptomaticRate = .88
+    baseAG1849AsymptomaticRate = .7
             
     #agecohort 3 -- 50-64
-    baseAG5064AsymptomaticRate = .79
+    baseAG5064AsymptomaticRate = .6
             
     #agecohort 4 -- 65+
-    baseAG65AsymptomaticRate = .65
+    baseAG65AsymptomaticRate = .5
 
     
     baseEDVisit = .8
     
     ParameterSet.IncubationTime = random.randint(5,7)
-    ParameterSet.totalContagiousTime = random.randint(12,14)
+    ParameterSet.totalContagiousTime = random.randint(5,9)
     ParameterSet.symptomaticTime = random.randint(5,9)
-    ParameterSet.hospitalSymptomaticTime = random.randint(8,17)
+    ParameterSet.hospitalSymptomaticTime = random.randint(6,12)
     ParameterSet.hospTime = random.randint(3,5)
     ParameterSet.preContagiousTime = random.randint(1,3)
-    ParameterSet.postContagiousTime = random.randint(5,7)
+    ParameterSet.postContagiousTime = random.randint(1,3)
     ParameterSet.ICUtime = random.randint(12,15)
     ParameterSet.PostICUTime = random.randint(5,9)
     
@@ -74,6 +74,7 @@ def JiggleParameters(case='reg'):
     #agecohort 2 -- 18-49
     ParameterSet.AG1849AsymptomaticRate = min(baseAG1849AsymptomaticRate+random.choice((-1, 1))*baseAG1849AsymptomaticRate*.05*random.random(),1)
     ParameterSet.AG1849HospRate = random.randint(5,10)/100
+    ParameterSet.AG1849MortalityRate = 0.01
         
     #agecohort 3 -- 50-64
     ParameterSet.AG5064AsymptomaticRate = min(baseAG5064AsymptomaticRate+random.choice((-1, 1))*baseAG5064AsymptomaticRate*.05*random.random(),1)
@@ -81,13 +82,13 @@ def JiggleParameters(case='reg'):
     ParameterSet.AG5064MortalityRate = 0.08
 
     #agecohort 4 -- 65+
-    ParameterSet.AG65AsymptomaticRate = min(baseAG65AsymptomaticRate+random.choice((-1, 1))*baseAG65AsymptomaticRate*.05*random.random(),1)
+    ParameterSet.AG65AsymptomaticRate = min(baseAG65AsymptomaticRate+random.choice((-1, 1))*baseAG65AsymptomaticRate*.1*random.random(),1)
     ParameterSet.AG65HospRate = random.randint(16,25)/100
-    ParameterSet.AG65MortalityRate = 0.15
+    ParameterSet.AG65MortalityRate = 0.20
 
         
     ParameterSet.EDVisit = min(baseEDVisit+random.choice((-1, 1))*baseEDVisit*.05*random.random(),1)
-    ParameterSet.ProbabilityOfTransmissionPerContact = random.randint(30,40)/1000
+    ParameterSet.ProbabilityOfTransmissionPerContact = random.randint(95,105)/1000
     ParameterSet.ICURate = random.randint(40,60)/100
        
     ParameterSet.symptomaticContactRateReduction = random.randint(30,40)/100 
@@ -96,6 +97,6 @@ def JiggleParameters(case='reg'):
     ParameterSet.AGAsymptomaticRate = [ParameterSet.AG04AsymptomaticRate, ParameterSet.AG517AsymptomaticRate, ParameterSet.AG1849AsymptomaticRate,ParameterSet.AG1849AsymptomaticRate,ParameterSet.AG1849AsymptomaticRate, ParameterSet.AG5064AsymptomaticRate,ParameterSet.AG65AsymptomaticRate]
     ParameterSet.AGMortalityRate = [ParameterSet.AG04MortalityRate,ParameterSet.AG517MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG1849MortalityRate,ParameterSet.AG5064MortalityRate,ParameterSet.AG65MortalityRate]
 
-    ParameterSet.ImportationRate = 25
-    ParameterSet.AsymptomaticReducationTrans = random.randint(80,90)/100
+    ParameterSet.ImportationRate = random.randint(10,25)
+    ParameterSet.AsymptomaticReducationTrans = random.randint(60,70)/100
     

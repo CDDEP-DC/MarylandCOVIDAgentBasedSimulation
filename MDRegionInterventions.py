@@ -9,6 +9,7 @@ import pickle
 from datetime import datetime
 import os
 import csv
+import pandas as pd
 
 import PostProcessing
 import ParameterSet
@@ -26,37 +27,47 @@ def main():
         
     if not os.path.exists(ParameterSet.ResultsFolder):
         os.makedirs(ParameterSet.ResultsFolder)
-        
-
-    ParameterSet.HHSizeDist = [14.7,26.9,18.6,20.1,10.9,4.8,4]
-    ParameterSet.HHSizeAgeDist = {}
-    ParameterSet.HHSizeAgeDist[1] = [0,0,5.1,3.7,5.9]
-    ParameterSet.HHSizeAgeDist[2] = [0.1,0.8,7.6,9.1,9.3]
-    ParameterSet.HHSizeAgeDist[3] = [1.1,2.8,8.2,4.6,1.9]
-    ParameterSet.HHSizeAgeDist[4] = [1.8,5.7,9,2.8,0.8]
-    ParameterSet.HHSizeAgeDist[5] = [1,3.8,4.5,1.2,0.4]
-    ParameterSet.HHSizeAgeDist[6] = [0.5,1.7,1.9,0.5,0.2]
-    ParameterSet.HHSizeAgeDist[7] = [0.5,1.4,1.5,0.4,0.2]
+    
+    LocalResultsFolder = ParameterSet.ResultsFolder + "/MDregionInt"
+    if not os.path.exists(LocalResultsFolder):
+        os.makedirs(LocalResultsFolder)
+    else:
+        for filename in os.listdir(LocalResultsFolder):
+            if ".csv" in filename or ".pickle" in filename:
+                os.remove(LocalResultsFolder+"/"+filename)
+                
+    ParameterSet.ResultsFolder = ParameterSet.ResultsFolder + "/MDregionInt/Results"
+    if not os.path.exists(ParameterSet.ResultsFolder):
+        os.makedirs(ParameterSet.ResultsFolder)
+    else:
+        for filename in os.listdir(ParameterSet.ResultsFolder):
+            if ".csv" in filename or ".pickle" in filename:
+                os.remove(ParameterSet.ResultsFolder+"/"+filename)    
+                
+    
 
     runs = 10000
     modelPopNames = 'ZipCodes'
     Model = 'Maryland'  # select model
     GlobalModel.cleanUp(modelPopNames)
- 
-    ParameterSet.ResultsFolder = ParameterSet.ResultsFolder + "/MDregionInt"
-    if not os.path.exists(ParameterSet.ResultsFolder):
-        os.makedirs(ParameterSet.ResultsFolder)
     
     #interventionnames = ['seasonality2','seasonality','distance.10','highcontact','worse','baseline']
     #interventionnames = ['distance.10','worse']
     #intervenionreduction1 = [1,.9,.9]
     #intervenionreduction2 = [0,0,0]
     #intervenionreductionSchool = [1,.5,.5]
-    interventionnames = ['distance.9','distance.75','distance.5','distance.25','worse','altdistance.9','altdistance.5']
-    intervenionreduction1 = [.1,.25,.5,.75,1,1,1]
-    intervenionreduction2 = [0,0,0,0,0,.1,.5]
-    intervenionreductionSchool = [.1,.25,.5,.5,1,1,1]
+    #interventionnames = ['distance.9','distance.75','distance.5','distance.25','worse','altdistance.9','altdistance.5']
+    #interventionnames = ['distance.95','distance.75','distance.5','distance.25','altdistance.9']
+    interventionnames = ['seasonalitydistance.90','seaonalitydistance.5','distance.9','distance.5']
+    intervenionreduction1 = [.1,.5,.1,.5]
+    intervenionreduction2 = [0,0,0,0]
+    intervenionreductionSchool = [.1,.5,.1,.5]
     
+    dateTimeObj = datetime.now()
+    overallResultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
+                  str(dateTimeObj.day) + str(dateTimeObj.hour) + \
+                  str(dateTimeObj.minute)
+                  
     for run in range(0,runs):
         stepLength = 1
         dateTimeObj = datetime.now()
@@ -66,14 +77,12 @@ def main():
                       str(dateTimeObj.microsecond)
         
         Utils.JiggleParameters()
-        
-        
                       
         for intnum in range(0,len(interventionnames)):
             if 'seasonality' in interventionnames[intnum]:
-                endTime = 365
+                endTime = 15
             else:
-                endTime = 125
+                endTime = 15
             ParameterSet.Intervention = interventionnames[intnum]
             Utils.JiggleParameters('worse')
             if 'distance' in interventionnames[intnum]:
@@ -87,47 +96,80 @@ def main():
             ParameterSet.InterventionReductionSchool = intervenionreductionSchool[intnum]
             resultsNameP = interventionnames[intnum] + "_" + resultsName
             
-            ParameterVals = { 
-                'AG04AsymptomaticRate':ParameterSet.AG04AsymptomaticRate,
-                'AG04HospRate':ParameterSet.AG04HospRate,
-                'AG517AsymptomaticRate':ParameterSet.AG517AsymptomaticRate,
-                'AG517HospRate':ParameterSet.AG517HospRate,
-                'AG1849AsymptomaticRate':ParameterSet.AG1849AsymptomaticRate,
-                'AG1849HospRate':ParameterSet.AG1849HospRate,
-                'AG5064AsymptomaticRate':ParameterSet.AG5064AsymptomaticRate,
-                'AG5064HospRate':ParameterSet.AG5064HospRate,
-                'AG65AsymptomaticRate':ParameterSet.AG65AsymptomaticRate,
-                'AG65HospRate':ParameterSet.AG65HospRate,
-                'IncubationTime':ParameterSet.IncubationTime,
-                'totalContagiousTime':ParameterSet.totalContagiousTime,
-                'hospitalSymptomaticTime':ParameterSet.hospitalSymptomaticTime,
-                'hospTime':ParameterSet.hospTime,
-                'symptomaticTime':ParameterSet.symptomaticTime,
-                'EDVisit':ParameterSet.EDVisit,
-                'preContagiousTime':ParameterSet.preContagiousTime,
-                'postContagiousTime':ParameterSet.postContagiousTime,
-                'householdcontactRate':ParameterSet.householdcontactRate,
-                'ProbabilityOfTransmissionPerContact':ParameterSet.ProbabilityOfTransmissionPerContact,
-                'symptomaticContactRateReduction':ParameterSet.symptomaticContactRateReduction,
-                'ImportationRate':ParameterSet.ImportationRate,
-                'AsymptomaticReducationTrans':ParameterSet.AsymptomaticReducationTrans,
-                'InterventionDate':ParameterSet.InterventionDate,
-                'ImportationRatePower':ParameterSet.ImportationRatePower
-            }
-            #try:
             #ParameterSet.debugmodelevel = ParameterSet.debugerror
+            HospitalNames = GlobalModel.RunDefaultModelType(Model, modelPopNames,resultsNameP,endTime)
             
-            RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide = GlobalModel.modelSetup(Model, modelPopNames,combineLocations=True,TestNumPops=10)
+            interventionruns = [0] * len(interventionnames)
+            for filename in os.listdir(ParameterSet.ResultsFolder):
+                if interventionnames[intnum] in filename and "HospitalOccupancyByDay" in filename:
+                    interventionruns[intnum] += 1
+           
+            Hdata = {}
+            Sdata = {}
+            numHruns = 0
+            numSruns = 0
+            for filename in os.listdir(ParameterSet.ResultsFolder):
+                if interventionnames[intnum] in filename:
+                    print(filename)
+                    if "HospitalOccupancyByDay" in filename:
+                        datain = pd.read_csv(ParameterSet.ResultsFolder+"/"+filename)
+                        
+                        #print(datain)
+                        # Get ndArray of all column names 
+                        columnsNamesArr = datain.columns.values
+                        datain["sumoccu"] = datain.iloc[:,1:len(HospitalNames)].sum(axis=1) 
+                        datain["sumadmis"] = datain.iloc[:,len(HospitalNames):(2*len(HospitalNames))].sum(axis=1) 
+                        datain["sumed"] = datain.iloc[:,(2*len(HospitalNames)):(3*len(HospitalNames))].sum(axis=1) 
+                        datain["sumICU"] = datain.iloc[:,(3*len(HospitalNames)):(4*len(HospitalNames))].sum(axis=1)
+                        datain["count"] = interventionruns[intnum]
+                        
+                        Hdata[numHruns] = datain
+                        print(filename," ",len(Hdata[numHruns].columns.values))
+                        if numHruns == 0:
+                            HosNames = Hdata[numHruns].columns.values
+                        numHruns += 1
+                    elif "ResultsByDay" in filename:
+                        #print(filename)
+                        datain = pd.read_csv(ParameterSet.ResultsFolder+"/"+filename)
+                        datain["count"] = interventionruns[intnum]
+                        Sdata[numSruns] = datain
+                        if numSruns == 0:
+                            StateCompNames = Sdata[numSruns].columns.values
+                        numSruns += 1
             
-            print(ParameterVals)
-            GlobalModel.RunModel(RegionalList, modelPopNames, endTime, stepLength, resultsNameP, numInfList,LocationImportationRisk=LocationImportationRisk, RegionListGuide=RegionListGuide)
+            HosdataVals = [[]] * len(list(Hdata.keys()))
+            StatedataVals = [[]] * len(list(Sdata.keys()))
+                        
+            n = 0
+            for i in Hdata.keys():
+                HosdataVals[n] = Hdata[i].values
+                n += 1
+            HosdataVals = np.array(HosdataVals)
+        
+            n = 0
+            for i in Sdata.keys():
+                StatedataVals[n] = Sdata[i].values
+                n += 1
+            StatedataVals = np.array(StatedataVals)
             
-            results = Utils.FileRead(ParameterSet.ResultsFolder + "/Results_" + resultsNameP + ".pickle")
-         
-            PostProcessing.WriteAggregatedResults(results,Model,resultsNameP,modelPopNames,RegionalList,ParameterVals,HospitalNames,endTime)    
-            GlobalModel.cleanUp(modelPopNames)
-            #except:        
-            #    GlobalModel.cleanUp(modelPopNames)
+            # # Calculate Means
+            HosDataMean = HosdataVals.mean(axis=0)
+            HosDataStd = HosdataVals.std(axis=0)
+            
+            StateDataMean = StatedataVals.mean(axis=0)
+            StateDataStd = StatedataVals.std(axis=0)
+            
+            np.savetxt(LocalResultsFolder+"/HospitalOccupancyAverage_"+interventionnames[intnum] + "_" + overallResultsName+".csv",
+                       np.vstack([HosNames, HosDataMean]), delimiter=",", fmt='%5s')
+            np.savetxt(LocalResultsFolder+"/HospitalOccupancyStdDev_"+interventionnames[intnum] + "_" + overallResultsName+".csv",
+                       np.vstack([HosNames, HosDataStd]), delimiter=",", fmt='%5s')
+            
+            np.savetxt(LocalResultsFolder+"/StateAverage_"+interventionnames[intnum] + "_" + overallResultsName+".csv",
+                       np.vstack([StateCompNames, StateDataMean]), delimiter=",", fmt='%5s')
+            np.savetxt(LocalResultsFolder+"/StateStdDev_"+interventionnames[intnum] + "_" + overallResultsName+".csv",
+                       np.vstack([StateCompNames, StateDataStd]), delimiter=",", fmt='%5s')
+                #except:        
+                #    GlobalModel.cleanUp(modelPopNames)
             
 if __name__ == "__main__":
     # execute only if run as a script

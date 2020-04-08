@@ -36,6 +36,7 @@ InterventionEndDate = -1
 InterventionReduction = 1
 InterventionReduction2 = 1
 InterventionReductionSchool = 1
+InterventionMobilityEffect = .5
 SeasonalityStart = 60
 SeasonalityReduction = .98
 SeasonalityReduction2 = .95

@@ -11,11 +11,13 @@ import Utils
 
 import os
 
-def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,ParameterVals,HospitalNames=[],endTime=0):
+def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,ParameterVals,HospitalNames=[],endTime=0,writefolder=''):
 
     print('Writing Results')
-    
-    csvFile = ParameterSet.ResultsFolder+"/Parameters_"+model+"_"+resultsName+".csv"
+    if writefolder == '':
+        writefolder = ParameterSet.ResultsFolder
+        
+    csvFile = writefolder+"/Parameters_"+model+"_"+resultsName+".csv"
     try:
         with open(csvFile, 'w') as f:
             for key in ParameterVals.keys():
@@ -25,73 +27,85 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     except IOError:
         print("I/O error")
 
-   
+       
     
-    totdays = len(results.keys())
-    output = np.empty((totdays,12),dtype=int)
-    csvFile = ParameterSet.ResultsFolder+"/ResultsByDay_"+model+"_"+resultsName+".csv"
-    csvFileR0 = ParameterSet.ResultsFolder+"/R0_"+model+"_"+resultsName+".csv"
+    ### Get the age stats
+    csvFileAge = writefolder+"/Age_"+model+"_"+resultsName+".csv"
 
-    R0Stats = [0]*101
+    AgeStats = [0]*15
     for i in range(0,len(RegionalList)):
-        if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle"):
-            R0StatsList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
-            for key in R0StatsList.keys():
-                R0Stat = R0StatsList[key]
-                for rkey in R0Stat.keys():
-                    rvals = R0Stat[rkey]
-                    for r in range(0,len(rvals)):
-                        R0Stats[r] += rvals[r]
-    rnum = 0
-    rdenom = 0
-    for i in range(0,len(R0Stats)):
-        rdenom += R0Stats[i]
-        rnum += R0Stats[i]*i     
-        
-    np.savetxt(csvFileR0,R0Stats,delimiter=",", fmt='%5s')
-            
-    R0 = rnum/rdenom
+        if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle"):
+            AgeStatsList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle")
+            for key in AgeStatsList.keys():
+                AgeStat = AgeStatsList[key]
+                for rkey in AgeStat.keys():
+                    rvals = AgeStat[rkey]
+                    aon = 0
+                    for agekey in rvals.keys():
+                        avals = rvals[agekey]
+                        for r in range(0,len(avals)):
+                            AgeStats[aon] += avals[r]
+                            aon+=1
+    
+    np.savetxt(csvFileAge,AgeStats,delimiter=",", fmt='%5s')
+    
+    ### Get the results
+    totdays = len(results.keys())
+    csvFile = writefolder+"/ResultsByDay_"+model+"_"+resultsName+".csv"
+    
+    # This goes through the first row of results and gets the regional id - so results can be group by region. If none exists then we just give one set of results        
+    regionalvals = []
+    numInfList = results[list(results.keys())[0]]
+    for reg in numInfList.keys():
+        rdict = numInfList[reg]
+        for rkey in rdict:
+            lpdict = rdict[rkey]
+            if 'regionalid' in lpdict.keys():
+                regionalval = lpdict['regionalid']
+                if not regionalval in regionalvals:
+                    regionalvals.append(regionalval)
+    
+    keyvals = ['S','N','I','C','R','D','H','HI','HE','ICU']
+    colvals = ['Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','NewAdmissions','EDVisits','ICU']
+    colvaltitles = []
+    if len(regionalvals) > 1:
+        for j in range(0,len(regionalvals)):
+            for i in range(0,len(colvals)):
+                colvaltitles.append(colvals[i]+"_"+regionalvals[j])
+        colvaltitles.extend(colvals)        
+    else:
+        colvaltitles = list(colvals)
+    
+    #set up output    
+    output = np.empty((totdays,len(colvaltitles)+1),dtype=int)
+    
+    # now go through the results and add the results as totals to each bucke
     for day in results.keys():
-        sus = 0
-        inc = 0
-        inf = 0
-        col = 0
-        rec = 0
-        hos = 0
-        dead = 0
-        R0 = 0
-        R0R = 0
-        R0HH = 0
-        totHI = 0
-        totHE = 0
-        totICU = 0
+        resultdayvals = [0]*(len(colvals)*len(regionalvals)+len(colvals))
         numInfList = results[day]
         for reg in numInfList.keys():
             rdict = numInfList[reg]
             for rkey in rdict:
                 lpdict = rdict[rkey]
-                if len(lpdict) > 0:
-                    inf += lpdict['I']
-                    col += lpdict['C']
-                    hos += lpdict['H']
-                    totICU += lpdict['ICU']
-                    inc += lpdict['N']
-                    rec += lpdict['R']
-                    sus += lpdict['S']
-                    dead += lpdict['D']
-                    totHI += lpdict['HI']
-                    totHE += lpdict['HE']
-        
-        output[(day - 1), :] = [day, sus, inc, inf, col, rec, dead, hos,R0,totHI,totHE,totICU]
-
-    titles = ['Day', 'Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','R0','NewAdmissions','EDVisits','ICU']
+                regionalval = lpdict['regionalid']
+                idx = regionalvals.index(regionalval)
+                st = idx*len(colvals)
+                totst = (len(regionalvals))*len(colvals)
+                keyon = 0
+                for i in range(st,st+(len(colvals))):
+                    resultdayvals[i]+=lpdict[keyvals[keyon]]
+                    keyon+=1
+                keyon = 0    
+                for i in range(totst,totst+(len(colvals))):
+                    resultdayvals[i]+=lpdict[keyvals[keyon]]
+                    keyon+=1
+                    
+        output[(day - 1), :] = [day]+resultdayvals
+    titles = ['Day']
+    titles.extend(colvaltitles)
     
-           
     np.savetxt(csvFile,np.vstack([titles,output]),delimiter=",", fmt='%5s')
     
-    
-                
-                #for key2 in tydict:
     hospstatsnames = ['occupancy','admissions','edvisits','ICU']
 
     HospitalOccupancyByDay = {}
@@ -120,7 +134,7 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
                             x += 1
 
     # print(HospitalOccupancyByDay)
-    csvFile = ParameterSet.ResultsFolder+"/HospitalOccupancyByDay_"+model+"_"+resultsName+".csv"
+    csvFile = writefolder+"/HospitalOccupancyByDay_"+model+"_"+resultsName+".csv"
     try:
         with open(csvFile, 'w') as f:
             f.write("day")
@@ -196,7 +210,7 @@ def WriteAggregatedCountyResults(results,model,resultsName):
             output[(day - 1), :] = [day, sus, inc, inf, col, rec, dead, hos]
             dailyOut[day] = {'S': sus, 'N': inc, 'I': inf, 'C': col, 'R': rec, 'D': dead, 'H': hos}
         countyOut[i] = dailyOut
-        csvFile = ParameterSet.ResultsFolder + "/CountyResultsByDay_" + str(i) + "_" + resultsName +".csv"
+        csvFile = writefolder + "/CountyResultsByDay_" + str(i) + "_" + resultsName +".csv"
         titles = ['Day', 'Susceptible', 'Incubating', 'Infected', 'Colonized',
                   'Recovered', 'Dead','Hospitalized']
         np.savetxt(csvFile, np.vstack([titles, output]), delimiter=",", fmt='%5s')
