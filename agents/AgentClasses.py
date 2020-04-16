@@ -13,7 +13,7 @@ import disease.DiseaseProgression
 
 
 class Household:
-    def __init__(self, HouseholdID, HHSize, HHSizeAgeDist,PopulationDensity):
+    def __init__(self, HouseholdID, HHSize, HHSizeAgeDist,PopulationDensity,PopulationParameters,DiseaseParameters):
         """
         Initialize household class representing a single family/household in
         a location and stores household-specific information
@@ -23,16 +23,18 @@ class Household:
         self.HouseholdID = HouseholdID
         self.persons = {}
 
-        for x in range(0, HHSize + 1):
-            ageCohort = Utils.multinomial(HHSizeAgeDist[HHSize + 1],
-                                          sum(HHSizeAgeDist[HHSize + 1]))
+        self.PopulationParameters = PopulationParameters
+        
+        for x in range(0, HHSize+1):
+            ageCohort = Utils.multinomial(HHSizeAgeDist[HHSize+1],
+                                          sum(HHSizeAgeDist[HHSize+1]))
             
     
             pdscale = 1/(1+ .25*math.exp(-.001*PopulationDensity))
             numRandomContacts = math.floor(random.gammavariate(
-                    ParameterSet.AGGammaShape[ageCohort],ParameterSet.GammaScale))
-            numHouseholdContacts = ParameterSet.householdcontactRate
-            person = Person(x, HouseholdID, ageCohort, 0,
+                    PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort])+1)
+            numHouseholdContacts = PopulationParameters['householdcontactRate']
+            person = Person(DiseaseParameters,x, HouseholdID, ageCohort, 0,
                                                 numHouseholdContacts,
                                                 numRandomContacts)
             self.persons[x] = person
@@ -72,7 +74,6 @@ class Household:
     def infectHousehouldMember(self, timeNow, LocalInteractionMatrixList,
                     RegionListGuide, LocalPopulationId,HospitalTransitionMatrixList,
                                currentAgentId=-1, ageCohort=-1):
-        # add while loop to not select current agent if cirrentagent Id >= 0 -- this is for household member
         #print("currentAgentId=",currentAgentId)
         #print("ageCohort=",ageCohort)
         if len(self.persons.keys()) > 0:
@@ -94,7 +95,7 @@ class Household:
                     if ageCohort >= 0:
                         vals = []
                         for key in self.persons.keys():
-                            vals.append(ParameterSet.AgeCohortInteraction[ageCohort][self.persons[key].getAgeCohort()])
+                            vals.append(self.PopulationParameters['AgeCohortInteraction'][ageCohort][self.persons[key].getAgeCohort()])
                         p = Utils.Multinomial(vals)
                     else:
                         p = random.choice(list(self.persons.keys()))     
@@ -131,7 +132,7 @@ class Household:
         return self.persons[personId].getAgeCohort()
         
 class Person:
-    def __init__(self, personID, householdId, ageCohort, status, householdContactRate = 1,
+    def __init__(self,DiseaseParameters,personID, householdId, ageCohort, status, householdContactRate = 1,
                     randomContactRate=1):
         """
         Initialize person class represent persons in the model block and stores
@@ -148,6 +149,8 @@ class Person:
         self.householdId = householdId
         self.hospitalized = 0
         self.hospital = -1
+        self.DiseaseParameters = DiseaseParameters
+        
 
     def reset(self):
         self.status = ParameterSet.Susceptible
@@ -159,7 +162,7 @@ class Person:
         if self.status == ParameterSet.Susceptible:
             self.status = ParameterSet.Incubating
             queueEvents = disease.DiseaseProgression.\
-                SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList,
+                SetupTransmissableContactEvents(timeNow,self.DiseaseParameters, LocalInteractionMatrixList,
                                                 RegionListGuide,
                                                 self.householdId,
                                                 self.personID,

@@ -21,27 +21,28 @@ import GlobalModel
 def main():
 
     LocalData = ParameterSet.ResultsFolder + "/MarylandFit"
-    keyvals = ['endTime','AG04AsymptomaticRate','AG04HospRate','AG517AsymptomaticRate','AG517HospRate','AG1849AsymptomaticRate','AG1849HospRate','AG5064AsymptomaticRate','AG5064HospRate','AG65AsymptomaticRate','AG65HospRate','IncubationTime','totalContagiousTime','hospitalSymptomaticTime','hospTime','EDVisit','preContagiousTime','postContagiousTime','NumInfStart','householdcontactRate','ProbabilityOfTransmissionPerContact','symptomaticContactRateReduction','ImportationRate','ImportationRatePower']
+    keyvals = ['endTime','AG04AsymptomaticRate','AG04HospRate','AG517AsymptomaticRate','AG517HospRate','AG1849AsymptomaticRate','AG1849HospRate','AG5064AsymptomaticRate','AG5064HospRate','AG65AsymptomaticRate','AG65HospRate','IncubationTime','totalContagiousTime','hospitalSymptomaticTime','ICURate','ICUtime','PostICUTime','hospTime','EDVisit','preContagiousTime','postContagiousTime','NumInfStart','householdcontactRate','ProbabilityOfTransmissionPerContact','symptomaticContactRateReduction','ImportationRate','AsymptomaticReducationTrans']
+            
     for filename in os.listdir(LocalData):
         print(filename)
         if "MarylandFitVals" in filename and ".csv" not in filename:
             results = Utils.FileRead(LocalData+"/"+filename)
             csvFile = LocalData+"/"+filename.replace("pickle","")+".csv"
-            try:
-                with open(csvFile, 'w') as f:
-                    f.write("run,")
-                    for i in range(0,len(keyvals)):
-                        f.write(keyvals[i]+",")
-                    f.write("\n")        
-                    for key in results.keys():
-                        dayvals = results[key]
-                        f.write("%s" % key)
-                        for h in range(0, len(keyvals)):
-                            f.write(",%s" % results[key][keyvals[h]])
-                        f.write("\n")
-        
-            except:
-                print(sys.exc_info()[0])
+            #try:
+            with open(csvFile, 'w') as f:
+                f.write("run,")
+                for i in range(0,len(keyvals)):
+                    f.write(keyvals[i]+",")
+                f.write("\n")        
+                for key in results.keys():
+                    dayvals = results[key]
+                    f.write("%s" % key)
+                    for h in range(0, len(keyvals)):
+                        f.write(",%s" % results[key][keyvals[h]])
+                    f.write("\n")
+    
+            #except:
+            #    print(sys.exc_info()[0])
 
 
     

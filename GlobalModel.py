@@ -93,7 +93,24 @@ def TestVersionRandomMatrix(numpops=10,hospitals=5):
     for i in range(0,hospitals):
         HospitalColNames.append(str(i))
         
-    return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalColNames, PopulationDensity
+    HHSizeDist = [14.7,26.9,18.6,20.1,10.9,4.8,4]
+    HHSizeAgeDist = {}
+    HHSizeAgeDist[1] = [0,0,5.1,3.7,5.9]
+    HHSizeAgeDist[2] = [0.1,0.8,7.6,9.1,9.3]
+    HHSizeAgeDist[3] = [1.1,2.8,8.2,4.6,1.9]
+    HHSizeAgeDist[4] = [1.8,5.7,9,2.8,0.8]
+    HHSizeAgeDist[5] = [1,3.8,4.5,1.2,0.4]
+    HHSizeAgeDist[6] = [0.5,1.7,1.9,0.5,0.2]
+    HHSizeAgeDist[7] = [0.5,1.4,1.5,0.4,0.2]  
+    
+    GlobalLocations = []
+    for i in range(0, numpops):
+        GL = GlobalLocationSetup.\
+            GlobalLocationSetup(i, PopulationData[i], HHSizeDist,
+                                                     HHSizeAgeDist, PopulationDensity[i], '','')
+        GlobalLocations.append(GL)
+        
+    return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalColNames, GlobalLocations
 
 def IndiaInteractionMatrix():
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
@@ -140,7 +157,74 @@ def IndiaInteractionMatrix():
         
     return PopulationData, InteractionMatrix, HospitalTransitionRate, HospitalColNames    
     
+def GermanyInteractionMatrix():  
+    numpops = 1
+    hospitals = 1  
+    PopulationData = []
+    PopulationDensity = []
+    DistanceMatrix = np.empty([numpops, numpops], np.single)
+    CalcPopDistMatrix = np.empty([numpops, numpops], np.single)
+    GlobalInteractionMatrix = np.empty([numpops, numpops], np.single)
+    HospitalInteractionMatrix = np.empty([numpops, hospitals], np.single)
+    HospitalTransitionRate = np.empty([numpops, hospitals], np.single)
+
+    for i in range(0, numpops):
+        PopulationData.append(42000)
+        PopulationDensity.append(1)
+        
+    for i in range(0, numpops):
+        for j in range(0, numpops):
+            DistanceMatrix[i][j] = (random.randint(300, 3000))
+
+    for i in range(0, numpops):
+        for j in range(0, numpops):
+            if i == j:
+                CalcPopDistMatrix[i, j] = PopulationData[i] * PopulationData[j]
+            else:
+                CalcPopDistMatrix[i, j] = PopulationData[i] * PopulationData[j] / DistanceMatrix[i][j]
     
+    for i in range(0, numpops):
+        rowSum = 0.0
+        for j in range(0, numpops):
+            rowSum = rowSum + CalcPopDistMatrix[i, j]
+        for j in range(0, numpops):
+            GlobalInteractionMatrix[i][j] = CalcPopDistMatrix[i, j] / rowSum
+
+    for i in range(0, numpops):
+        for j in range(0, hospitals):
+            HospitalInteractionMatrix[i][j] = (random.random())
+
+    for i in range(0, numpops):
+        rowSum = 0.0
+        for j in range(0, hospitals):
+            rowSum = rowSum + HospitalInteractionMatrix[i, j]
+        for j in range(0, hospitals):
+            HospitalTransitionRate[i][j] = HospitalInteractionMatrix[i, j] / rowSum
+
+    HospitalColNames = []
+    for i in range(0,hospitals):
+        HospitalColNames.append(str(i))
+
+    HHSizeDist = [14.7,26.9,18.6,20.1,10.9,4.8,4]
+    HHSizeAgeDist = {}
+    HHSizeAgeDist[1] = [0,0,5.1,3.7,5.9]
+    HHSizeAgeDist[2] = [0.1,0.8,7.6,9.1,9.3]
+    HHSizeAgeDist[3] = [1.1,2.8,8.2,4.6,1.9]
+    HHSizeAgeDist[4] = [1.8,5.7,9,2.8,0.8]
+    HHSizeAgeDist[5] = [1,3.8,4.5,1.2,0.4]
+    HHSizeAgeDist[6] = [0.5,1.7,1.9,0.5,0.2]
+    HHSizeAgeDist[7] = [0.5,1.4,1.5,0.4,0.2]    
+        
+    GlobalLocations = []
+    for i in range(0, numpops):
+        GL = GlobalLocationSetup.\
+            GlobalLocationSetup(i, PopulationData[i], HHSizeDist,
+                                                     HHSizeAgeDist, PopulationDensity[i], '','')
+        GlobalLocations.append(GL)
+    
+    
+    return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalColNames,GlobalLocations        
+
 def MDVADCInteractionMatrix():
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Loading Maryland/DC/Virgina Zipcode Centroid ...")
@@ -196,7 +280,7 @@ def MDVADCInteractionMatrix():
     
     
     return PopulationData, InteractionMatrix, HospitalTransitionRate, HospitalColNames,GlobalLocations
-    
+
 def MarylandInteractionMatrix():
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Loading Maryland Zipcode Centroid ...")
@@ -209,6 +293,7 @@ def MarylandInteractionMatrix():
                     (MDPop['ZIP_CODE'] == 20701) |
                     (MDPop['ZIP_CODE'] == 20771) |
                     (MDPop['ZIP_CODE'] == 21031) |
+                    (MDPop['ZIP_CODE'] == 21287) |
                     (MDPop['ZIP_CODE'] == 21240)].index
     MDPop = MDPop.drop(NoEDZip)
     # ZipNames = np.asarray(MDPop['ZIP_CODE'])
@@ -241,7 +326,7 @@ def MarylandInteractionMatrix():
     HHSizeAgeDist[5] = [1,3.8,4.5,1.2,0.4]
     HHSizeAgeDist[6] = [0.5,1.7,1.9,0.5,0.2]
     HHSizeAgeDist[7] = [0.5,1.4,1.5,0.4,0.2]    
-        
+    
     GlobalLocations = []
     for i in range(0, numpops):
         GL = GlobalLocationSetup.\
@@ -289,10 +374,15 @@ def WuhanInteractionMatrix(xRes,yRes,hospitals=1):
     for i in range(0,hospitals):
         HospitalColNames.append(str(i))
 
+    # Need to add the global location setup here - and fix the wuhan mkt pop id
+    #    if list(WuhanCoordDict.keys())[i] == 'Market':
+    #            ParameterSet.WuhanMktLocalPopId = i
+    
+            
     return WuhanPop, InteractionMatrix, HospitalTransitionRate, WuhanMap
 
-def modelSetup(version, modelPopNames=None, combineLocations=False, TestNumPops = 10,
-               XRes = None, YRes = None):
+def modelSetup(PopulationParameters,DiseaseParameters,SimEndDate,version, modelPopNames=None, combineLocations=False, TestNumPops = 10,
+               XRes = None, YRes = None, multiprocess = True):
 
     ## Need error check here to make sure that modelpopnames is a valid system name
     if modelPopNames is None:
@@ -310,11 +400,13 @@ def modelSetup(version, modelPopNames=None, combineLocations=False, TestNumPops 
     if version == 'USHRR':
         PopulationData, GlobalInteractionMatrix = USHRRRegionInteractionMatrix()
     elif version == 'test':
-        PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, PopulationDensity = TestVersionRandomMatrix(TestNumPops)
+        PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations = TestVersionRandomMatrix(TestNumPops)
     elif version == 'Maryland' or version == 'MarylandFit':
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations = MarylandInteractionMatrix()
     elif version == 'MDDCVAregion':
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations = MDVADCInteractionMatrix()
+    elif version == 'Gangelt':
+        PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations = GermanyInteractionMatrix()
     elif version == 'IndiaSIM':
         PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames = IndiaInteractionMatrix()
     elif version == 'Wuhan':
@@ -325,26 +417,6 @@ def modelSetup(version, modelPopNames=None, combineLocations=False, TestNumPops 
    
          
     numpops = len(PopulationData)
-    
-    if len(GlobalLocations) == 0:
-        if len(PopulationDensity) == 0:
-            for i in range(numpops):
-                PopulationDensity.append(1)
-                           
-        if len(LocalIdentification) == 0:
-            for i in range(numpops):
-                LocalIdentification.append(1)
-            
-        for i in range(0, numpops):
-            if len(WuhanCoordDict) > 0:
-                if list(WuhanCoordDict.keys())[i] == 'Market':
-                    ParameterSet.WuhanMktLocalPopId = i
-    
-            GL = GlobalLocationSetup.\
-                GlobalLocationSetup(i, PopulationData[i], ParameterSet.HHSizeDist,
-                                                         ParameterSet.HHSizeAgeDist, PopulationDensity[i], LocalIdentification[i])
-            GlobalLocations.append(GL)
-        
     
     
     # generate a matrix of population size proportional for importation risk
@@ -362,16 +434,21 @@ def modelSetup(version, modelPopNames=None, combineLocations=False, TestNumPops 
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Completed Setup!")
 
+    
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Building populations ...")
 
     ## create regional blocks and store them to disk
     if combineLocations:
-        RegionalList, numInfList, RegionListGuide = ProcessManager.BuildGlobalPopulations(GlobalLocations, GlobalInteractionMatrix, modelPopNames, HospitalTransitionRate)
+        valpops = 0
     else:
-        RegionalList, numInfList, RegionListGuide = ProcessManager.BuildGlobalPopulations(GlobalLocations, GlobalInteractionMatrix, modelPopNames, HospitalTransitionRate, 
-                                                             numpops)
+        valpops = numpops
     
+
+    if multiprocess:
+        RegionalList, numInfList, RegionListGuide = ProcessManager.BuildGlobalPopulations(GlobalLocations, GlobalInteractionMatrix, modelPopNames, HospitalTransitionRate,PopulationParameters,DiseaseParameters,SimEndDate,numregions=valpops)
+    else:
+        RegionalList, numInfList, RegionListGuide,Regions = ProcessManager.BuildGlobalPopulations(GlobalLocations, GlobalInteractionMatrix, modelPopNames, HospitalTransitionRate,PopulationParameters,DiseaseParameters,SimEndDate, numregions=valpops,multiprocess=False)
     
                                                                  
     del GlobalLocations
@@ -379,58 +456,47 @@ def modelSetup(version, modelPopNames=None, combineLocations=False, TestNumPops 
 
     # make sure all other unneeded memory objects are dropped
     gc.collect()
-    if version == 'Wuhan':
-        setupOutput = RegionalList, numInfList, WuhanCoordDict, HospitalTransitionRate
+    if multiprocess:
+        if version == 'Wuhan':
+            setupOutput = RegionalList, numInfList, WuhanCoordDict, HospitalTransitionRate
+        else:
+            setupOutput = RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide
     else:
-        setupOutput = RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide
-
+        if version == 'Wuhan':
+            setupOutput = RegionalList, numInfList, WuhanCoordDict, HospitalTransitionRate, Regions
+        else:
+            setupOutput = RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide, Regions
     return setupOutput
 
-def RunDefaultModelType(ModelType,modelPopNames,resultsName,endTime,stepLength=1,writefolder=''):
+def RunFitModelType(ModelType,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,stepLength=1):
+   
     
-    ParameterVals = { 
-        'AG04AsymptomaticRate':ParameterSet.AG04AsymptomaticRate,
-        'AG04HospRate':ParameterSet.AG04HospRate,
-        'AG517AsymptomaticRate':ParameterSet.AG517AsymptomaticRate,
-        'AG517HospRate':ParameterSet.AG517HospRate,
-        'AG1849AsymptomaticRate':ParameterSet.AG1849AsymptomaticRate,
-        'AG1849HospRate':ParameterSet.AG1849HospRate,
-        'AG5064AsymptomaticRate':ParameterSet.AG5064AsymptomaticRate,
-        'AG5064HospRate':ParameterSet.AG5064HospRate,
-        'AG65AsymptomaticRate':ParameterSet.AG65AsymptomaticRate,
-        'AG65HospRate':ParameterSet.AG65HospRate,
-        'IncubationTime':ParameterSet.IncubationTime,
-        'totalContagiousTime':ParameterSet.totalContagiousTime,
-        'hospitalSymptomaticTime':ParameterSet.hospitalSymptomaticTime,
-        'hospTime':ParameterSet.hospTime,
-        'symptomaticTime':ParameterSet.symptomaticTime,
-        'EDVisit':ParameterSet.EDVisit,
-        'preContagiousTime':ParameterSet.preContagiousTime,
-        'postContagiousTime':ParameterSet.postContagiousTime,
-        'householdcontactRate':ParameterSet.householdcontactRate,
-        'ProbabilityOfTransmissionPerContact':ParameterSet.ProbabilityOfTransmissionPerContact,
-        'symptomaticContactRateReduction':ParameterSet.symptomaticContactRateReduction,
-        'ImportationRate':ParameterSet.ImportationRate,
-        'AsymptomaticReducationTrans':ParameterSet.AsymptomaticReducationTrans,
-        'InterventionDate':ParameterSet.InterventionDate,
-        'ImportationRatePower':ParameterSet.ImportationRatePower
-    }
+    RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide, Regions = modelSetup(PopulationParameters,DiseaseParameters,endTime,ModelType, modelPopNames,combineLocations=True,TestNumPops=10,multiprocess=False)
+    randomInfect=True
+    results = ProcessManager.RunFullModel(RegionalList,PopulationParameters,DiseaseParameters, endTime, stepLength, modelPopNames, resultsName, numInfList,randomInfect,LocationImportationRisk,RegionListGuide,multiprocess=False,Regions=Regions)
+    return results
     
-    RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide = modelSetup(ModelType, modelPopNames,combineLocations=True,TestNumPops=10)
-    RunModel(RegionalList, modelPopNames, endTime, stepLength, resultsName, numInfList,LocationImportationRisk=LocationImportationRisk, RegionListGuide=RegionListGuide)
+
+def RunDefaultModelType(ModelType,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,stepLength=1,writefolder=''):
+    ParameterVals = PopulationParameters
+    ParameterVals.update(DiseaseParameters)
+       
+    PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
+    
+    RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide = modelSetup(PopulationParameters,DiseaseParameters,endTime,ModelType, modelPopNames,combineLocations=True,TestNumPops=10)
+    RunModel(RegionalList, modelPopNames,PopulationParameters,DiseaseParameters, endTime, stepLength, resultsName, numInfList,LocationImportationRisk=LocationImportationRisk, RegionListGuide=RegionListGuide)
     results = Utils.FileRead(ParameterSet.ResultsFolder + "/Results_" + resultsName + ".pickle")
-    
-    PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,ParameterVals,HospitalNames,endTime,writefolder)    
+    PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
     cleanUp(modelPopNames)
     return HospitalNames
 
 
-def RunModel(RegionalList, modelPopNames, endTime, stepLength, resultsName, numInfList, randomInfect=True,LocationImportationRisk=[],RegionListGuide=[]):
+def RunModel(RegionalList, modelPopNames,PopulationParameters,DiseaseParameters, endTime, stepLength, resultsName, numInfList, randomInfect=True,LocationImportationRisk=[],RegionListGuide=[],multiprocess=True,Regions=[]):
                    
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Starting Full Model Run")
     t = time.time()
-    ProcessManager.RunFullModel(RegionalList, endTime, stepLength, modelPopNames, resultsName, numInfList,randomInfect,LocationImportationRisk,RegionListGuide)
+    ProcessManager.RunFullModel(RegionalList,PopulationParameters,DiseaseParameters, endTime, stepLength, modelPopNames, resultsName, numInfList,randomInfect,LocationImportationRisk,RegionListGuide,multiprocess,Regions)
     t2 = time.time()
     if (ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
         print("Completed in: ", t2 - t)

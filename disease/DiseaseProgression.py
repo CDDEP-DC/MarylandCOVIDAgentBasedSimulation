@@ -9,36 +9,39 @@ import events.SimulationEvent as SimEvent
 import math
 
 
-def TransProb(t,TP):
-    if 'seasonality' in ParameterSet.Intervention:
+def TransProb(t,TP,DiseaseParameters):
+    if 'seasonality' in DiseaseParameters['Intervention']:
         TP = (-1*math.sin(2*math.pi/365*(t-121.75)))*TP*.5+TP*.55
     return TP
 
-def calcIntRegTime(start,end):
-    if start > ParameterSet.InterventionEndDate or end < ParameterSet.InterventionDate:
-        regtime = end - start
-        inttime = 0
-    elif start > ParameterSet.InterventionDate and end < ParameterSet.InterventionEndDate:
-        inttime = end - start
-        regtime = 0
-    else:
-        if start < ParameterSet.InterventionDate and end < ParameterSet.InterventionEndDate:
-            regtime = ParameterSet.InterventionDate - start
-            inttime = end - ParameterSet.InterventionDate
-        elif start < ParameterSet.InterventionDate and end > ParameterSet.InterventionEndDate:
-            regtime = (ParameterSet.InterventionDate - start) + (end - ParameterSet.InterventionEndDate)
-            inttime = ParameterSet.InterventionEndDate - ParameterSet.InterventionDate
-        elif start > ParameterSet.InterventionDate and end > ParameterSet.InterventionEndDate:
-            inttime = ParameterSet.InterventionEndDate - start
-            regtime = end - ParameterSet.InterventionEndDate
-        else:
-            print("ERRROR")
-            inttime = 0
+def calcIntRegTime(start,end,DiseaseParameters):
+    if DiseaseParameters['InterventionDate'] > 0:
+        if start > DiseaseParameters['InterventionEndDate'] or end < DiseaseParameters['InterventionDate']:
             regtime = end - start
-            
+            inttime = 0
+        elif start > DiseaseParameters['InterventionDate'] and end < DiseaseParameters['InterventionEndDate']:
+            inttime = end - start
+            regtime = 0
+        else:
+            if start < DiseaseParameters['InterventionDate'] and end < DiseaseParameters['InterventionEndDate']:
+                regtime = DiseaseParameters['InterventionDate'] - start
+                inttime = end - DiseaseParameters['InterventionDate']
+            elif start < DiseaseParameters['InterventionDate'] and end > DiseaseParameters['InterventionEndDate']:
+                regtime = (DiseaseParameters['InterventionDate'] - start) + (end - DiseaseParameters['InterventionEndDate'])
+                inttime = DiseaseParameters['InterventionEndDate'] - DiseaseParameters['InterventionDate']
+            elif start > DiseaseParameters['InterventionDate'] and end > DiseaseParameters['InterventionEndDate']:
+                inttime = DiseaseParameters['InterventionEndDate'] - start
+                regtime = end - DiseaseParameters['InterventionEndDate']
+            else:
+                print("ERRROR")
+                inttime = 0
+                regtime = end - start
+    else:
+        inttime = 0
+        regtime = end - start 
     return regtime, inttime
     
-def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionListGuide,
+def SetupTransmissableContactEvents(timeNow,DiseaseParameters, LocalInteractionMatrixList, RegionListGuide,
                                     HouseholdId, PersonId, LocalPopulationId,
                                     contactRate, householdcontactRate,
                                     ageCohort,areAllHouseholdMembersInfected,
@@ -46,41 +49,39 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
                                     
         # Set the incupbation time
         queueEvents = []
-        incubationTime = gammavariate(ParameterSet.IncubationTime, 1)
+        incubationTime = gammavariate(DiseaseParameters['IncubationTime'], 1)
                
-        RegTransProb = ParameterSet.ProbabilityOfTransmissionPerContact
+        RegTransProb = DiseaseParameters['ProbabilityOfTransmissionPerContact']
                     
         IntTransProb = RegTransProb
         
-        if ParameterSet.InterventionDate > 0:
+        if DiseaseParameters['InterventionDate'] > 0:
             if ageCohort <= 1:
-                IntTransProb = RegTransProb * ParameterSet.InterventionReductionSchool
+                IntTransProb = RegTransProb * DiseaseParameters['InterventionReductionSchool']
             else:
-                if ParameterSet.InterventionReduction2 < 1 and ParameterSet.InterventionReduction2 > 0:
+                if DiseaseParameters['InterventionReduction2'] < 1 and DiseaseParameters['InterventionReduction2'] > 0:
                     if contactRate > 24:
-                        IntTransProb = RegTransProb * ParameterSet.InterventionReduction2
+                        IntTransProb = RegTransProb * DiseaseParameters['InterventionReduction2']
                 else:
-                    IntTransProb = RegTransProb * ParameterSet.InterventionReduction
+                    IntTransProb = RegTransProb * DiseaseParameters['InterventionReduction']
             
-        #print(contactRate, " ",RegTransProb, " ",IntTransProb," ", RegTransProb ," ", timeNow, " ", ParameterSet.InterventionDate, " " ,ParameterSet.SeasonalityStart )
+        #print(contactRate, " ",RegTransProb, " ",IntTransProb," ", RegTransProb ," ", timeNow, " ", DiseaseParameters['InterventionDate'], " " ,ParameterSet.SeasonalityStart )
         
+            
         ### Add event for when the patient becomes contagious pre symptoms
         SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime, HouseholdId, PersonId, ParameterSet.Contagious)
         queueEvents.append(SE)
         
         # Symptomatic
         #testinfrate = 0
-        if random() > ParameterSet.AGAsymptomaticRate[ageCohort]:
+        if random() > DiseaseParameters['AGAsymptomaticRate'][ageCohort]:
             # Set the time they become symptomatic == incubationTime + the time they were contagious before symptoms
-            preContagiousTime = gammavariate(ParameterSet.preContagiousTime, 1)
+            preContagiousTime = gammavariate(DiseaseParameters['preContagiousTime'], 1)
             SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime+preContagiousTime, HouseholdId, PersonId, ParameterSet.Symptomatic)
             queueEvents.append(SE)                
             
             #Get the amount of time they are symptomatic
-            symptomaticTime = gammavariate(ParameterSet.symptomaticTime, 1)
-            
-            # Now determine if they need hospitalization
-            hospcritrand = random()
+            symptomaticTime = gammavariate(DiseaseParameters['symptomaticTime'], 1)
             
             # selecting the hospital they went to for both inpatient/ED
             if len(HospitalTransitionMatrixList) > 0:
@@ -90,17 +91,17 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
                 
 
             ## Did they go to the hospital?
-            if hospcritrand < ParameterSet.AGHospRate[ageCohort]:
+            if random() < DiseaseParameters['AGHospRate'][ageCohort]:
                 #Decide the time they go to hospital as many will go to the ED
                 numtries = 0
-                hospTime = gammavariate(ParameterSet.hospTime, 1)
+                hospTime = gammavariate(DiseaseParameters['hospTime'], 1)
                 while hospTime > symptomaticTime:
-                    hospTime = gammavariate(ParameterSet.hospTime, 1)
+                    hospTime = gammavariate(DiseaseParameters['hospTime'], 1)
                     symptomaticTime+=1
-                if random() < ParameterSet.ICURate:
+                if random() < DiseaseParameters['ICURate']:
                     # If they went to the hospital and are hospitalized, their recovery is longer, so we add hospital time here
-                    ICUTime = gammavariate(ParameterSet.ICUtime,1)
-                    PostICUTime = gammavariate(ParameterSet.PostICUTime, 1)
+                    ICUTime = gammavariate(DiseaseParameters['ICUtime'],1)
+                    PostICUTime = gammavariate(DiseaseParameters['PostICUTime'], 1)
                     if PostICUTime == 0:
                         PostICUTime = 1
                     symptomaticTime += ICUTime + PostICUTime
@@ -114,13 +115,13 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
                 
                 else:             
                     # If they went to the hospital and are hospitalized, their recovery is longer, so we add hospital time here
-                    symptomaticTime += gammavariate(ParameterSet.hospitalSymptomaticTime, 1)
+                    symptomaticTime += gammavariate(DiseaseParameters['hospitalSymptomaticTime'], 1)
                         
                     # Set the time during syptoms at which they go to hospital    
                     SE = SimEvent.PersonHospCritEvent(timeNow+incubationTime+preContagiousTime+hospTime, HouseholdId, PersonId, Hospital)
                     queueEvents.append(SE)                
                     
-                if hospcritrand < ParameterSet.AGMortalityRate[ageCohort]:
+                if random() < DiseaseParameters['AGMortalityRate'][ageCohort]:
                     SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime+preContagiousTime+symptomaticTime, HouseholdId, PersonId, ParameterSet.Dead)
                 else:
                     SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime+preContagiousTime+symptomaticTime, HouseholdId, PersonId, ParameterSet.Recovered)
@@ -129,10 +130,10 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
             else:
 
                 # If they didn't get admitted to hospital, length of symptoms is lower, but we assume some proportion of them present to the ED
-                if random() < ParameterSet.EDVisit:
+                if random() < DiseaseParameters['EDVisit']:
                     # If they go to ed then we get time of ED visit
                     numtries = 0
-                    hospTime = gammavariate(ParameterSet.hospTime, 1)
+                    hospTime = gammavariate(DiseaseParameters['hospTime'], 1)
                     while hospTime > symptomaticTime:
                         symptomaticTime+=1
                     SE = SimEvent.PersonHospEDEvent(timeNow+incubationTime+preContagiousTime+hospTime, HouseholdId, PersonId, Hospital)
@@ -142,77 +143,77 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
                 SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime+preContagiousTime+symptomaticTime, HouseholdId, PersonId, ParameterSet.Contagious)
                 queueEvents.append(SE)
                 
-                postContagiousTime = gammavariate(ParameterSet.postContagiousTime, 1)
+                postContagiousTime = gammavariate(DiseaseParameters['postContagiousTime'], 1)
                 SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime+preContagiousTime+symptomaticTime+postContagiousTime, HouseholdId, PersonId, ParameterSet.Recovered)
                 queueEvents.append(SE)
 
                 # Add Postcontagious Infections
-                postContagiousRegularTime,postContagiousInterventionTime = calcIntRegTime(timeNow+incubationTime+preContagiousTime+symptomaticTime,timeNow+incubationTime+preContagiousTime+symptomaticTime+postContagiousTime)
+                postContagiousRegularTime,postContagiousInterventionTime = calcIntRegTime(timeNow+incubationTime+preContagiousTime+symptomaticTime,timeNow+incubationTime+preContagiousTime+symptomaticTime+postContagiousTime,DiseaseParameters)
                 
-                numRandInf = np.random.poisson(contactRate * postContagiousRegularTime * TransProb(timeNow+incubationTime+preContagiousTime+symptomaticTime,RegTransProb), 1)[0]  ### this isn't good to be switching between numpy and random                
+                numRandInf = np.random.poisson(contactRate * postContagiousRegularTime * TransProb(timeNow+incubationTime+preContagiousTime+symptomaticTime,RegTransProb,DiseaseParameters), 1)[0]  ### this isn't good to be switching between numpy and random                
                 SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                             LocalPopulationId, ageCohort, incubationTime+preContagiousTime+symptomaticTime, postContagiousRegularTime,0)
+                             LocalPopulationId, ageCohort, incubationTime+preContagiousTime+symptomaticTime, postContagiousRegularTime,0, DiseaseParameters)
                 if numRandInf > 0: queueEvents.extend(SE)
                 
-                numRandInf = np.random.poisson(contactRate * postContagiousInterventionTime * TransProb(timeNow+incubationTime+preContagiousTime+symptomaticTime,IntTransProb), 1)[0]  ### this isn't good to be switching between numpy and random
+                numRandInf = np.random.poisson(contactRate * postContagiousInterventionTime * TransProb(timeNow+incubationTime+preContagiousTime+symptomaticTime,IntTransProb,DiseaseParameters), 1)[0]  ### this isn't good to be switching between numpy and random
                 SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                             LocalPopulationId, ageCohort, incubationTime+preContagiousTime+symptomaticTime+postContagiousRegularTime, postContagiousInterventionTime,1)
+                             LocalPopulationId, ageCohort, incubationTime+preContagiousTime+symptomaticTime+postContagiousRegularTime, postContagiousInterventionTime,1, DiseaseParameters)
                 if numRandInf > 0: queueEvents.extend(SE)
             
                 
             # Add Precontagious Infections
-            preContagiousRegularTime,preContagiousInterventionTime = calcIntRegTime(timeNow+incubationTime,timeNow+incubationTime+preContagiousTime)
-            numRandInf = np.random.poisson(contactRate * preContagiousRegularTime * TransProb(timeNow+incubationTime,RegTransProb), 1)[0]  ### this isn't good to be switching between numpy and random
+            preContagiousRegularTime,preContagiousInterventionTime = calcIntRegTime(timeNow+incubationTime,timeNow+incubationTime+preContagiousTime,DiseaseParameters)
+            numRandInf = np.random.poisson(contactRate * preContagiousRegularTime * TransProb(timeNow+incubationTime,RegTransProb,DiseaseParameters), 1)[0]  ### this isn't good to be switching between numpy and random
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                         LocalPopulationId, ageCohort, incubationTime, preContagiousRegularTime,0)
+                         LocalPopulationId, ageCohort, incubationTime, preContagiousRegularTime,0, DiseaseParameters)
             if numRandInf > 0: queueEvents.extend(SE)
-            numRandInf = np.random.poisson(contactRate * preContagiousInterventionTime * TransProb(timeNow+incubationTime,IntTransProb), 1)[0]  ### this isn't good to be switching between numpy and random
+            numRandInf = np.random.poisson(contactRate * preContagiousInterventionTime * TransProb(timeNow+incubationTime,IntTransProb,DiseaseParameters), 1)[0]  ### this isn't good to be switching between numpy and random
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                         LocalPopulationId, ageCohort, incubationTime+preContagiousRegularTime, preContagiousInterventionTime,1)
+                         LocalPopulationId, ageCohort, incubationTime+preContagiousRegularTime, preContagiousInterventionTime,1, DiseaseParameters)
             if numRandInf > 0: queueEvents.extend(SE)
             
             # Add Symptomatic Infections
-            symptomaticRegularTime,symptomaticInterventionTime = calcIntRegTime(timeNow+incubationTime+preContagiousTime,timeNow+incubationTime+preContagiousTime+symptomaticTime)
+            symptomaticRegularTime,symptomaticInterventionTime = calcIntRegTime(timeNow+incubationTime+preContagiousTime,timeNow+incubationTime+preContagiousTime+symptomaticTime,DiseaseParameters)
             if symptomaticRegularTime < 0 or symptomaticInterventionTime < 0:
                 print(timeNow+incubationTime+preContagiousTime," ",timeNow+incubationTime+preContagiousTime+symptomaticTime)
                 print(symptomaticRegularTime, " ",symptomaticInterventionTime)
                 
-            numRandInf = np.random.poisson(ParameterSet.symptomaticContactRateReduction *
-                                contactRate * symptomaticRegularTime * TransProb(timeNow+incubationTime+preContagiousTime,RegTransProb), 1)[0]  ### this isn't good to be switching between numpy and random
+            numRandInf = np.random.poisson(DiseaseParameters['symptomaticContactRateReduction'] *
+                                contactRate * symptomaticRegularTime * TransProb(timeNow+incubationTime+preContagiousTime,RegTransProb,DiseaseParameters), 1)[0]  ### this isn't good to be switching between numpy and random
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                         LocalPopulationId, ageCohort, incubationTime+preContagiousTime, symptomaticRegularTime,0)
+                         LocalPopulationId, ageCohort, incubationTime+preContagiousTime, symptomaticRegularTime,0, DiseaseParameters)
             if numRandInf > 0: queueEvents.extend(SE)
-            numRandInf = np.random.poisson(ParameterSet.symptomaticContactRateReduction *
-                                contactRate * symptomaticInterventionTime * TransProb(timeNow+incubationTime+preContagiousTime,IntTransProb), 1)[0]  ### this isn't good to be switching between numpy and random
+            numRandInf = np.random.poisson(DiseaseParameters['symptomaticContactRateReduction'] *
+                                contactRate * symptomaticInterventionTime * TransProb(timeNow+incubationTime+preContagiousTime,IntTransProb,DiseaseParameters), 1)[0]  ### this isn't good to be switching between numpy and random
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                         LocalPopulationId, ageCohort, incubationTime+preContagiousTime+symptomaticRegularTime, symptomaticInterventionTime,1)
+                         LocalPopulationId, ageCohort, incubationTime+preContagiousTime+symptomaticRegularTime, symptomaticInterventionTime,1, DiseaseParameters)
             if numRandInf > 0: queueEvents.extend(SE)
          
         # Asymptomatic
         else:
-            ContagiousTime = gammavariate(ParameterSet.totalContagiousTime, 1)
+            ContagiousTime = gammavariate(DiseaseParameters['totalContagiousTime'], 1)
             SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime, HouseholdId, PersonId, ParameterSet.Contagious)
             queueEvents.append(SE)
             SE = SimEvent.PersonStatusUpdate(timeNow+incubationTime+ContagiousTime, HouseholdId, PersonId, ParameterSet.Recovered)
             queueEvents.append(SE)
             
-            ContagiousRegularTime,ContagiousInterventionTime = calcIntRegTime(timeNow+incubationTime,timeNow+incubationTime+ContagiousTime)
+            ContagiousRegularTime,ContagiousInterventionTime = calcIntRegTime(timeNow+incubationTime,timeNow+incubationTime+ContagiousTime,DiseaseParameters)
             
-            numRandInf = np.random.poisson(contactRate * ContagiousRegularTime * TransProb(timeNow+incubationTime,RegTransProb)*ParameterSet.AsymptomaticReducationTrans, 1)[0]  ### this isn't good to be switching between numpy and random
+            numRandInf = np.random.poisson(contactRate * ContagiousRegularTime * TransProb(timeNow+incubationTime,RegTransProb,DiseaseParameters)*DiseaseParameters['AsymptomaticReducationTrans'], 1)[0]  ### this isn't good to be switching between numpy and random
             
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                         LocalPopulationId, ageCohort, incubationTime, ContagiousRegularTime,0)
+                         LocalPopulationId, ageCohort, incubationTime, ContagiousRegularTime,0, DiseaseParameters)
             if numRandInf > 0: queueEvents.extend(SE)
-            numRandInf = np.random.poisson(contactRate * ContagiousInterventionTime * TransProb(timeNow+incubationTime,IntTransProb)*ParameterSet.AsymptomaticReducationTrans, 1)[0]  ### this isn't good to be switching between numpy and random
+            numRandInf = np.random.poisson(contactRate * ContagiousInterventionTime * TransProb(timeNow+incubationTime,IntTransProb,DiseaseParameters)*DiseaseParameters['AsymptomaticReducationTrans'], 1)[0]  ### this isn't good to be switching between numpy and random
             SE = createInfectionEvents(numRandInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                         LocalPopulationId, ageCohort, incubationTime+ContagiousRegularTime, ContagiousInterventionTime,1)
+                         LocalPopulationId, ageCohort, incubationTime+ContagiousRegularTime, ContagiousInterventionTime,1, DiseaseParameters)
             
             if numRandInf > 0: queueEvents.extend(SE)
             
             
         # Now infect household members
         if not areAllHouseholdMembersInfected:
-            ContagiousTime = gammavariate(ParameterSet.totalContagiousTime, 1)
+            ContagiousTime = gammavariate(DiseaseParameters['totalContagiousTime'], 1)
             numHHInf = np.random.poisson(householdcontactRate * ContagiousTime * RegTransProb, 1)[0]  ### this isn't good to be switching between numpy and random
             if numHHInf > 0: 
                 for i in range(numHHInf):
@@ -226,7 +227,7 @@ def SetupTransmissableContactEvents(timeNow, LocalInteractionMatrixList, RegionL
 
 
 def createInfectionEvents(numInf, timeNow, LocalInteractionMatrixList, RegionListGuide,
-                         LocalPopulationId, ageCohort, preTime, ContagiousTime, intervention):
+                         LocalPopulationId, ageCohort, preTime, ContagiousTime, intervention, DiseaseParameters):
     
     events = []
     if numInf > 0:
@@ -235,18 +236,19 @@ def createInfectionEvents(numInf, timeNow, LocalInteractionMatrixList, RegionLis
             t = preTime + random() * ContagiousTime
             #Decide if it is in the local population or somewhere else
             if intervention == 1:
-                LocalInteractionMatrixListINT = LocalInteractionMatrixList * ParameterSet.InterventionMobilityEffect #[j * .5 for j in LocalInteractionMatrixList]
+                LocalInteractionMatrixListINT = LocalInteractionMatrixList * DiseaseParameters['InterventionMobilityEffect'] #[j * .5 for j in LocalInteractionMatrixList]
                 LocalInteractionMatrixListINT[LocalPopulationId] = LocalInteractionMatrixList[LocalPopulationId]
                 listsum = sum(LocalInteractionMatrixListINT)
                 NormalizedLocalInteractionMatrixListINT = LocalInteractionMatrixListINT / listsum
                 InfLocalPopulationId = Utils.multinomial(NormalizedLocalInteractionMatrixListINT, 1)
             else:
                 InfLocalPopulationId = Utils.multinomial(LocalInteractionMatrixList, 1)
-            
+                
             InfRegionId = RegionListGuide[InfLocalPopulationId]
             if LocalPopulationId != InfLocalPopulationId:
                 events.append(SimEvent.NonLocalInfectionEvent(timeNow + t, InfRegionId,
                                                               InfLocalPopulationId, ageCohort))
+                
             else:
                 events.append(SimEvent.LocalInfectionEvent(timeNow + t, ageCohort))
 

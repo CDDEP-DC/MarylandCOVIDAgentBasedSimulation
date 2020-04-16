@@ -10,12 +10,12 @@ import random
 
 class InputData:
     def __init__(self, datadir, popdata):
-        print('*****************  Loading Population Files')
+        #print('*****************  Loading Population Files')
         self.ComPop = popdata['POPULATION']
         self.ComNames = pd.DataFrame(popdata['ZIP_CODE'])
 
         """ Import Adjacency Matrix from the Input Folder """
-        print('*****************  Loading Adjacency Files')
+        #print('*****************  Loading Adjacency Files')
         fileNames = os.listdir(datadir)
         self.ComHosAdj = pd.read_csv(datadir + "/EDCommunityMatrix.csv", index_col=0)
 
@@ -45,4 +45,4 @@ class InputData:
 
 
 
-        print("*****************  Finished Loading Data")
+        #print("*****************  Finished Loading Data")

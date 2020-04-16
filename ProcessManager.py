@@ -18,7 +18,7 @@ import Utils
 import ParameterSet
 
 
-def BuildGlobalPopulations(GlobalLocations,GlobalInteractionMatrix,modelPopNames,HospitalTransitionRate,numregions=0):
+def BuildGlobalPopulations(GlobalLocations,GlobalInteractionMatrix,modelPopNames,HospitalTransitionRate,PopulationParameters,DiseaseParameters,SimEndDate,numregions=0,multiprocess=True):
     num_regions = multiprocessing.cpu_count() * 2
     
     
@@ -43,27 +43,39 @@ def BuildGlobalPopulations(GlobalLocations,GlobalInteractionMatrix,modelPopNames
             RegionListGuide.append(i)
             
     numInfList = {}
-    q = multiprocessing.Queue()
     
-    if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
-        jobs = [ multiprocessing.Process(target=WorkerProcess.BuildPops, args=[q,i,RegionalLocations[i],RegionInteractionMatrixList[i],RegionListGuide,modelPopNames,HospitalTransitionMatrix[i]]) for i in range(0,len(RegionalList)) ]
+    
+    if multiprocess:
+        if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
+            jobs = [ multiprocessing.Process(target=WorkerProcess.BuildPops, args=[i,PopulationParameters,DiseaseParameters,SimEndDate,RegionalLocations[i],RegionInteractionMatrixList[i],RegionListGuide,modelPopNames,HospitalTransitionMatrix[i]]) for i in range(0,len(RegionalList)) ]
+        else:
+            jobs = [ multiprocessing.Process(target=WorkerProcess.BuildPops, args=[i,PopulationParameters,DiseaseParameters,SimEndDate,RegionalLocations[i],RegionInteractionMatrixList[i],RegionListGuide,modelPopNames]) for i in range(0,len(RegionalList)) ]
+        
+        for j in jobs:
+            j.start()
+        	
+        for j in jobs:
+            j.join()
+        
+        #print("finished creating pops")
+        
+        for i in range(0,len(RegionalList)):
+            regionStats = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "STATS.pickle")
+            numInfList[i] = regionStats
+        
+        return RegionalList, numInfList, RegionListGuide
     else:
-        jobs = [ multiprocessing.Process(target=WorkerProcess.BuildPops, args=[q,i,RegionalLocations[i],RegionInteractionMatrixList[i],RegionListGuide,modelPopNames]) for i in range(0,len(RegionalList)) ]
-    
-    for j in jobs:
-        j.start()
-    	
-    for j in jobs:
-        j.join()
-    
-    print("finished creating pops")
-    
-    for i in range(0,len(RegionalList)):
-        regionStats = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "STATS.pickle")
-        numInfList[i] = regionStats
-    
-    return RegionalList, numInfList, RegionListGuide
-    
+        Regions = []
+        for i in range(0,len(RegionalList)):
+            if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
+                region = Region.Region(RegionalLocations[i], RegionInteractionMatrixList[i], i, RegionListGuide,HospitalTransitionMatrix[i],PopulationParameters,DiseaseParameters,SimEndDate)
+            else:
+                HospitalTransitionMatrix=[]
+                region = Region.Region(RegionalLocations[i], RegionInteractionMatrixList[i], i, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,SimEndDate)
+            numInfList[i] = region.getRegionStats() 
+            Regions.append(region)
+        return RegionalList, numInfList, RegionListGuide, Regions    
+        
 def AllPopsExist(RegionalList,modelPopNames):
     for i in range(0,len(RegionalList)):
         if not os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle"):
@@ -72,8 +84,8 @@ def AllPopsExist(RegionalList,modelPopNames):
 
 
     
-def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,numInfList, randomInfect,LocationImportationRisk=[],RegionListGuide=[],fithospdatapoint=-1):
-    
+def RunFullModel(RegionalList,PopulationParameters,DiseaseParameters,simLength,stepLength,modelPopNames,resultsName,numInfList, randomInfect,LocationImportationRisk=[],RegionListGuide=[],multiprocess=True,Regions=[]):
+
     totInf = 0
     totC = 0
     totH = 0
@@ -108,6 +120,8 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
     results = {}
     aggregatedresults = {}
 
+    CurrentHospOccList = {}
+    resultsNonMP = {}
     ### data for reconciliation
     offPopQueueEvents = []
     RegionReconciliationEvents = {} 
@@ -121,9 +135,6 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
         
     for tend in timeRange:
         
-        #print("*",numInfList)
-        #ParameterSet.ImportationRate = tend
-        #nextEventTimeList, numInfList = InfectRandomAgents(RegionalList, ParameterSet.ImportationRate, modelPopNames, numInfList,nextEventTimeList)
         
         # Infect Random Agents - linear increase in number infected
         infect = [0]*len(RegionalList)
@@ -134,45 +145,77 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
                 rnum = RegionListGuide[LPIDinfect]
             else:
                 rnum = random.choice(RegionalList)
-            infect[rnum] = ParameterSet.ImportationRate
+            infect[rnum] = DiseaseParameters['ImportationRate']
             nextEventTimeList[rnum] = 0
         if ParameterSet.ModelRunning == 'Wuhan':
             if tend == 1:
                 infect = [numStartingInfections]*len(RegionalList)
         
-        #print("**",infect)
-        if(ParameterSet.debugmodelevel >= ParameterSet.debugnotice):t1 = time.time()
-        if(ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("start:",tend)
-        #q = multiprocessing.Queue()
-        jobs = []
-        for i in range(0,len(RegionalList)):
-            if nextEventTimeList[i] <= tend:
-                #jobs.append(multiprocessing.Process(target=WorkerProcess.RunTimeForward,
-                #                                    args=(q,i,tend,nextEventTimeList[i],
-                #                                          modelPopNames,RegionReconciliationEvents[i],infect[i],LPIDinfect)))
-                jobs.append(multiprocessing.Process(target=WorkerProcess.RunTimeForward,
-                                                    args=(i,tend,nextEventTimeList[i],
-                                                          modelPopNames,RegionReconciliationEvents[i],infect[i],LPIDinfect)))
-        nextEventTime = {}
-        for j in jobs:
-            j.start()
-        	
-        for j in jobs:  
-            j.join()
-            
-        #for j in jobs:
-        #    numinfVals, minEventTime = q.get()
-        #    for key in numinfVals.keys():
-        #        numInfList[key] = numinfVals[key]
-        #    nextEventTime.update(minEventTime)
         
-        for i in range(0,len(RegionalList)):
-            numinfVals = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "RegionStats.pickle")
-            for key in numinfVals.keys():
-                numInfList[key] = numinfVals[key]
-            minEventTime = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "nextEventTime.pickle")
-            nextEventTime.update(minEventTime)
+        nextEventTime = {}
+        offPopQueueEvents = []
+        R0Stats = [0]*101
+        if multiprocess:
+            jobs = []
+            for i in range(0,len(RegionalList)):
+                #if nextEventTimeList[i] <= tend:
+                 jobs.append(multiprocessing.Process(target=WorkerProcess.RunTimeForward,
+                                                        args=(i,PopulationParameters,DiseaseParameters,tend,
+                                                              modelPopNames,RegionReconciliationEvents[i],infect[i],LPIDinfect)))
             
+            for j in jobs:
+                j.start()
+            	
+            for j in jobs:  
+                j.join()
+            
+            for i in range(0,len(RegionalList)):
+                numinfVals = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "RegionStats.pickle")
+                for key in numinfVals.keys():
+                    numInfList[key] = numinfVals[key]
+                
+                testRegionValues[i] = 0
+                RegionReconciliationEvents[i] = []
+                try:
+                    OPQE = Utils.FileRead(ParameterSet.QueueFolder+"/"+str(modelPopNames)+str(i)+"Queue.pickle")
+                except:
+                   OPQE = None 
+                if OPQE:
+                    offPopQueueEvents.extend(OPQE)
+                try:
+                    os.remove(ParameterSet.QueueFolder+"/"+str(modelPopNames)+str(i)+"Queue.pickle")
+                except:
+                    if(ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("ProcessManager:ReconcileEventsProcess():File Not Found for Removal: Queues/"+str(modelPopNames)+str(i)+"Queue.pickle")
+                    
+                if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle"):
+                    R0StatsList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
+                    for key in R0StatsList.keys():
+                        R0Stat = R0StatsList[key]
+                        for rkey in R0Stat.keys():
+                            rvals = R0Stat[rkey]
+                            for r in range(0,len(rvals)):
+                                R0Stats[r] += rvals[r]
+        else:
+            for i in range(0,len(RegionalList)):
+                numEvents,saveRegion, regionStatsX,R,OPQE,hospOccupancyList,R0StatsList,AgeStatsList = \
+                                WorkerProcess.RunRegionForward(i,PopulationParameters,DiseaseParameters,Regions[i],tend,
+                                          modelPopNames,RegionReconciliationEvents[i],infect[i],LPIDinfect)                        
+                
+                CurrentHospOccList[tend] = hospOccupancyList
+                numinfVals = regionStatsX
+                testRegionValues[i] = 0
+                for key in numinfVals.keys():
+                    numInfList[key] = numinfVals[key]
+                if OPQE:
+                    offPopQueueEvents.extend(OPQE)     
+    
+                for key in R0StatsList.keys():
+                    R0Stat = R0StatsList[key]
+                    for rkey in R0Stat.keys():
+                        rvals = R0Stat[rkey]
+                        for r in range(0,len(rvals)):
+                            R0Stats[r] += rvals[r]
+                                
         totInf = 0
         totC = 0
         totH = 0
@@ -200,65 +243,28 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
                     totHI += lpdict['HI']
                     totHE += lpdict['HE']
         
-        for key in nextEventTime:
-            if nextEventTime[key] > nextEventTimeList[key]:
-                nextEventTimeList[key] = nextEventTime[key]
-        if(ParameterSet.debugmodelevel >= ParameterSet.debugnotice): t2 = time.time()
-        
-        #if(ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
-        #    print("Finished Main Run:",tend," Time:",t2-t1)
-        
-        #print("**",numInfList)
-        
-        offPopQueueEvents = []
-        ### Now compile the reconcile events list for the next run
-        for i in range(0,len(RegionalList)):
-            testRegionValues[i] = 0
-            RegionReconciliationEvents[i] = []
-            try:
-                OPQE = Utils.FileRead(ParameterSet.QueueFolder+"/"+str(modelPopNames)+str(i)+"Queue.pickle")
-            except:
-               OPQE = None 
-            if OPQE:
-                offPopQueueEvents.extend(OPQE)
-            try:
-                os.remove(ParameterSet.QueueFolder+"/"+str(modelPopNames)+str(i)+"Queue.pickle")
-            except:
-                if(ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("ProcessManager:ReconcileEventsProcess():File Not Found for Removal: Queues/"+str(modelPopNames)+str(i)+"Queue.pickle")
+        if totS+totN+totInf+totC+totR+totD != totvalue:
+            print("Error - something went wrong with the data -- please fix. This can only happen if there is a bug in the code")
+            exit()
+            
         ## Sort them by region            
         for QE in offPopQueueEvents:
             #ts = QE.getEventTime()
-            R = QE.getRegionId()
-            testRegionValues[R]+=1
-            RegionReconciliationEvents[R].append(QE)
-            #numOffPopEvents += 1
-            #self.eventQueue[ts] = QE          
-        if(ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): t2 = time.time()
-        if(ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Time to get queues:",t2-t1)
+            Rid = QE.getRegionId()
+            testRegionValues[Rid]+=1
+            RegionReconciliationEvents[Rid].append(QE)
 
-        #print("***",numInfList)
-        if(ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
-            t3 = time.time()
         if(ParameterSet.debugmodelevel >= ParameterSet.debugnotice):
             if ParameterSet.ModelRunning == 'Wuhan':
                 x = datetime(2020, 1, 23) - timedelta(days=timeRange[len(timeRange)-1]-tend) 
             elif ParameterSet.ModelRunning == 'MarylandFit':
                 x = datetime(2020, 4, 1) - timedelta(days=timeRange[len(timeRange)-1]-tend) 
             else:          
-                x = datetime(2020, 2, 1) + timedelta(days=tend) 
+                x = datetime(2020, 2, 8) + timedelta(days=tend) 
             
             #print("End:",tend," (",(x.strftime('%Y-%m-%d')),") Time:",t3-t1,"(",t3-t2,") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH," R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE)
             
-            R0Stats = [0]*101
-            for i in range(0,len(RegionalList)):
-                if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle"):
-                    R0StatsList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
-                    for key in R0StatsList.keys():
-                        R0Stat = R0StatsList[key]
-                        for rkey in R0Stat.keys():
-                            rvals = R0Stat[rkey]
-                            for r in range(0,len(rvals)):
-                                R0Stats[r] += rvals[r]
+            
             rnum = 0
             rdenom = 0
             for i in range(1,len(R0Stats)):
@@ -268,26 +274,16 @@ def RunFullModel(RegionalList,simLength,stepLength,modelPopNames,resultsName,num
                 R0Val = rnum/rdenom
             else:
                 R0Val = 0
-            #print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE, " A:",Ai," In:",In," InR:",InR," InH:",InH)
             print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH,"(" ,totICU,") R0:",round(R0Val,2))
             
-        if totS+totN+totInf+totC+totR+totD != totvalue:
-            exit()
-        
         # write out results to disk in case process dies
-        if os.path.exists(ParameterSet.ResultsFolder+"/Results_"+resultsName+".pickle"):
-            results = Utils.FileRead(ParameterSet.ResultsFolder+"/Results_"+resultsName+".pickle")
-        results[tend] = numInfList
-        Utils.FileWrite(ParameterSet.ResultsFolder+"/Results_"+resultsName+".pickle",results)
-        
-        if fithospdatapoint > 0:
-            if totHI >= fithospdatapoint:
-                if os.path.exists(ParameterSet.ResultsFolder+"/FittedResults_"+resultsName+".pickle"):
-                    results = Utils.FileRead(ParameterSet.ResultsFolder+"/FittedResults_"+resultsName+".pickle")
-                results[tend] = numInfList
-                Utils.FileWrite(ParameterSet.ResultsFolder+"/FittedResults_"+resultsName+".pickle",results)
+        if multiprocess:
+            if os.path.exists(ParameterSet.ResultsFolder+"/Results_"+resultsName+".pickle"):
+                results = Utils.FileRead(ParameterSet.ResultsFolder+"/Results_"+resultsName+".pickle")
+            results[tend] = numInfList
+            Utils.FileWrite(ParameterSet.ResultsFolder+"/Results_"+resultsName+".pickle",results)
+        else:
+            resultsNonMP[tend] = numInfList
         
         gc.collect()
-        
-        #input("Press Enter to continue...")
-
+    return resultsNonMP        

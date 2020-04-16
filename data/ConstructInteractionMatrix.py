@@ -45,8 +45,10 @@ def CreateInteractionMatrix(longData,latData,popData):
         DistMatrix[i,i] = 1
         PopDistMatrix[i,:] = popData[i] * popData
         
+        
     InteractionMatrix = PopDistMatrix / DistMatrix
     NormalizedInteraction = np.empty(shape=(nzip,nzip))
+    
     for i in range(0,nzip):
         rowsum = InteractionMatrix[i,:].sum()
         NormalizedInteraction[i,:] = InteractionMatrix[i,:] / rowsum

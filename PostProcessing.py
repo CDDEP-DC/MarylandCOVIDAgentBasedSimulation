@@ -11,12 +11,12 @@ import Utils
 
 import os
 
-def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,ParameterVals,HospitalNames=[],endTime=0,writefolder=''):
+def WriteParameterVals(resultsName,model,ParameterVals,writefolder=''):
 
-    print('Writing Results')
     if writefolder == '':
         writefolder = ParameterSet.ResultsFolder
-        
+ 
+    
     csvFile = writefolder+"/Parameters_"+model+"_"+resultsName+".csv"
     try:
         with open(csvFile, 'w') as f:
@@ -27,6 +27,11 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     except IOError:
         print("I/O error")
 
+def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,HospitalNames=[],endTime=0,writefolder=''):
+
+    print('Writing Results')
+    if writefolder == '':
+        writefolder = ParameterSet.ResultsFolder
        
     
     ### Get the age stats

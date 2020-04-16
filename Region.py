@@ -12,7 +12,7 @@ import ParameterSet
 
 class Region:
     def __init__(self, RegionalLocations, RegionalInteractionMatrixList,
-                 RegionId, RegionListGuide,HospitalTransitionMatrixList):
+                 RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationParameters,DiseaseParameters,SimEndDate):
         """
         class represents a local location for the agent
 
@@ -41,7 +41,7 @@ class Region:
                 LocalPopulation(GLP.getGlobalId(), GLP.getPopulationAmt(),
                                 GLP.getHHSizeDist(), GLP.getHHSizeAgeDist(),
                                 RegionalInteractionMatrixList[i], self.RegionId,
-                                RegionListGuide,HTM,GLP.getPopulationDensity(),GLP.getLocalIdentification(),GLP.getRegionalIdentification())
+                                RegionListGuide,HTM,GLP.getPopulationDensity(),GLP.getLocalIdentification(),GLP.getRegionalIdentification(),PopulationParameters,DiseaseParameters,SimEndDate)
             self.Locations[GLP.getGlobalId()] = LP
             
             if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
@@ -53,33 +53,19 @@ class Region:
         return self.IsWhuhanMktRegion
     
     def runTimePeriod(self, tend):
-        if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
-            timeperlp = {}
-
         offPopQueueEvents = []
         regionStats = {}
         R0Stats = {}
         hospitalStats = {}
         numEvents = 0
-        minEventTime = ParameterSet.MAXIntVal
         for LPKey in self.Locations.keys():
-            if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
-                t1 = time.time()
             LP = self.Locations[LPKey]
-            op, NE, nextEventTime = LP.runTime(tend)
+            op, NE = LP.runTime(tend)
             numEvents += NE
-            if nextEventTime < math.floor(minEventTime):
-                minEventTime = math.floor(nextEventTime)
             offPopQueueEvents.extend(op)
             regionStats[LPKey] = LP.reportPopulationStats()
-            if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
-                t2 = time.time()
-            if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer):
-                timeperlp[LPKey] = (t2 - t1)
-
-        if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer): print(timeperlp)
-
-        return regionStats, offPopQueueEvents, numEvents, minEventTime
+            
+        return regionStats, offPopQueueEvents, numEvents
 
     def getInfectedNums(self):
         infectedNums = {}
@@ -113,7 +99,6 @@ class Region:
                 op = LP.infectRandomAgent()
                 offPopQueueEvents.extend(op)
             
-            minEventTime = LP.getNextEventTime()
         else:
             LPIDs = []
             for i in range(0,numInfect):
@@ -121,28 +106,22 @@ class Region:
             
             LPIDs.sort()
             LPID = -1
-            minEventTime = ParameterSet.MAXIntVal
             for i in range(0,len(LPIDs)):
                 LPID = LPIDs[i]
                 LP = self.Locations[LPID]
                 op = LP.infectRandomAgent()
                 offPopQueueEvents.extend(op)
-                nextEventTime = LP.getNextEventTime()
-                if nextEventTime < minEventTime:
-                    minEventTime = nextEventTime
                     
-        return offPopQueueEvents, minEventTime, self.getRegionStats()
+        return offPopQueueEvents, self.getRegionStats()
 
 
     def addEventsFromOtherLocalPopulations(self,RegionReconciliationEvents):
-        minEventTime = ParameterSet.MAXIntVal
         for QE in RegionReconciliationEvents:
             LPID = QE.getLocalPopulationId()
             LP = self.Locations[LPID]
-            addedEventTime = LP.addEventsFromOtherLocalPopulations(QE)
-            if addedEventTime < minEventTime:
-                minEventTime = addedEventTime                
-        return minEventTime, self.getRegionStats()
+            LP.addEventsFromOtherLocalPopulations(QE)
+            
+        return self.getRegionStats()
                     
     def getRegionStats(self):
         regionStats = {}

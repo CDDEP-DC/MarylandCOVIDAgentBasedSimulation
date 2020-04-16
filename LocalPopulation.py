@@ -14,7 +14,7 @@ import agents.AgentClasses
 
 class LocalPopulation:
     def __init__(self, LocalPopulationId, npersons, HHSizeDist, HHSizeAgeDist,
-                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationDensity,LocalIdentification,RegionalIdentification):
+                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationDensity,LocalIdentification,RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate):
         """
         initalize class and builds synthetic population for local point
 
@@ -33,6 +33,11 @@ class LocalPopulation:
         self.RegionId = RegionId
         self.HHSizeDist = HHSizeDist
         self.HHSizeAgeDist = HHSizeAgeDist
+        self.SimEndDate = SimEndDate
+
+        self.PopulationParameters = PopulationParameters
+        self.DiseaseParameters = DiseaseParameters
+        
         self.UndefinedAgents = npersons
         self.DefinedAgents = 0
         self.EphermeralAgents = 0
@@ -94,7 +99,7 @@ class LocalPopulation:
         
         while (HHSize+1) > maxval:
             
-            HHSize = Utils.multinomial(ParameterSet.HHSizeDist, sum(ParameterSet.HHSizeDist))
+            HHSize = Utils.multinomial(self.HHSizeDist, sum(self.HHSizeDist))
             numtries += 1
             if numtries > 100:
                 #print(HHSize+1," ",maxval," ",numdefinedagents, " " , infectperson)
@@ -102,7 +107,7 @@ class LocalPopulation:
                 break
 
         # Now create household
-        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, ParameterSet.HHSizeAgeDist,self.PopulationDensity)
+        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, self.HHSizeAgeDist,self.PopulationDensity,self.PopulationParameters,self.DiseaseParameters)
         self.hhset[self.currHouseholdIDNum] = HH
         self.currHouseholdIDNum += 1
         self.UndefinedAgents -= (HHSize + 1)
@@ -144,8 +149,8 @@ class LocalPopulation:
 
     def getAgeStats(self):
         ageStats = {}
-        ageStats['infection'] = self.ageInfection
-        ageStats['ageInfection'] = self.ageInfectionHosp
+        ageStats['ageInfection'] = self.ageInfection
+        ageStats['ageInfectionHosp'] = self.ageInfectionHosp
         ageStats['ageMortality'] = self.ageMortality
         return ageStats
         
@@ -153,14 +158,12 @@ class LocalPopulation:
         return {self.LocalPopulationId: self.numInfected}
 
     def runTime(self, tend):
-        if ParameterSet.debugmodelevel >= ParameterSet.debugtimer:
-            t1 = time.time()
         addEvents = []
         delkeys = []
         sortedKeys = sorted(self.eventQueue.keys())
         offPopQueueEvents = []
         numevents = 0
-        eventTime = ParameterSet.MAXIntVal
+        eventTime = tend
         ## reset the daily infection lists
         for i in range(0,len(self.HospitalNewInfectionList)):
             self.HospitalNewInfectionList[i] = 0
@@ -175,8 +178,7 @@ class LocalPopulation:
                 numevents += 1
                 self.timeNow = eventTime
                 # now need to add getting the type of event -- case statements etc
-                if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer): t3 = time.time()
-                
+                                
                 if isinstance(SE,SimEvent.InfectionEvent):                
                     #print("Infection")
                     op = self.infectRandomAgent(SE.getAgeCohort())
@@ -265,7 +267,6 @@ class LocalPopulation:
                     Hospital = SE.getHospital()
                     if isinstance(SE,SimEvent.PersonHospCritEvent) or isinstance(SE,SimEvent.PersonHospICUEvent): 
                         self.ageInfectionHosp[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
-                        self.ageInfection[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
                         self.HospitalInfectionList[Hospital]+=1
                         if isinstance(SE,SimEvent.PersonHospICUEvent):
                             self.HospitalICUInfectionList[Hospital]+=1
@@ -277,7 +278,6 @@ class LocalPopulation:
                         self.HospitalICUInfectionList[Hospital]-=1
                         self.numHospitalizedICU -= 1
                     else:
-                        self.ageInfection[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
                         self.HospitalNewEDList[Hospital]+=1
                         
                 elif isinstance(SE,SimEvent.HouseholdInfectionEvent):
@@ -287,8 +287,6 @@ class LocalPopulation:
                         op = self.infectAgent(HHID,agentId=agentId)
                 else:
                     print("error",SE)
-                if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer): t4 = time.time()
-                if (ParameterSet.debugmodelevel >= ParameterSet.debugtimer): addEvents.append(t4 - t3)
                 
                 delkeys.append(key)
             else:
@@ -298,12 +296,7 @@ class LocalPopulation:
         for i in range(0, len(delkeys)):
             del self.eventQueue[delkeys[i]]
 
-        if ParameterSet.debugmodelevel >= ParameterSet.debugtimer:
-            t2 = time.time()
-        if ParameterSet.debugmodelevel >= ParameterSet.debugtimer:
-            if len(addEvents) > 0:
-                print("LocalPopultion:runTime()>>",self.RegionId,"-",self.LocalPopulationId,"(",numevents,"):",t2-t1," - ",sum(addEvents)/len(addEvents))
-        return offPopQueueEvents, numevents, eventTime
+        return offPopQueueEvents, numevents
 
     
     def infectRandomAgent(self,ageCohort=-1):
@@ -319,7 +312,7 @@ class LocalPopulation:
             HHID = self.BuildSingleHousehold()
            
         offPopQueueEvents = self.infectAgent(HHID,ageCohort=ageCohort)
-                      
+                          
         return offPopQueueEvents
 
     def infectAgent(self, HHID, agentId=-1,ageCohort=-1):
@@ -332,7 +325,7 @@ class LocalPopulation:
                                                   agentId,ageCohort)
         offPopQueueEvents = []
         numinfR = 0
-        
+        self.ageInfection[ageCohort]+=1
         # if they were infected then queue events will be returned
         if queueEvents:
             self.numSusceptible -= 1
@@ -348,7 +341,7 @@ class LocalPopulation:
                     numinfR += 1
                     #agentEvents['numInfections'] +=1
                     #agentEvents['numRinf'] +=1
-                    if ts <= ParameterSet.StopQueueDate:
+                    if ts <= self.SimEndDate:
                         offPopQueueEvents.append(QE)
                 else:
                     if isinstance(QE,SimEvent.HouseholdInfectionEvent):
@@ -364,11 +357,12 @@ class LocalPopulation:
                         numinfR += 1
                         #agentEvents['numInfections'] += 1
                         #agentEvents['numRinf'] += 1
-                    if ts <= ParameterSet.StopQueueDate:
+                    if ts <= self.SimEndDate:
                         self.eventQueue[ts] = QE
             #self.infectionEvents.append(agentEvents)
             #print(agentEvents)
             #print("InfAgents:",self.numAgentsInfected," RInf:",self.numNewRandomInfections," HInf:",self.numNewHHInfections," Inf:",self.numNewRandomInfections+self.numNewHHInfections," R0:",(self.numNewRandomInfections+self.numNewHHInfections) / self.numAgentsInfected, " HHSize:",self.hhset[HHID].getHouseholdSize())
+            #print("After infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
         else:
             # subtract infections that didn't happen --- solely for R0 calculation - will be off by Localpop but will work globally
             self.numNewRandomInfections -= 1
@@ -385,13 +379,6 @@ class LocalPopulation:
     def addEventsFromOtherLocalPopulations(self, QE):
         ts = QE.getEventTime()
         self.eventQueue[ts] = QE
-        return ts
+        return 
 
-    def getNextEventTime(self):
-        eventTime = ParameterSet.MAXIntVal
-        if len(self.eventQueue) > 0:
-            sortedKeys = sorted(self.eventQueue.keys())
-            SE = self.eventQueue[sortedKeys[0]]
-            eventTime = SE.getEventTime()
-        return eventTime
         
