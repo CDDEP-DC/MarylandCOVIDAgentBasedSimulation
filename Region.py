@@ -83,7 +83,7 @@ class Region:
             infEvents.extend(agentEvents)
         print(infEvents)
         
-    def infectRandomAgents(self,numInfect,OneLocalOnly=True,LPID =-1):
+    def infectRandomAgents(self,tend,numInfect,OneLocalOnly=True,LPID =-1):
         # Create off popqueue
         offPopQueueEvents = []
         # If we are only infecting on region
@@ -96,7 +96,7 @@ class Region:
                 
             LP = self.Locations[LPID]
             for i in range(0,numInfect):
-                op = LP.infectRandomAgent()
+                op = LP.infectRandomAgent(tend)
                 offPopQueueEvents.extend(op)
             
         else:
@@ -109,10 +109,10 @@ class Region:
             for i in range(0,len(LPIDs)):
                 LPID = LPIDs[i]
                 LP = self.Locations[LPID]
-                op = LP.infectRandomAgent()
+                op = LP.infectRandomAgent(tend)
                 offPopQueueEvents.extend(op)
                     
-        return offPopQueueEvents, self.getRegionStats()
+        return offPopQueueEvents
 
 
     def addEventsFromOtherLocalPopulations(self,RegionReconciliationEvents):

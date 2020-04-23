@@ -16,25 +16,22 @@ import ParameterSet
 
 def BuildPops(i,PopulationParameters,DiseaseParameters,SimEndDate, RegionalLocations, RegionInteractionMatrixList, RegionListGuide, modelPopNames,HospitalTransitionMatrix=[]):
     region = Region.Region(RegionalLocations, RegionInteractionMatrixList, i, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,SimEndDate)
-    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle", region)
-    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "STATS.pickle", region.getRegionStats())
+    Utils.FileWrite(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+".pickle"), region)
+    Utils.FileWrite(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"STATS.pickle"), region.getRegionStats())
 
 
 def RunRegionForward(i,PopulationParameters,DiseaseParameters,R, tend, modelPopNames,RegionReconciliationEvents,infectNumAgents,LPIDinfect=-1):
                     
-    saveRegion = False
     if len(RegionReconciliationEvents) > 0:
         R.addEventsFromOtherLocalPopulations(RegionReconciliationEvents)
-        saveRegion = True
-
+    
     infop = []
     if infectNumAgents > 0:
         if ParameterSet.ModelRunning == 'Wuhan':
             if R.IsThisWhuhanMktRegion()==1:
-                infop, regionStats = R.infectRandomAgents(infectNumAgents)
+                infop = R.infectRandomAgents(tend,infectNumAgents)
         else:
-            infop, regionStats = R.infectRandomAgents(infectNumAgents,LPIDinfect)
-        saveRegion = True
+            infop = R.infectRandomAgents(tend,infectNumAgents,LPIDinfect)
         
     regionStats, offPopQueueEvents, numEvents = R.runTimePeriod(tend)
     
@@ -54,29 +51,31 @@ def RunRegionForward(i,PopulationParameters,DiseaseParameters,R, tend, modelPopN
     AgeStatsList = {}
     AgeStatsList[i] = LPAgeStats
     
-    return numEvents,saveRegion, regionStatsX,R,offPopQueueEvents,hospOccupancyList,R0StatsList,AgeStatsList
+    return numEvents, regionStatsX,R,offPopQueueEvents,hospOccupancyList,R0StatsList,AgeStatsList
     
 
 def RunTimeForward(i,PopulationParameters,DiseaseParameters, tend, modelPopNames,RegionReconciliationEvents,infectNumAgents,LPIDinfect=-1):
     
-    R = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle")
+    R = Utils.FileRead(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+".pickle"))
     
-    numEvents,saveRegion, regionStatsX,R,offPopQueueEvents,hospOccupancyList,R0StatsList,AgeStatsList = RunRegionForward(i,PopulationParameters,DiseaseParameters,R, tend, modelPopNames,RegionReconciliationEvents,infectNumAgents,LPIDinfect=-1)
+    numEvents, regionStatsX,R,offPopQueueEvents,hospOccupancyList,R0StatsList,AgeStatsList = \
+                RunRegionForward(i,PopulationParameters,DiseaseParameters,R, tend, modelPopNames, \
+                                    RegionReconciliationEvents,infectNumAgents,LPIDinfect=-1)
     
-    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "RegionStats.pickle", regionStatsX)
+    Utils.FileWrite(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"RegionStats.pickle"), regionStatsX)
     
-    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle", R)
+    Utils.FileWrite(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+".pickle"), R)
     
-    Utils.FileWrite(ParameterSet.QueueFolder + "/" + str(modelPopNames) + str(i) + "Queue.pickle", offPopQueueEvents)
+    Utils.FileWrite(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"), offPopQueueEvents)
     
-    if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
-        CurrentHospOccList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
+    if os.path.exists(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"HOSPLIST.pickle")):
+        CurrentHospOccList = Utils.FileRead(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"HOSPLIST.pickle"))
     else:
         CurrentHospOccList = {}
     CurrentHospOccList[tend] = hospOccupancyList  
-    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle", CurrentHospOccList)
-    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle", R0StatsList)
-    Utils.FileWrite(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle", AgeStatsList)
+    Utils.FileWrite(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"HOSPLIST.pickle"), CurrentHospOccList)
+    Utils.FileWrite(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"R0Stats.pickle"), R0StatsList)
+    Utils.FileWrite(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"AgeStats.pickle"), AgeStatsList)
     
     
 

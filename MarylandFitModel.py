@@ -57,7 +57,16 @@ def main():
     
     ###  data to fit
     MarylandFitData = {}
-    MarylandFitData[datetime(2020,3,22)] = {'hospitalized':18,'admissions':25}
+    MarylandFitData[datetime(2020,3,13)] = {'hospitalized':7,'admissions':25}
+    MarylandFitData[datetime(2020,3,14)] = {'hospitalized':8,'admissions':25}
+    MarylandFitData[datetime(2020,3,15)] = {'hospitalized':10,'admissions':25}
+    MarylandFitData[datetime(2020,3,16)] = {'hospitalized':12,'admissions':25}
+    MarylandFitData[datetime(2020,3,17)] = {'hospitalized':14,'admissions':25}
+    MarylandFitData[datetime(2020,3,18)] = {'hospitalized':17,'admissions':25}
+    MarylandFitData[datetime(2020,3,19)] = {'hospitalized':20,'admissions':25}
+    MarylandFitData[datetime(2020,3,20)] = {'hospitalized':25,'admissions':25}
+    MarylandFitData[datetime(2020,3,21)] = {'hospitalized':30,'admissions':25}
+    MarylandFitData[datetime(2020,3,22)] = {'hospitalized':36,'admissions':25}
     MarylandFitData[datetime(2020,3,23)] = {'hospitalized':43,'admissions':64}
     MarylandFitData[datetime(2020,3,24)] = {'hospitalized':52,'admissions':98}
     MarylandFitData[datetime(2020,3,25)] = {'hospitalized':88,'admissions':140}
@@ -75,77 +84,83 @@ def main():
     MarylandFitData[datetime(2020,4,6)] = {'hospitalized':801,'admissions':1059}
     MarylandFitData[datetime(2020,4,7)] = {'hospitalized':848,'admissions':1106}
     MarylandFitData[datetime(2020,4,8)] = {'hospitalized':924,'admissions':1210}
-    #MarylandFitData[datetime(2020,4,9)] = {'hospitalized':918,'admissions':1348}
-    #MarylandFitData[datetime(2020,4,10)] = {'hospitalized':1020,'admissions':1709}
-    #MarylandFitData[datetime(2020,4,11)] = {'hospitalized':1019,'admissions':1860}
-    #MarylandFitData[datetime(2020,4,12)] = {'hospitalized':1071,'admissions':1975}
+    MarylandFitData[datetime(2020,4,9)] = {'hospitalized':918,'admissions':1348}
+    MarylandFitData[datetime(2020,4,10)] = {'hospitalized':1020,'admissions':1709}
+    
     
     ####
        
     ### Highs and lows for variables
                             
-    endTimeUL = 68 ## 
-    endTimeLL = 54 ## 
+    endTimeUL = 70 ## 
+    endTimeLL = 42 ## 
     
     AG04AsymptomaticRateUL = 1
-    AG04AsymptomaticRateLL = .8
-    AG04HospRateUL = 75/10000
-    AG04HospRateLL = 0/10000
+    AG04AsymptomaticRateLL = .98
+    AG04HospRateUL = 1/100
+    AG04HospRateLL = 5/1000
                 
     #agecohort 1 -- 5-17
     AG517AsymptomaticRateUL = 1
-    AG517AsymptomaticRateLL = .75
-    AG517HospRateUL = 160/10000
-    AG517HospRateLL = 80/10000
+    AG517AsymptomaticRateLL = .98
+    AG517HospRateUL = 1/100
+    AG517HospRateLL = 5/1000
     
     #agecohort 2 -- 18-49
-    AG1849AsymptomaticRateUL = 1
-    AG1849AsymptomaticRateLL = .3
+    AG1849AsymptomaticRateUL = .95
+    AG1849AsymptomaticRateLL = .75
     AG1849HospRateUL = 15/100
-    AG1849HospRateLL = 1/100
+    AG1849HospRateLL = 5/100
     
     #agecohort 3 -- 50-64
-    AG5064AsymptomaticRateUL = .9
-    AG5064AsymptomaticRateLL = .1
-    AG5064HospRateUL = 1/100
-    AG5064HospRateLL = 35/100
+    AG5064AsymptomaticRateUL = .95
+    AG5064AsymptomaticRateLL = .75
+    AG5064HospRateUL = 35/100
+    AG5064HospRateLL = 15/100
             
     #agecohort 4 -- 65+
-    AG65AsymptomaticRateUL = .9
-    AG65AsymptomaticRateLL = .1
+    AG65AsymptomaticRateUL = .95
+    AG65AsymptomaticRateLL = .70
     AG65HospRateUL = .60
-    AG65HospRateLL = .1
+    AG65HospRateLL = .4
 
-    IncubationTimeUL = 14
+    IncubationTimeUL = 7
     IncubationTimeLL = 1
-    totalContagiousTimeUL = 21
-    totalContagiousTimeLL = 1
+    mildContagiousTimeUL = 21
+    mildContagiousTimeLL = 1
     symptomaticTimeUL = 15
     symptomaticTimeLL = 3
     hospitalSymptomaticTimeUL = 20
     hospitalSymptomaticTimeLL = 5
     ICURateUL = .6
     ICURateLL = .4
-    PostICUTimeUL = 5
+    PostICUTimeUL = 10
     PostICUTimeLL = 1
     ICUtimeUL = 15 # added to hospitalSymptomaticTime
     ICUtimeLL = 5
-    hospTimeUL = 8
-    hospTimeLL = 1
+    preHospTimeUL = 8
+    preHospTimeLL = 1
     EDVisitUL = 1
     EDVisitLL = .25
-    preContagiousTimeUL = 3
-    preContagiousTimeLL = 0
+    preContagiousTimeUL = 7
+    preContagiousTimeLL = 1/2
     postContagiousTimeUL = 10
     postContagiousTimeLL = 0
     ProbabilityOfTransmissionPerContactUL = 0.05
     ProbabilityOfTransmissionPerContactLL = 0.01
     symptomaticContactRateReductionUL = .9
     symptomaticContactRateReductionLL = .1
-    
+    hospitalSymptomaticContactRateReductionUL = .9
+    hospitalSymptomaticContactRateReductionLL = .1
 
-    ImportationRateUL = 100
+    ImportationRateUL = 25
     ImportationRateLL = 1
+    
+    InterventionRateUL = 100
+    InterventionRateLL = 1
+    
+    InterventionMobilityEffectUL = 100
+    InterventionMobilityEffectLL = 50
     
     AsymptomaticReducationTransUL = 2
     AsymptomaticReducationTransLL = .1
@@ -198,8 +213,8 @@ def main():
             if name == 'IncubationTime':
                 return random.random()*(IncubationTimeUL - IncubationTimeLL) + IncubationTimeLL
                 
-            if name == 'totalContagiousTime':
-                return random.random()*(totalContagiousTimeUL - totalContagiousTimeLL) + totalContagiousTimeLL
+            if name == 'mildContagiousTime':
+                return random.random()*(mildContagiousTimeUL - mildContagiousTimeLL) + mildContagiousTimeLL
             
             if name == 'symptomaticTime':
                 return random.random()*(symptomaticTimeUL - symptomaticTimeLL) + symptomaticTimeLL
@@ -216,8 +231,8 @@ def main():
             if name == 'PostICUTime':
                 return random.random()*(PostICUTimeUL - PostICUTimeLL) + PostICUTimeLL
                 
-            if name == 'hospTime':
-                return random.random()*(hospTimeUL - hospTimeLL) + hospTimeLL
+            if name == 'preHospTime':
+                return random.random()*(preHospTimeUL - preHospTimeLL) + preHospTimeLL
                 
             if name == 'EDVisit':
                 random.random()*(EDVisitUL - EDVisitLL) + EDVisitLL
@@ -237,8 +252,17 @@ def main():
             if name == 'symptomaticContactRateReduction':
                 return random.random()*(symptomaticContactRateReductionUL - symptomaticContactRateReductionLL) + symptomaticContactRateReductionLL
                 
+            if name == 'hospitalSymptomaticContactRateReduction':
+                return random.random()*(hospitalSymptomaticContactRateReductionUL - hospitalSymptomaticContactRateReductionLL) + hospitalSymptomaticContactRateReductionLL
+            
             if name == 'ImportationRate':
                 return random.randint(ImportationRateLL,ImportationRateUL)
+            
+            if name == 'InterventionRate':
+                return random.randint(InterventionRateLL,InterventionRateUL)/100
+             
+            if name == 'InterventionMobilityEffect':
+                return random.randint(InterventionMobilityEffectLL,InterventionMobilityEffectUL)/100
                 
             if name == 'AsymptomaticReducationTrans':    
                 return random.random()*(AsymptomaticReducationTransUL - AsymptomaticReducationTransLL) + AsymptomaticReducationTransLL 
@@ -263,7 +287,7 @@ def main():
         AG65HospRate = random.random()*(AG65HospRateUL - AG65HospRateLL) + AG65HospRateLL
         
         IncubationTime = random.random()*(IncubationTimeUL - IncubationTimeLL) + IncubationTimeLL
-        totalContagiousTime = random.random()*(totalContagiousTimeUL - totalContagiousTimeLL) + totalContagiousTimeLL
+        mildContagiousTime = random.random()*(mildContagiousTimeUL - mildContagiousTimeLL) + mildContagiousTimeLL
         symptomaticTime = random.random()*(symptomaticTimeUL - symptomaticTimeLL) + symptomaticTimeLL
         hospitalSymptomaticTime = random.random()*(hospitalSymptomaticTimeUL - hospitalSymptomaticTimeLL) + hospitalSymptomaticTimeLL
         
@@ -271,19 +295,21 @@ def main():
         ICUtime = random.random()*(ICUtimeUL - ICUtimeLL) + ICUtimeLL + hospitalSymptomaticTime
         PostICUTime = random.random()*(PostICUTimeUL - PostICUTimeLL) + PostICUTimeLL
         
-        hospTime = random.random()*(hospTimeUL - hospTimeLL) + hospTimeLL
+        preHospTime = random.random()*(preHospTimeUL - preHospTimeLL) + preHospTimeLL
         EDVisit = random.random()*(EDVisitUL - EDVisitLL) + EDVisitLL
         preContagiousTime = random.random()*(preContagiousTimeUL - preContagiousTimeLL) + preContagiousTimeLL
         postContagiousTime = random.random()*(postContagiousTimeUL - postContagiousTimeLL) + postContagiousTimeLL
         householdcontactRate = random.random()*(householdcontactRateUL - householdcontactRateLL) + householdcontactRateLL
         
         ImportationRate = random.randint(ImportationRateLL,ImportationRateUL)
+        InterventionRate = random.randint(InterventionRateLL,InterventionRateUL)/100
+        InterventionMobilityEffect = random.randint(InterventionMobilityEffectLL,InterventionMobilityEffectUL)/100
+                
         AsymptomaticReducationTrans = random.random()*(AsymptomaticReducationTransUL - AsymptomaticReducationTransLL) + AsymptomaticReducationTransLL
         
         ProbabilityOfTransmissionPerContact = random.random()*(ProbabilityOfTransmissionPerContactUL - ProbabilityOfTransmissionPerContactLL) + ProbabilityOfTransmissionPerContactLL
         symptomaticContactRateReduction = random.random()*(symptomaticContactRateReductionUL - symptomaticContactRateReductionLL) + symptomaticContactRateReductionLL
-    
-        
+        hospitalSymptomaticContactRateReduction = random.random()*(hospitalSymptomaticContactRateReductionUL - hospitalSymptomaticContactRateReductionLL) + hospitalSymptomaticContactRateReductionLL
 
         ParameterVals[nrun] = { 'endTime':endTime, 
             'AG04AsymptomaticRate':AG04AsymptomaticRate,
@@ -297,13 +323,13 @@ def main():
             'AG65AsymptomaticRate':AG65AsymptomaticRate,
             'AG65HospRate':AG65HospRate,
             'IncubationTime':IncubationTime,
-            'totalContagiousTime':totalContagiousTime,
+            'mildContagiousTime':mildContagiousTime,
             'symptomaticTime':symptomaticTime,
             'hospitalSymptomaticTime':hospitalSymptomaticTime,
             'ICURate':ICURate,
             'ICUtime':ICUtime,
             'PostICUTime':PostICUTime,
-            'hospTime':hospTime,
+            'preHospTime':preHospTime,
             'EDVisit':EDVisit,
             'preContagiousTime':preContagiousTime,
             'postContagiousTime':postContagiousTime,
@@ -311,7 +337,10 @@ def main():
             'householdcontactRate':householdcontactRate,
             'ProbabilityOfTransmissionPerContact':ProbabilityOfTransmissionPerContact,
             'symptomaticContactRateReduction':symptomaticContactRateReduction,
+            'hospitalSymptomaticContactRateReduction':hospitalSymptomaticContactRateReduction,
             'ImportationRate':ImportationRate,
+            'InterventionRate':InterventionRate,
+            'InterventionMobilityEffect':InterventionMobilityEffect,
             'AsymptomaticReducationTrans':AsymptomaticReducationTrans,
             'diffC':0
         }
@@ -370,13 +399,13 @@ def main():
         AG65AsymptomaticRatevals = []
         AG65HospRatevals = []
         IncubationTimevals = []
-        totalContagiousTimevals = []
+        mildContagiousTimevals = []
         symptomaticTimevals = []
         hospitalSymptomaticTimevals = []
         ICURatevals = []
         ICUtimevals = []
         PostICUTimevals = []
-        hospTimevals = []
+        preHospTimevals = []
         EDVisitvals = []
         preContagiousTimevals = []
         postContagiousTimevals = []
@@ -384,7 +413,10 @@ def main():
         householdcontactRatevals = []
         ProbabilityOfTransmissionPerContact = []
         symptomaticContactRateReduction = []
+        hospitalSymptomaticContactRateReduction = []
         ImportationRate = []
+        InterventionRate = []
+        InterventionMobilityEffect = []
         AsymptomaticReducationTrans = []
         
         
@@ -404,13 +436,13 @@ def main():
             AG65AsymptomaticRatevals.append(NewParameterVals[i]['AG65AsymptomaticRate'])
             AG65HospRatevals.append(NewParameterVals[i]['AG65HospRate'])
             IncubationTimevals.append(NewParameterVals[i]['IncubationTime'])
-            totalContagiousTimevals.append(NewParameterVals[i]['totalContagiousTime'])
+            mildContagiousTimevals.append(NewParameterVals[i]['mildContagiousTime'])
             symptomaticTimevals.append(NewParameterVals[i]['symptomaticTime'])
             hospitalSymptomaticTimevals.append(NewParameterVals[i]['hospitalSymptomaticTime'])
             ICURatevals.append(NewParameterVals[i]['ICURate'])
             ICUtimevals.append(NewParameterVals[i]['ICUtime'])
             PostICUTimevals.append(NewParameterVals[i]['PostICUTime'])
-            hospTimevals.append(NewParameterVals[i]['hospTime'])
+            preHospTimevals.append(NewParameterVals[i]['preHospTime'])
             EDVisitvals.append(NewParameterVals[i]['EDVisit'])
             preContagiousTimevals.append(NewParameterVals[i]['preContagiousTime'])
             postContagiousTimevals.append(NewParameterVals[i]['postContagiousTime'])
@@ -418,7 +450,10 @@ def main():
             householdcontactRatevals.append(NewParameterVals[i]['householdcontactRate'])
             ProbabilityOfTransmissionPerContact.append(NewParameterVals[i]['ProbabilityOfTransmissionPerContact'])
             symptomaticContactRateReduction.append(NewParameterVals[i]['symptomaticContactRateReduction'])
+            hospitalSymptomaticContactRateReduction.append(NewParameterVals[i]['hospitalSymptomaticContactRateReduction'])
             ImportationRate.append(NewParameterVals[i]['ImportationRate'])
+            InterventionRate.append(NewParameterVals[i]['InterventionRate'])
+            InterventionMobilityEffect.append(NewParameterVals[i]['InterventionMobilityEffect'])
             AsymptomaticReducationTrans.append(NewParameterVals[i]['AsymptomaticReducationTrans'])
 
             parent1 = Utils.multinomial(fitnessVals,fitnessValsSum)
@@ -439,13 +474,13 @@ def main():
                 'AG65AsymptomaticRate':mutateRand('AG65AsymptomaticRate',NewParameterVals[parent1]['AG65AsymptomaticRate'])  if random.random() < .5 else mutateRand('AG65AsymptomaticRate',NewParameterVals[parent2]['AG65AsymptomaticRate']),
                 'AG65HospRate':mutateRand('AG65HospRate',NewParameterVals[parent1]['AG65HospRate'])  if random.random() < .5 else mutateRand('AG65HospRate',NewParameterVals[parent2]['AG65HospRate']),
                 'IncubationTime':mutateRand('IncubationTime',NewParameterVals[parent1]['IncubationTime'])  if random.random() < .5 else mutateRand('IncubationTime',NewParameterVals[parent2]['IncubationTime']),
-                'totalContagiousTime':mutateRand('totalContagiousTime',NewParameterVals[parent1]['totalContagiousTime'])  if random.random() < .5 else mutateRand('totalContagiousTime',NewParameterVals[parent2]['totalContagiousTime']),
+                'mildContagiousTime':mutateRand('mildContagiousTime',NewParameterVals[parent1]['mildContagiousTime'])  if random.random() < .5 else mutateRand('mildContagiousTime',NewParameterVals[parent2]['mildContagiousTime']),
                 'symptomaticTime':mutateRand('symptomaticTime',NewParameterVals[parent1]['symptomaticTime'])  if random.random() < .5 else mutateRand('symptomaticTime',NewParameterVals[parent2]['symptomaticTime']),
                 'hospitalSymptomaticTime':mutateRand('hospitalSymptomaticTime',NewParameterVals[parent1]['hospitalSymptomaticTime'])  if random.random() < .5 else mutateRand('hospitalSymptomaticTime',NewParameterVals[parent2]['hospitalSymptomaticTime']),
                 'ICURate':mutateRand('ICURate',NewParameterVals[parent1]['ICURate'])  if random.random() < .5 else mutateRand('ICURate',NewParameterVals[parent2]['ICURate']),
                 'ICUtime':mutateRand('ICUtime',NewParameterVals[parent1]['ICUtime'])  if random.random() < .5 else mutateRand('ICUtime',NewParameterVals[parent2]['ICUtime']),
                 'PostICUTime':mutateRand('PostICUTime',NewParameterVals[parent1]['PostICUTime'])  if random.random() < .5 else mutateRand('PostICUTime',NewParameterVals[parent2]['PostICUTime']),                
-                'hospTime':mutateRand('hospTime',NewParameterVals[parent1]['hospTime'])  if random.random() < .5 else mutateRand('hospTime',NewParameterVals[parent2]['hospTime']),
+                'preHospTime':mutateRand('preHospTime',NewParameterVals[parent1]['preHospTime'])  if random.random() < .5 else mutateRand('preHospTime',NewParameterVals[parent2]['preHospTime']),
                 'EDVisit':mutateRand('EDVisit',NewParameterVals[parent1]['EDVisit'])  if random.random() < .5 else mutateRand('EDVisit',NewParameterVals[parent2]['EDVisit']),
                 'preContagiousTime':mutateRand('preContagiousTime',NewParameterVals[parent1]['preContagiousTime'])  if random.random() < .5 else mutateRand('preContagiousTime',NewParameterVals[parent2]['preContagiousTime']),
                 'postContagiousTime':mutateRand('postContagiousTime',NewParameterVals[parent1]['postContagiousTime'])  if random.random() < .5 else mutateRand('postContagiousTime',NewParameterVals[parent2]['postContagiousTime']),
@@ -453,7 +488,10 @@ def main():
                 'householdcontactRate':mutateRand('householdcontactRate',NewParameterVals[parent1]['householdcontactRate'])  if random.random() < .5 else mutateRand('householdcontactRate',NewParameterVals[parent2]['householdcontactRate']),
                 'ProbabilityOfTransmissionPerContact':mutateRand('ProbabilityOfTransmissionPerContact',NewParameterVals[parent1]['ProbabilityOfTransmissionPerContact'])  if random.random() < .5 else mutateRand('ProbabilityOfTransmissionPerContact',NewParameterVals[parent2]['ProbabilityOfTransmissionPerContact']),
                 'symptomaticContactRateReduction':mutateRand('symptomaticContactRateReduction',NewParameterVals[parent1]['symptomaticContactRateReduction'])  if random.random() < .5 else mutateRand('symptomaticContactRateReduction',NewParameterVals[parent2]['symptomaticContactRateReduction']),
+                'hospitalSymptomaticContactRateReduction':mutateRand('hospitalSymptomaticContactRateReduction',NewParameterVals[parent1]['hospitalSymptomaticContactRateReduction'])  if random.random() < .5 else mutateRand('hospitalSymptomaticContactRateReduction',NewParameterVals[parent2]['hospitalSymptomaticContactRateReduction']),
                 'ImportationRate':mutateRand('ImportationRate',NewParameterVals[parent1]['ImportationRate'])  if random.random() < .5 else mutateRand('ImportationRate',NewParameterVals[parent2]['ImportationRate']),
+                'InterventionRate':mutateRand('InterventionRate',NewParameterVals[parent1]['InterventionRate'])  if random.random() < .5 else mutateRand('InterventionRate',NewParameterVals[parent2]['InterventionRate']),
+                'InterventionMobilityEffect':mutateRand('InterventionMobilityEffect',NewParameterVals[parent1]['InterventionMobilityEffect'])  if random.random() < .5 else mutateRand('InterventionMobilityEffect',NewParameterVals[parent2]['InterventionMobilityEffect']),
                 'AsymptomaticReducationTrans':mutateRand('AsymptomaticReducationTrans',NewParameterVals[parent1]['AsymptomaticReducationTrans'])  if random.random() < .5 else mutateRand('AsymptomaticReducationTrans',NewParameterVals[parent2]['AsymptomaticReducationTrans']),
                 'diffC':0
             }
@@ -471,13 +509,13 @@ def main():
                 'AG65AsymptomaticRate':mutateRand('AG65AsymptomaticRate',NewParameterVals[parent1]['AG65AsymptomaticRate'])  if random.random() < .5 else mutateRand('AG65AsymptomaticRate',NewParameterVals[parent2]['AG65AsymptomaticRate']),
                 'AG65HospRate':mutateRand('AG65HospRate',NewParameterVals[parent1]['AG65HospRate'])  if random.random() < .5 else mutateRand('AG65HospRate',NewParameterVals[parent2]['AG65HospRate']),
                 'IncubationTime':mutateRand('IncubationTime',NewParameterVals[parent1]['IncubationTime'])  if random.random() < .5 else mutateRand('IncubationTime',NewParameterVals[parent2]['IncubationTime']),
-                'totalContagiousTime':mutateRand('totalContagiousTime',NewParameterVals[parent1]['totalContagiousTime'])  if random.random() < .5 else mutateRand('totalContagiousTime',NewParameterVals[parent2]['totalContagiousTime']),
+                'mildContagiousTime':mutateRand('mildContagiousTime',NewParameterVals[parent1]['mildContagiousTime'])  if random.random() < .5 else mutateRand('mildContagiousTime',NewParameterVals[parent2]['mildContagiousTime']),
                 'symptomaticTime':mutateRand('symptomaticTime',NewParameterVals[parent1]['symptomaticTime'])  if random.random() < .5 else mutateRand('symptomaticTime',NewParameterVals[parent2]['symptomaticTime']),
                 'hospitalSymptomaticTime':mutateRand('hospitalSymptomaticTime',NewParameterVals[parent1]['hospitalSymptomaticTime'])  if random.random() < .5 else mutateRand('hospitalSymptomaticTime',NewParameterVals[parent2]['hospitalSymptomaticTime']),
                 'ICURate':mutateRand('ICURate',NewParameterVals[parent1]['ICURate'])  if random.random() < .5 else mutateRand('ICURate',NewParameterVals[parent2]['ICURate']),
                 'ICUtime':mutateRand('ICUtime',NewParameterVals[parent1]['ICUtime'])  if random.random() < .5 else mutateRand('ICUtime',NewParameterVals[parent2]['ICUtime']),
                 'PostICUTime':mutateRand('PostICUTime',NewParameterVals[parent1]['PostICUTime'])  if random.random() < .5 else mutateRand('PostICUTime',NewParameterVals[parent2]['PostICUTime']),
-                'hospTime':mutateRand('hospTime',NewParameterVals[parent1]['hospTime'])  if random.random() < .5 else mutateRand('hospTime',NewParameterVals[parent2]['hospTime']),
+                'preHospTime':mutateRand('preHospTime',NewParameterVals[parent1]['preHospTime'])  if random.random() < .5 else mutateRand('preHospTime',NewParameterVals[parent2]['preHospTime']),
                 'EDVisit':mutateRand('EDVisit',NewParameterVals[parent1]['EDVisit'])  if random.random() < .5 else mutateRand('EDVisit',NewParameterVals[parent2]['EDVisit']),
                 'preContagiousTime':mutateRand('preContagiousTime',NewParameterVals[parent1]['preContagiousTime'])  if random.random() < .5 else mutateRand('preContagiousTime',NewParameterVals[parent2]['preContagiousTime']),
                 'postContagiousTime':mutateRand('postContagiousTime',NewParameterVals[parent1]['postContagiousTime'])  if random.random() < .5 else mutateRand('postContagiousTime',NewParameterVals[parent2]['postContagiousTime']),
@@ -485,7 +523,10 @@ def main():
                 'householdcontactRate':mutateRand('householdcontactRate',NewParameterVals[parent1]['householdcontactRate'])  if random.random() < .5 else mutateRand('householdcontactRate',NewParameterVals[parent2]['householdcontactRate']),
                 'ProbabilityOfTransmissionPerContact':mutateRand('ProbabilityOfTransmissionPerContact',NewParameterVals[parent1]['ProbabilityOfTransmissionPerContact'])  if random.random() < .5 else mutateRand('ProbabilityOfTransmissionPerContact',NewParameterVals[parent2]['ProbabilityOfTransmissionPerContact']),
                 'symptomaticContactRateReduction':mutateRand('symptomaticContactRateReduction',NewParameterVals[parent1]['symptomaticContactRateReduction'])  if random.random() < .5 else mutateRand('symptomaticContactRateReduction',NewParameterVals[parent2]['symptomaticContactRateReduction']),
+                'hospitalSymptomaticContactRateReduction':mutateRand('hospitalSymptomaticContactRateReduction',NewParameterVals[parent1]['hospitalSymptomaticContactRateReduction'])  if random.random() < .5 else mutateRand('hospitalSymptomaticContactRateReduction',NewParameterVals[parent2]['hospitalSymptomaticContactRateReduction']),
                 'ImportationRate':mutateRand('ImportationRate',NewParameterVals[parent1]['ImportationRate'])  if random.random() < .5 else mutateRand('ImportationRate',NewParameterVals[parent2]['ImportationRate']),
+                'InterventionRate':mutateRand('InterventionRate',NewParameterVals[parent1]['InterventionRate'])  if random.random() < .5 else mutateRand('InterventionRate',NewParameterVals[parent2]['InterventionRate']),
+                'InterventionMobilityEffect':mutateRand('InterventionMobilityEffect',NewParameterVals[parent1]['InterventionMobilityEffect'])  if random.random() < .5 else mutateRand('InterventionMobilityEffect',NewParameterVals[parent2]['InterventionMobilityEffect']),
                 'AsymptomaticReducationTrans':mutateRand('AsymptomaticReducationTrans',NewParameterVals[parent1]['AsymptomaticReducationTrans'])  if random.random() < .5 else mutateRand('AsymptomaticReducationTrans',NewParameterVals[parent2]['AsymptomaticReducationTrans']),
                 'diffC':0
             }    
@@ -508,13 +549,13 @@ def main():
             'AG65AsymptomaticRate':mean(AG65AsymptomaticRatevals),
             'AG65HospRate':mean(AG65HospRatevals),
             'IncubationTime':mean(IncubationTimevals),
-            'totalContagiousTime':mean(totalContagiousTimevals),
+            'mildContagiousTime':mean(mildContagiousTimevals),
             'symptomaticTime':mean(symptomaticTimevals),
             'hospitalSymptomaticTime':mean(hospitalSymptomaticTimevals),
             'ICURate':mean(ICURatevals),
             'ICUtime':mean(ICUtimevals),
             'PostICUTime':mean(PostICUTimevals),
-            'hospTime':mean(hospTimevals),
+            'preHospTime':mean(preHospTimevals),
             'EDVisit':mean(EDVisitvals),
             'preContagiousTime':mean(preContagiousTimevals),
             'postContagiousTime':mean(postContagiousTimevals),
@@ -522,7 +563,10 @@ def main():
             'householdcontactRate':mean(householdcontactRatevals),
             'ProbabilityOfTransmissionPerContact':mean(ProbabilityOfTransmissionPerContact),
             'symptomaticContactRateReduction':mean(symptomaticContactRateReduction),
+            'hospitalSymptomaticContactRateReduction':mean(hospitalSymptomaticContactRateReduction),
             'ImportationRate':mean(ImportationRate),
+            'InterventionRate':mean(InterventionRate),
+            'InterventionMobilityEffect':mean(InterventionMobilityEffect),
             'AsymptomaticReducationTrans':mean(AsymptomaticReducationTrans)
         }
         print(finalvalsw)
@@ -546,13 +590,13 @@ def WorkerJob(i,PV,AgeCohortInteraction,Model,modelPopNames,resultsName,Maryland
     AG65AsymptomaticRate = PV['AG65AsymptomaticRate']
     AG65HospRate = PV['AG65HospRate']
     IncubationTime = PV['IncubationTime']
-    totalContagiousTime = PV['totalContagiousTime']
+    mildContagiousTime = PV['mildContagiousTime']
     symptomaticTime = PV['symptomaticTime']
     hospitalSymptomaticTime = PV['hospitalSymptomaticTime']
     ICURate = PV['ICURate']
     ICUtime = PV['ICUtime']
     PostICUTime = PV['PostICUTime']
-    hospTime = PV['hospTime']
+    preHospTime = PV['preHospTime']
     EDVisit = PV['EDVisit']
     preContagiousTime = PV['preContagiousTime']
     postContagiousTime = PV['postContagiousTime']
@@ -560,33 +604,36 @@ def WorkerJob(i,PV,AgeCohortInteraction,Model,modelPopNames,resultsName,Maryland
     householdcontactRate = PV['householdcontactRate']
     ProbabilityOfTransmissionPerContact = PV['ProbabilityOfTransmissionPerContact']
     symptomaticContactRateReduction = PV['symptomaticContactRateReduction']
+    hospitalSymptomaticContactRateReduction = PV['hospitalSymptomaticContactRateReduction']
     ImportationRate = PV['ImportationRate']
+    InterventionRate = PV['InterventionRate']
+    InterventionMobilityEffect = PV['InterventionMobilityEffect']
     AsymptomaticReducationTrans = PV['AsymptomaticReducationTrans']
     
     #agecohort 0 -- 0-4
-    AG04GammaScale = 5
+    AG04GammaScale = 6
     AG04GammaShape = 2.1
-    AG04MortalityRate = 0.001
+    AG04MortalityRate = 1/10000
       
     #agecohort 1 -- 5-17
-    AG517GammaScale = 5
+    AG517GammaScale = 6
     AG517GammaShape = 3
-    AG517MortalityRate = 0.001
+    AG517MortalityRate = 1/10000
     
     #agecohort 2 -- 18-49
-    AG1849GammaScale = 5
+    AG1849GammaScale = 6
     AG1849GammaShape = 2.5
-    AG1849MortalityRate = 0.01
+    AG1849MortalityRate = 7/1000
      
     #agecohort 3 -- 50-64
-    AG5064GammaScale = 5
+    AG5064GammaScale = 6
     AG5064GammaShape = 2.3
-    AG5064MortalityRate = 0.08
+    AG5064MortalityRate = 14/1000
             
     #agecohort 4 -- 65+
-    AG65GammaScale = 5
+    AG65GammaScale = 6
     AG65GammaShape = 2.1
-    AG65MortalityRate = 0.15
+    AG65MortalityRate = 35/1000
     
     # First set all the parameters
     PopulationParameters = {}
@@ -605,13 +652,13 @@ def WorkerJob(i,PV,AgeCohortInteraction,Model,modelPopNames,resultsName,Maryland
     
     ## Disease Progression Parameters
     DiseaseParameters['IncubationTime'] = IncubationTime
-    DiseaseParameters['totalContagiousTime'] = totalContagiousTime
+    DiseaseParameters['mildContagiousTime'] = mildContagiousTime
     DiseaseParameters['symptomaticTime'] = symptomaticTime
     DiseaseParameters['hospitalSymptomaticTime'] = hospitalSymptomaticTime
     DiseaseParameters['ICURate'] = ICURate
     DiseaseParameters['ICUtime'] = ICUtime
     DiseaseParameters['PostICUTime'] = PostICUTime
-    DiseaseParameters['hospTime'] = hospTime
+    DiseaseParameters['preHospTime'] = preHospTime
     DiseaseParameters['EDVisit'] = EDVisit
     DiseaseParameters['preContagiousTime'] = preContagiousTime
     DiseaseParameters['postContagiousTime']	= postContagiousTime
@@ -619,18 +666,18 @@ def WorkerJob(i,PV,AgeCohortInteraction,Model,modelPopNames,resultsName,Maryland
     DiseaseParameters['ImportationRate'] = ImportationRate
     DiseaseParameters['ProbabilityOfTransmissionPerContact'] = ProbabilityOfTransmissionPerContact
     DiseaseParameters['symptomaticContactRateReduction'] = symptomaticContactRateReduction
+    DiseaseParameters['hospitalSymptomaticContactRateReduction'] = hospitalSymptomaticContactRateReduction
     DiseaseParameters['AsymptomaticReducationTrans'] = AsymptomaticReducationTrans
-    DiseaseParameters['symptomaticContactRateReduction'] = symptomaticContactRateReduction
     
     ## Intervention Information
-    DiseaseParameters['Intervention'] = 'baseline'
-    DiseaseParameters['InterventionDate'] = -1
-    DiseaseParameters['InterventionEndDate'] = -1
-    DiseaseParameters['InterventionReductionSchool'] = 1        
-    DiseaseParameters['InterventionReduction2'] = 1
-    DiseaseParameters['InterventionReduction'] = 1
+    DiseaseParameters['Intervention'] = 'fittest'
+    DiseaseParameters['InterventionDate'] = endTime - 19
+    DiseaseParameters['InterventionReduction'] = [InterventionRate]*19
+    DiseaseParameters['SchoolInterventionDate'] = endTime - 27
+    DiseaseParameters['SchoolInterventionReduction'] = [InterventionRate]*27
+    DiseaseParameters['InterventionMobilityEffect'] = InterventionMobilityEffect
                 
-    results = GlobalModel.RunFitModelType(Model, modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime)
+    results = GlobalModel.RunFitModelType(Model, modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,fitkillnumber=(1020*2.5))
     
     # aggregate the results from each Local Population for each day
     resultsVals = {}
@@ -645,6 +692,7 @@ def WorkerJob(i,PV,AgeCohortInteraction,Model,modelPopNames,resultsName,Maryland
     }
     diffC = 0
     everHosp = 0
+    maxday = datetime(2020, 1, 1)
     for day in results.keys():
         inf = 0
         col = 0
@@ -678,18 +726,28 @@ def WorkerJob(i,PV,AgeCohortInteraction,Model,modelPopNames,resultsName,Maryland
                     totHE += lpdict['HE']
        
         everHosp += totHI    
-        x = datetime(2020, 4, 1) - timedelta(days=round(endTime,0)-day)
+        x = datetime(2020, 4, 10) - timedelta(days=round(endTime,0)-day)
+        maxday = x
         #print(x," ",round(endTime,0)-day)
-        if x >= datetime(2020, 3, 22) and x <= datetime(2020, 4, 1):
+        if x >= datetime(2020, 3, 13) and x <= datetime(2020, 4, 10):
             resultsVals[x]['Infections'] += inf
             resultsVals[x]['Contagious'] += col
             resultsVals[x]['Hospitalized'] += hos
             resultsVals[x]['dead'] += dead
             resultsVals[x]['admissions'] += everHosp
             diffC += (hos - MarylandFitData[x]['hospitalized'])**2
-            diffC += (everHosp - MarylandFitData[x]['admissions'])**2
+            #diffC += (everHosp - MarylandFitData[x]['admissions'])**2
             #diffC += (dead - MarylandFitData[x]['dead'])**2
-    
+    while maxday < datetime(2020, 4, 10):
+        maxday+= timedelta(days=1)
+        if maxday >= datetime(2020, 3, 13) and maxday <= datetime(2020, 4, 10):
+            resultsVals[maxday]['Infections'] += 9999999
+            resultsVals[maxday]['Contagious'] += 9999999
+            resultsVals[maxday]['Hospitalized'] += 9999999
+            resultsVals[maxday]['dead'] += 9999999
+            resultsVals[maxday]['admissions'] += 9999999
+            diffC += (hos - MarylandFitData[maxday]['hospitalized'])**2
+        
     Utils.FileWrite(ParameterSet.ResultsFolder + "/FitResults_" + str(i) + "_" + resultsName + ".pickle",diffC)
     print("end-",grun,"-",i)
      

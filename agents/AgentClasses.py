@@ -31,12 +31,14 @@ class Household:
             
     
             pdscale = 1/(1+ .25*math.exp(-.001*PopulationDensity))
+            #print(PopulationDensity," --",pdscale)
             numRandomContacts = math.floor(random.gammavariate(
-                    PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort])+1)
+                    PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort] * pdscale))
             numHouseholdContacts = PopulationParameters['householdcontactRate']
-            person = Person(DiseaseParameters,x, HouseholdID, ageCohort, 0,
+            person = Person(DiseaseParameters,x, HouseholdID, ageCohort, ParameterSet.Susceptible,
                                                 numHouseholdContacts,
                                                 numRandomContacts)
+            
             self.persons[x] = person
 
     def areAllHouseholdMembersInfected(self):   
@@ -71,26 +73,32 @@ class Household:
         for key in self.persons.keys():
             self.persons[key].reset()
         
-    def infectHousehouldMember(self, timeNow, LocalInteractionMatrixList,
+    def infectHousehouldMember(self, timeNow, tend, LocalInteractionMatrixList,
                     RegionListGuide, LocalPopulationId,HospitalTransitionMatrixList,
                                currentAgentId=-1, ageCohort=-1):
-        #print("currentAgentId=",currentAgentId)
-        #print("ageCohort=",ageCohort)
+        
+        
         if len(self.persons.keys()) > 0:
             if len(self.persons.keys()) == 1:
                 p = list(self.persons.keys())[0]
             else:
+            
                 # if we are infecting in our household (so pass in agent) then choose someone else in household
                 if currentAgentId >= 0:
-                    #make sure it doesn't get stuck here
-                    numtries = 0
-                    p = random.choice(list(self.persons.keys()))
-                    while p == currentAgentId:
+                    if self.numHouseholdMembersSusceptible() > 0:
+                        #make sure it doesn't get stuck here
+                        numtries = 0
                         p = random.choice(list(self.persons.keys()))
-                        numtries+=1
-                        if numtries > 100:
-                            print("LOOP ERROR")
-                            break
+                        while p == currentAgentId or self.persons[p].getStatus() != ParameterSet.Susceptible:
+                            p = random.choice(list(self.persons.keys()))
+                            numtries+=1
+                            if numtries > 100:
+                                print("LOOP ERROR")
+                                break
+                    else:
+                        return [],0
+
+                                
                 else:
                     if ageCohort >= 0:
                         vals = []
@@ -100,10 +108,11 @@ class Household:
                     else:
                         p = random.choice(list(self.persons.keys()))     
                     
-            queueEvents = self.persons[p].infect(timeNow, LocalInteractionMatrixList,
-                                                 RegionListGuide, LocalPopulationId,self.areAllHouseholdMembersInfected(),
-                                                 HospitalTransitionMatrixList,len(self.persons))
-        return queueEvents
+            queueEvents, ac = self.persons[p].infect(timeNow, tend, LocalInteractionMatrixList,
+                                                 RegionListGuide, LocalPopulationId,self.numHouseholdMembersSusceptible(),
+                                                 HospitalTransitionMatrixList)
+                                                
+        return queueEvents, ac
 
     
     def getHouseholdStats(self):
@@ -157,12 +166,12 @@ class Person:
         self.symptom = 0
         self.hospitalized = 0
         
-    def infect(self, timeNow, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,areAllHouseholdMembersInfected,HospitalTransitionMatrixList,HHSize):
+    def infect(self, timeNow, tend,LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList):
         queueEvents = []
         if self.status == ParameterSet.Susceptible:
             self.status = ParameterSet.Incubating
             queueEvents = disease.DiseaseProgression.\
-                SetupTransmissableContactEvents(timeNow,self.DiseaseParameters, LocalInteractionMatrixList,
+                SetupTransmissableContactEvents(timeNow,tend,self.DiseaseParameters, LocalInteractionMatrixList,
                                                 RegionListGuide,
                                                 self.householdId,
                                                 self.personID,
@@ -170,8 +179,8 @@ class Person:
                                                 self.randomContactRate,
                                                 self.householdContactRate,
                                                 self.ageCohort,
-                                                areAllHouseholdMembersInfected,
-                                                HospitalTransitionMatrixList,HHSize)
+                                                numHouseholdMembersSusceptible,
+                                                HospitalTransitionMatrixList)
         return queueEvents, self.ageCohort
 
     def getStatus(self):

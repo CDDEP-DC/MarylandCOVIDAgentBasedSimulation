@@ -1,7 +1,11 @@
 import random
 import pickle
 import os
+import unicodedata
+import string
 import ParameterSet
+from datetime import datetime
+import sys, getopt
 
 def Multinomial(listvals):
     return multinomial(listvals,sum(listvals)) 
@@ -32,6 +36,101 @@ def FileWrite(fileName,Obj):
     #pickle.dump(Obj, pickle_out)
     #pickle_out.close()
 
+    
+valid_filename_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+char_limit = 255
+
+def clean_filename(filename, whitelist=valid_filename_chars, replace=' '):
+    # replace spaces
+    for r in replace:
+        filename = filename.replace(r,'_')
+    
+    # keep only valid ascii chars
+    cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
+    
+    # keep only whitelisted chars
+    cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist)
+    if len(cleaned_filename)>char_limit:
+        print("Warning, filename truncated because it was over {}. Filenames may no longer be unique".format(char_limit))
+    return cleaned_filename[:char_limit]    
+
+def deleteAllFilesInFolder(folder):
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+            elif os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            #if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): 
+            print('Failed to delete %s. Reason: %s' % (file_path, e))
+    
+def ModelFolderStructureSetup(argv):
+
+    runs = 100 # sets the number of times to run model - results print after each run to ensure that if the job fails the data is still there
+    
+    # Function for passing in a job name for the containing folder - so this can be run multiple times in the same folder
+    dateTimeObj = datetime.now()
+    FolderContainer = str(dateTimeObj.year) + str(dateTimeObj.month) + \
+                  str(dateTimeObj.day) + str(dateTimeObj.hour) + \
+                  str(dateTimeObj.minute) + str(dateTimeObj.second) + \
+                  str(dateTimeObj.microsecond)
+    try:
+        opts, args = getopt.getopt(argv,"j:n:",["job=","nruns="])
+    except getopt.GetoptError as e:
+        print('Error:',e)
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-j':
+            fname = arg
+            FolderContainer = clean_filename(fname)
+        if opt == '-n':
+            try:
+                nval = int(arg)
+                runs = nval
+            except:
+                print("input number not an integer")
+                
+    if FolderContainer == ParameterSet.PopDataFolder or \
+            FolderContainer == ParameterSet.QueueFolder or \
+            FolderContainer == ParameterSet.ResultsFolder or \
+            FolderContainer == ParameterSet.OutputFolder or \
+            FolderContainer == "__pycache__":
+        FolderContainer = FolderContainer + str(random.randint(100000,999999))
+                
+    ParameterSet.PopDataFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.PopDataFolder)
+    ParameterSet.QueueFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.QueueFolder)
+    ParameterSet.ResultsFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.ResultsFolder)
+    OutputResultsFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.OutputFolder)
+    
+    if os.path.exists(os.path.join(ParameterSet.OperationsFolder,FolderContainer)):
+        if os.path.exists(ParameterSet.PopDataFolder):
+            deleteAllFilesInFolder(ParameterSet.PopDataFolder)
+        if os.path.exists(ParameterSet.QueueFolder):
+            deleteAllFilesInFolder(ParameterSet.QueueFolder)
+        if os.path.exists(ParameterSet.ResultsFolder):
+            deleteAllFilesInFolder(ParameterSet.ResultsFolder)
+    else:
+        os.makedirs(os.path.join(ParameterSet.OperationsFolder,FolderContainer))
+            
+    ### Below here is model runs and should not be altered
+    if not os.path.exists(ParameterSet.PopDataFolder):
+        os.makedirs(ParameterSet.PopDataFolder)
+        
+    if not os.path.exists(ParameterSet.QueueFolder):
+        os.makedirs(ParameterSet.QueueFolder)
+        
+    if not os.path.exists(ParameterSet.ResultsFolder):
+        os.makedirs(ParameterSet.ResultsFolder)
+        
+    if not os.path.exists(OutputResultsFolder):
+        os.makedirs(OutputResultsFolder)    
+    
+    return runs, OutputResultsFolder
+        
 #def JiggleParameters(case='reg'):
 #    #B1=0.49997542 B2=0.49990543 gamma1=0.32194843 gamma2=0.0300116  gamma3=0.21929508    
 #    #agecohort 0 -- 0-4                     

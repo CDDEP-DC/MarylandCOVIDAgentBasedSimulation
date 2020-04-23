@@ -29,13 +29,16 @@ def WriteParameterVals(resultsName,model,ParameterVals,writefolder=''):
 
 def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,HospitalNames=[],endTime=0,writefolder=''):
 
+    # add flag to write regional values
+    # add flag to write local values
+
     print('Writing Results')
     if writefolder == '':
         writefolder = ParameterSet.ResultsFolder
        
     
     ### Get the age stats
-    csvFileAge = writefolder+"/Age_"+model+"_"+resultsName+".csv"
+    csvFileAge = os.path.join(writefolder,"Age_"+model+"_"+resultsName+".csv")
 
     AgeStats = [0]*15
     for i in range(0,len(RegionalList)):
@@ -57,10 +60,13 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     ### Get the results
     totdays = len(results.keys())
     csvFile = writefolder+"/ResultsByDay_"+model+"_"+resultsName+".csv"
+    csvFileLocal = writefolder+"/LocalInfectedByDay_"+model+"_"+resultsName+".csv"
     
     # This goes through the first row of results and gets the regional id - so results can be group by region. If none exists then we just give one set of results        
     regionalvals = []
+    localpopvals = []
     numInfList = results[list(results.keys())[0]]
+   
     for reg in numInfList.keys():
         rdict = numInfList[reg]
         for rkey in rdict:
@@ -69,14 +75,20 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
                 regionalval = lpdict['regionalid']
                 if not regionalval in regionalvals:
                     regionalvals.append(regionalval)
-    
+            if 'localpopid' in lpdict.keys():
+                localpopval = lpdict['localpopid']
+                if not localpopval in localpopvals:
+                    localpopvals.append(localpopval)
+                    
+    ###########################################################################
+    # Write the regional data and totals for the main buckets out to disk
     keyvals = ['S','N','I','C','R','D','H','HI','HE','ICU']
     colvals = ['Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','NewAdmissions','EDVisits','ICU']
     colvaltitles = []
     if len(regionalvals) > 1:
         for j in range(0,len(regionalvals)):
             for i in range(0,len(colvals)):
-                colvaltitles.append(colvals[i]+"_"+regionalvals[j])
+                colvaltitles.append(colvals[i]+"_"+str(regionalvals[j]).encode("ascii",errors="ignore").decode())
         colvaltitles.extend(colvals)        
     else:
         colvaltitles = list(colvals)
@@ -84,7 +96,7 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     #set up output    
     output = np.empty((totdays,len(colvaltitles)+1),dtype=int)
     
-    # now go through the results and add the results as totals to each bucke
+    # now go through the results and add the results as totals to each bucket
     for day in results.keys():
         resultdayvals = [0]*(len(colvals)*len(regionalvals)+len(colvals))
         numInfList = results[day]
@@ -110,6 +122,32 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     titles.extend(colvaltitles)
     
     np.savetxt(csvFile,np.vstack([titles,output]),delimiter=",", fmt='%5s')
+    ###########################################################################
+    
+    # Write the local pop data and totals for I
+    
+        #set up output    
+    output = np.empty((totdays,len(localpopvals)+1),dtype=int)
+    
+    # now go through the results and add the results as totals to each bucket
+    for day in results.keys():
+        resultdayvals = [0]*len(localpopvals)
+        numInfList = results[day]
+        for reg in numInfList.keys():
+            rdict = numInfList[reg]
+            for rkey in rdict:
+                lpdict = rdict[rkey]
+                localpopval = lpdict['localpopid']
+                idx = localpopvals.index(localpopval)
+                resultdayvals[idx]+=lpdict['I']
+                    
+        output[(day - 1), :] = [day]+resultdayvals
+    titles = ['Day']
+    for x in range(0,len(localpopvals)):
+        titles.append(str(localpopvals[x]).encode("ascii",errors="ignore").decode())
+    
+    np.savetxt(csvFileLocal,np.vstack([titles,output]),delimiter=",", fmt='%5s')
+    ##############################################################################
     
     hospstatsnames = ['occupancy','admissions','edvisits','ICU']
 

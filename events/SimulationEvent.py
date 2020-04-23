@@ -10,17 +10,19 @@ class SimulationEvent:
         return self.timestamp
 
 class InfectionEvent(SimulationEvent):
-    def __init__(self, timestamp, ageCohort):
+    def __init__(self, timestamp, ageCohort, infectingAgentHHID,infectingAgentId):
         super().__init__(timestamp)
         self.ageCohort = ageCohort
+        self.infectingAgentId = infectingAgentId
+        self.infectingAgentHHID = infectingAgentHHID
         
     def getAgeCohort(self):
         return self.ageCohort
         
      
 class NonLocalInfectionEvent(InfectionEvent):
-    def __init__(self, timestamp, RegionId, LocalPopulationId, ageCohort):
-        super().__init__(timestamp, ageCohort)
+    def __init__(self, timestamp, RegionId, LocalPopulationId, ageCohort, infectingAgentHHID,infectingAgentId):
+        super().__init__(timestamp, ageCohort, infectingAgentHHID,infectingAgentId)
         self.RegionId = RegionId
         self.LocalPopulationId = LocalPopulationId
         

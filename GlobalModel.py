@@ -6,7 +6,7 @@
 # System Imports
 import numpy as np
 import random
-import os
+import os, shutil
 import gc
 import math
 import time
@@ -248,7 +248,12 @@ def MDVADCInteractionMatrix():
     LatCentroid = np.asarray(MDPop['Latitude'])
     MDHospitalData = data.MDDCVAregion.ProcessDataMDDCVAED.InputData('data/MDDCVAregion', MDPop) # Process movement network
     HospitalTransitionRate = MDHospitalData.TranCH
-    HospitalColNames = MDHospitalData.ProviderNamesColumn # Dictionary of hospital names to adj matrix column
+    
+    # This makes sure it runs on all unix systems
+    HospitalColNamesRaw = MDHospitalData.ProviderNamesColumn # Dictionary of hospital names to adj matrix column
+    HospitalColNames = []
+    for i in range(0,len(HospitalColNamesRaw)):
+        HospitalColNames.append(HospitalColNamesRaw[i].encode("ascii",errors="ignore").decode())
 
     numpops = len(PopulationData)  # number of HRRs
     if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
@@ -468,24 +473,26 @@ def modelSetup(PopulationParameters,DiseaseParameters,SimEndDate,version, modelP
             setupOutput = RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide, Regions
     return setupOutput
 
-def RunFitModelType(ModelType,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,stepLength=1):
+def RunFitModelType(ModelType,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,stepLength=1,fitkillnumber=-1):
    
     
     RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide, Regions = modelSetup(PopulationParameters,DiseaseParameters,endTime,ModelType, modelPopNames,combineLocations=True,TestNumPops=10,multiprocess=False)
     randomInfect=True
-    results = ProcessManager.RunFullModel(RegionalList,PopulationParameters,DiseaseParameters, endTime, stepLength, modelPopNames, resultsName, numInfList,randomInfect,LocationImportationRisk,RegionListGuide,multiprocess=False,Regions=Regions)
+    results = ProcessManager.RunFullModel(RegionalList,PopulationParameters,DiseaseParameters, endTime, stepLength, modelPopNames, resultsName, numInfList,randomInfect,LocationImportationRisk,RegionListGuide,multiprocess=False,Regions=Regions,fitkillnumber=fitkillnumber)
     return results
     
 
 def RunDefaultModelType(ModelType,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,stepLength=1,writefolder=''):
+    
+    cleanUp(modelPopNames)
     ParameterVals = PopulationParameters
     ParameterVals.update(DiseaseParameters)
        
     PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
     
-    RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide = modelSetup(PopulationParameters,DiseaseParameters,endTime,ModelType, modelPopNames,combineLocations=True,TestNumPops=10)
+    RegionalList, numInfList, HospitalNames, LocationImportationRisk, RegionListGuide = modelSetup(PopulationParameters,DiseaseParameters,endTime,ModelType, modelPopNames,combineLocations=True,TestNumPops=1)
     RunModel(RegionalList, modelPopNames,PopulationParameters,DiseaseParameters, endTime, stepLength, resultsName, numInfList,LocationImportationRisk=LocationImportationRisk, RegionListGuide=RegionListGuide)
-    results = Utils.FileRead(ParameterSet.ResultsFolder + "/Results_" + resultsName + ".pickle")
+    results = Utils.FileRead(os.path.join(ParameterSet.ResultsFolder,"Results_" + resultsName + ".pickle"))
     PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
     cleanUp(modelPopNames)
     return HospitalNames
@@ -502,43 +509,42 @@ def RunModel(RegionalList, modelPopNames,PopulationParameters,DiseaseParameters,
         print("Completed in: ", t2 - t)
 
    
-
-
             
-def cleanUp(modelPopNames):
+def cleanUp(modelPopNames=''):
+
     # Cleanup population data
     i = 0
     RegionalList = []
     for filename in os.listdir(ParameterSet.PopDataFolder):
-        if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle"):
+        if os.path.exists(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames),str(i),".pickle")):
             RegionalList.append(i)
             i += 1
     for i in range(0, len(RegionalList)):
         try:
-            os.remove(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle")
+            os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames),str(i),".pickle"))
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Removed "+ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + ".pickle")
         except:
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Pop ", i, " did not exist")
         try:
-            os.remove(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "STATS.pickle")
+            os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames),str(i),"STATS.pickle"))
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Removed "+ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "STATS.pickle")
         except:
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Pop ", i, " STATS did not exist")
             
         try:
-            os.remove(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
+            os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames),str(i),"HOSPLIST.pickle"))
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Removed "+ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
         except:
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Pop ", i, " HOSPLIST did not exist")
             
         try:
-            os.remove(ParameterSet.QueueFolder+"/"+str(modelPopNames)+str(i)+"Queue.pickle")
+            os.remove(os.path.join(ParameterSet.QueueFolder,str(modelPopNames),str(i),"Queue.pickle"))
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Removed "+ParameterSet.QueueFolder+"/"+str(modelPopNames)+str(i)+"Queue.pickle")
         except:
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Queue ", i, " did not exist")                
             
         try:
-            os.remove(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
+            os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames),"R0Stats.pickle"))
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Removed "+ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
         except:
             if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): print("Pop ", i, " R0Stats did not exist")

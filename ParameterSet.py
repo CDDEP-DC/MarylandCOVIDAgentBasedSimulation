@@ -18,9 +18,11 @@ debugnotice = 3
 debugnotimportant = 4
 debugtimer = 5
 
+OperationsFolder = 'Operations'
 PopDataFolder = 'pops'
 QueueFolder = 'Queues'
 ResultsFolder = 'results'
+OutputFolder = 'Output'
 
 MAXIntVal = 9999999999999
 
