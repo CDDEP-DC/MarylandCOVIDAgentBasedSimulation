@@ -43,7 +43,7 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     AgeStats = [0]*15
     for i in range(0,len(RegionalList)):
         if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle"):
-            AgeStatsList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle")
+            AgeStatsList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle")
             for key in AgeStatsList.keys():
                 AgeStat = AgeStatsList[key]
                 for rkey in AgeStat.keys():
@@ -82,8 +82,8 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
                     
     ###########################################################################
     # Write the regional data and totals for the main buckets out to disk
-    keyvals = ['S','N','I','C','R','D','H','HI','HE','ICU']
-    colvals = ['Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','NewAdmissions','EDVisits','ICU']
+    keyvals = ['S','N','I','C','R','D','H','HI','HE','ICU','numTests','numQ','numInfPrev','InfEvtClear','CC']
+    colvals = ['Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','NewAdmissions','EDVisits','ICU','Tests','Quarantined','numHousholdQuarantined','InfectiousEventsPrevented','confirmedcases']
     colvaltitles = []
     if len(regionalvals) > 1:
         for j in range(0,len(regionalvals)):
@@ -161,7 +161,7 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     
     for i in range(0,len(RegionalList)):
         if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
-            CurrentHospOccList = Utils.FileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
+            CurrentHospOccList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
             #print(CurrentHospOccList)
             
             

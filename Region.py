@@ -6,7 +6,7 @@ import time
 import math
 
 import LocalPopulation
-
+import events.SimulationEvent as SimEvent
 import ParameterSet
 
 
@@ -34,25 +34,21 @@ class Region:
             if len(HospitalTransitionMatrixList) > 0:
                 HTM = HospitalTransitionMatrixList[i]
                     
-            if(GLP.getGlobalId()==ParameterSet.WuhanMktLocalPopId):
+            if(GLP.globalId==ParameterSet.WuhanMktLocalPopId):
                 self.IsWhuhanMktRegion = 1
                 
             LP = LocalPopulation. \
-                LocalPopulation(GLP.getGlobalId(), GLP.getPopulationAmt(),
-                                GLP.getHHSizeDist(), GLP.getHHSizeAgeDist(),
+                LocalPopulation(GLP.globalId, GLP.populationAmt,
+                                GLP.HHSizeDist, GLP.HHSizeAgeDist,
                                 RegionalInteractionMatrixList[i], self.RegionId,
-                                RegionListGuide,HTM,GLP.getPopulationDensity(),GLP.getLocalIdentification(),GLP.getRegionalIdentification(),PopulationParameters,DiseaseParameters,SimEndDate)
-            self.Locations[GLP.getGlobalId()] = LP
+                                RegionListGuide,HTM,GLP.PopulationDensity,GLP.LocalIdentification,GLP.RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate,GLP.ProportionLowIntReduction,GLP.NursingFacilities)
+            self.Locations[GLP.globalId] = LP
             
-            if ParameterSet.debugmodelevel >= ParameterSet.debugnotice:
-                print("created population ", GLP.getLocalIdentification(), " (", GLP.getGlobalId(), ") in region ",RegionId," with ",
-                      GLP.getPopulationAmt(), " people")
-            # print(RegionalInteractionMatrixList[i])
-
     def IsThisWhuhanMktRegion(self):
         return self.IsWhuhanMktRegion
     
-    def runTimePeriod(self, tend):
+    def runTimePeriod(self, tend,testlpvals=[]):
+        #print(testlpvals)
         offPopQueueEvents = []
         regionStats = {}
         R0Stats = {}
@@ -60,7 +56,7 @@ class Region:
         numEvents = 0
         for LPKey in self.Locations.keys():
             LP = self.Locations[LPKey]
-            op, NE = LP.runTime(tend)
+            op, NE = LP.runTime(tend,LP.LocalPopulationId in testlpvals)
             numEvents += NE
             offPopQueueEvents.extend(op)
             regionStats[LPKey] = LP.reportPopulationStats()
@@ -71,7 +67,8 @@ class Region:
         infectedNums = {}
         for LPKey in self.Locations.keys():
             LP = self.Locations[LPKey]
-            infectedNums.update(LP.reportNumInfected())
+            #infectedNums.update(LP.reportNumInfected())
+            infectedNums.update({LP.LocalPopulationId: LP.numInfected})
 
         return infectedNums
 
@@ -117,10 +114,15 @@ class Region:
 
     def addEventsFromOtherLocalPopulations(self,RegionReconciliationEvents):
         for QE in RegionReconciliationEvents:
-            LPID = QE.getLocalPopulationId()
-            LP = self.Locations[LPID]
-            LP.addEventsFromOtherLocalPopulations(QE)
-            
+            if isinstance(QE,SimEvent.NonLocalInfectionEvent):
+                LPID = QE.LocalPopulationId
+                LP = self.Locations[LPID]
+                LP.addEventsFromOtherLocalPopulations(QE)
+            elif isinstance(QE,SimEvent.ClearInfectionEvents):
+                LPID = QE.LocalPopulationId
+                LP = self.Locations[LPID]
+                LP.clearInfectionEvents(QE)
+                
         return self.getRegionStats()
                     
     def getRegionStats(self):

@@ -11,12 +11,7 @@ WuhanMktRegionId = -1
 
 
 ## debuggingmode
-debugmodelevel = 3
-debugerror = 1
-debugwarning = 2
-debugnotice = 3
-debugnotimportant = 4
-debugtimer = 5
+logginglevel = 'error'
 
 OperationsFolder = 'Operations'
 PopDataFolder = 'pops'
@@ -46,6 +41,12 @@ Contagious = 2
 Symptomatic = 3
 Recovered = -1
 Dead = -2
+
+# Quarantine
+QuarantineTime = 14
+TestEfficacy = .7
+MaxQuarantinePeople = 10
+ProbTransmissionCleared = 0.5
 
 agetestInf = []
 agetestHosp = []

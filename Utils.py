@@ -23,19 +23,33 @@ def multinomial(listvals,tot):
             break
     return idx
     
-def FileRead(fileName):
+def PickleFileRead(fileName):
     pickle_in = open(os.path.abspath(os.getcwd())+"/"+fileName,"rb")
     obj = pickle.load(pickle_in)
     pickle_in.close()
     return obj
     
-def FileWrite(fileName,Obj):
+def PickleFileWrite(fileName,Obj):
     with open(os.path.abspath(os.getcwd())+"/"+fileName,"wb+") as f:
         pickle.dump(Obj, f)
     #pickle_out = open(os.path.abspath(os.getcwd())+"/"+fileName,"wb+")
     #pickle.dump(Obj, pickle_out)
     #pickle_out.close()
 
+def WriteLogFile(logFile,errorstring):
+    try:
+        with open(logFile, 'w+') as f:
+            f.write("***************************************************")
+            dateTimeObj = datetime.now()
+            timeNow = str(dateTimeObj.year) + "-" + str(dateTimeObj.month) + "-" + \
+                  str(dateTimeObj.day) + " " + str(dateTimeObj.hour) + ":" +  \
+                  str(dateTimeObj.minute) 
+    
+            f.write(timeNow)
+            f.write(errorstring)
+            
+    except IOError:
+        print("I/O error")
     
 valid_filename_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
 char_limit = 255
@@ -65,12 +79,13 @@ def deleteAllFilesInFolder(folder):
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
         except Exception as e:
-            #if (ParameterSet.debugmodelevel >= ParameterSet.debugnotimportant): 
             print('Failed to delete %s. Reason: %s' % (file_path, e))
     
 def ModelFolderStructureSetup(argv):
 
     runs = 100 # sets the number of times to run model - results print after each run to ensure that if the job fails the data is still there
+    intname = ''
+    debug = False
     
     # Function for passing in a job name for the containing folder - so this can be run multiple times in the same folder
     dateTimeObj = datetime.now()
@@ -79,7 +94,7 @@ def ModelFolderStructureSetup(argv):
                   str(dateTimeObj.minute) + str(dateTimeObj.second) + \
                   str(dateTimeObj.microsecond)
     try:
-        opts, args = getopt.getopt(argv,"j:n:",["job=","nruns="])
+        opts, args = getopt.getopt(argv,"j:n:d",["job=","nruns="])
     except getopt.GetoptError as e:
         print('Error:',e)
         sys.exit(2)
@@ -93,7 +108,12 @@ def ModelFolderStructureSetup(argv):
                 runs = nval
             except:
                 print("input number not an integer")
-                
+        if opt == '-i':
+            intname = arg
+                 
+        if opt == '-d':
+            debug = True    
+               
     if FolderContainer == ParameterSet.PopDataFolder or \
             FolderContainer == ParameterSet.QueueFolder or \
             FolderContainer == ParameterSet.ResultsFolder or \
@@ -123,13 +143,14 @@ def ModelFolderStructureSetup(argv):
     if not os.path.exists(ParameterSet.QueueFolder):
         os.makedirs(ParameterSet.QueueFolder)
         
+    
     if not os.path.exists(ParameterSet.ResultsFolder):
         os.makedirs(ParameterSet.ResultsFolder)
-        
+   
     if not os.path.exists(OutputResultsFolder):
         os.makedirs(OutputResultsFolder)    
     
-    return runs, OutputResultsFolder
+    return runs, OutputResultsFolder, FolderContainer, intname, debug
         
 #def JiggleParameters(case='reg'):
 #    #B1=0.49997542 B2=0.49990543 gamma1=0.32194843 gamma2=0.0300116  gamma3=0.21929508    

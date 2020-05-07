@@ -6,8 +6,7 @@ class SimulationEvent:
     def __init__(self, timestamp):
         self.timestamp = timestamp
         
-    def getEventTime(self):
-        return self.timestamp
+
 
 class InfectionEvent(SimulationEvent):
     def __init__(self, timestamp, ageCohort, infectingAgentHHID,infectingAgentId):
@@ -15,22 +14,30 @@ class InfectionEvent(SimulationEvent):
         self.ageCohort = ageCohort
         self.infectingAgentId = infectingAgentId
         self.infectingAgentHHID = infectingAgentHHID
-        
-    def getAgeCohort(self):
-        return self.ageCohort
-        
-     
+
+    def IsInfectionBy(self,infectingAgentHHID,infectingAgentId):
+        if self.infectingAgentHHID == infectingAgentHHID and self.infectingAgentId == infectingAgentId:
+            return True
+        else:
+            return False
+    
 class NonLocalInfectionEvent(InfectionEvent):
-    def __init__(self, timestamp, RegionId, LocalPopulationId, ageCohort, infectingAgentHHID,infectingAgentId):
+    def __init__(self, timestamp, RegionId, LocalPopulationId, ageCohort, infectingAgentHHID,infectingAgentId, infectingAgentRegionId, infectingAgentLocalPopulationId):
         super().__init__(timestamp, ageCohort, infectingAgentHHID,infectingAgentId)
         self.RegionId = RegionId
         self.LocalPopulationId = LocalPopulationId
-        
-    def getRegionId(self):
-        return self.RegionId
+        self.InfectingAgentRegionId = infectingAgentRegionId
+        self.InfectingAgentLocalPopulationId = infectingAgentLocalPopulationId
         
     def getLocalPopulationId(self):
-        return self.LocalPopulationId        
+        return self.LocalPopulationId       
+        
+    def IsNonLocalInfectionBy(self,InfectingAgentRegionId,InfectingAgentLocalPopulationId,infectingAgentHHID,infectingAgentId):        
+        if self.InfectingAgentRegionId == InfectingAgentRegionId and self.InfectingAgentLocalPopulationId == InfectingAgentLocalPopulationId:
+            return super().IsInfectionBy(infectingAgentHHID,infectingAgentId)        
+        else:
+            return False
+ 
 
 class LocalInfectionEvent(InfectionEvent):
     pass
@@ -40,20 +47,12 @@ class HouseholdEvent(SimulationEvent):
         super().__init__(timestamp)
         self.HouseholdId = HouseholdId
         self.PersonId = PersonId
-        
-    def getHouseholdId(self):
-        return self.HouseholdId
-        
-    def getPersonId(self):
-        return self.PersonId
 
 class PersonHospEvent(HouseholdEvent):
     def __init__(self, timestamp, HouseholdId, PersonId, Hospital):
         super().__init__(timestamp, HouseholdId, PersonId)
         self.Hospital = Hospital
     
-    def getHospital(self):
-        return self.Hospital   
         
 class PersonHospCritEvent(PersonHospEvent):
     pass
@@ -67,6 +66,9 @@ class PersonHospExitICUEvent(PersonHospEvent):
 class PersonHospEDEvent(PersonHospEvent):
     pass
     
+class PersonHospTestEvent(PersonHospEvent):
+    pass
+        
 class HouseholdInfectionEvent(HouseholdEvent):
     pass
 
@@ -76,7 +78,30 @@ class PersonStatusUpdate(HouseholdEvent):
         super().__init__(timestamp, HouseholdId, PersonId)
         self.Status = Status
     
-    def getStatus(self):
-        return self.Status
-
+class ContactTraceEvent(SimulationEvent):
+    def __init__(self, timestamp, RegionId, LocalPopulationId, infectingAgentHHID,infectingAgentId, NumPeopleToLookFor):
+        super().__init__(timestamp)
+        self.infectingAgentId = infectingAgentId
+        self.infectingAgentHHID = infectingAgentHHID
+        self.NumPeopleToLookFor = NumPeopleToLookFor
+        self.RegionId = RegionId
+        self.LocalPopulationId = LocalPopulationId
+        
+class NonLocalContactTraceEvent(ContactTraceEvent):
+    pass
+        
+class LocalContactTraceEvent(ContactTraceEvent):
+    pass
+       
     
+class ClearInfectionEvents(SimulationEvent):
+    def __init__(self, timestamp, RegionId, LocalPopulationId, infectingAgentHHID,infectingAgentId, numInfectionsToClear, infectingRegionId, infectingLocalPopulationId):
+        super().__init__(timestamp)
+        self.RegionId = RegionId
+        self.LocalPopulationId = LocalPopulationId
+        self.infectingAgentId = infectingAgentId
+        self.infectingAgentHHID = infectingAgentHHID
+        self.numInfectionsToClear = numInfectionsToClear
+        self.infectingRegionId = infectingRegionId
+        self.infectingLocalPopulationId = infectingLocalPopulationId
+        

@@ -5,6 +5,7 @@
 import random
 import time
 import math
+import numpy as np
 
 from statistics import mean
 import ParameterSet
@@ -14,7 +15,8 @@ import agents.AgentClasses
 
 class LocalPopulation:
     def __init__(self, LocalPopulationId, npersons, HHSizeDist, HHSizeAgeDist,
-                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationDensity,LocalIdentification,RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate):
+                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationDensity,LocalIdentification,
+                    RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate,ProportionLowIntReduction,NursingFacilities):
         """
         initalize class and builds synthetic population for local point
 
@@ -34,6 +36,9 @@ class LocalPopulation:
         self.HHSizeDist = HHSizeDist
         self.HHSizeAgeDist = HHSizeAgeDist
         self.SimEndDate = SimEndDate
+        self.ProportionLowIntReduction = ProportionLowIntReduction
+        self.NursingFacilities = NursingFacilities
+        self.NursingFacilitiesAdded = 0
 
         self.PopulationParameters = PopulationParameters
         self.DiseaseParameters = DiseaseParameters
@@ -75,6 +80,12 @@ class LocalPopulation:
         self.numHospitalized = 0
         self.numHospitalizedICU = 0
         self.numDead = 0
+        self.numTests = 0
+        
+        self.numQuarantined = 0
+        self.InfectiousEventsPrevented = 0
+        self.InfectiousEventsCleared = 0
+        self.confirmedcases = 0
         
         self.R0Calc = [0]*101
             
@@ -84,38 +95,39 @@ class LocalPopulation:
 
         # Households
         self.hhset = {}
-        
             
     def BuildSingleHousehold(self):
         
         numtries = 0
         maxval = self.npersons - self.DefinedAgents - self.EphermeralAgents
-        # this is to make sure we don't make a household that pushes over the size of the population
-        HHSize = maxval + 1
         
-        while (HHSize+1) > maxval:
+        addNF = False
+        if self.NursingFacilities > 0 and self.NursingFacilitiesAdded < self.NursingFacilities and maxval > 100:
+            if random.random() < ((self.NursingFacilities*100) / self.npersons):
+                addNF = True
+                HHSize = 100
+        
+        if not addNF:
+            # this is to make sure we don't make a household that pushes over the size of the population
+            HHSize = maxval + 1
             
-            HHSize = Utils.multinomial(self.HHSizeDist, sum(self.HHSizeDist))
-            numtries += 1
-            if numtries > 100:
-                #print(HHSize+1," ",maxval," ",numdefinedagents, " " , infectperson)
-                print("LOOP ERROR")
-                break
+            while (HHSize+1) > maxval:
+                
+                HHSize = Utils.multinomial(self.HHSizeDist, sum(self.HHSizeDist))
+                numtries += 1
+                if numtries > 100:
+                    #print(HHSize+1," ",maxval," ",numdefinedagents, " " , infectperson)
+                    print("LOOP ERROR")
+                    break
 
         # Now create household
-        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, self.HHSizeAgeDist,self.PopulationDensity,self.PopulationParameters,self.DiseaseParameters)
+        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, self.HHSizeAgeDist,self.PopulationDensity,self.PopulationParameters,self.DiseaseParameters,Facility=addNF)
         self.hhset[self.currHouseholdIDNum] = HH
         self.currHouseholdIDNum += 1
         self.UndefinedAgents -= (HHSize + 1)
         self.DefinedAgents += (HHSize + 1)
-        return HH.getHouseholdId()
-        
-    def getNumInfected(self):
-        return self.numInfected
-
-    def getLocalId(self):
-        return self.LocalPopulationId
-
+        return HH.HouseholdId
+    
     def reportPopulationStats(self):
         stats = {}
         stats['S'] = self.numSusceptible
@@ -130,6 +142,11 @@ class LocalPopulation:
         stats['HE'] = sum(self.HospitalNewEDList)
         stats['localpopid'] = self.LocalIdentification
         stats['regionalid'] = self.RegionalIdentification
+        stats['numTests'] = self.numTests
+        stats['numQ'] = self.numQuarantined
+        stats['numInfPrev'] = self.InfectiousEventsPrevented
+        stats['InfEvtClear'] = self.InfectiousEventsCleared
+        stats['CC'] = self.confirmedcases
         return stats
 
     def getHospitalOccupancy(self):
@@ -150,14 +167,15 @@ class LocalPopulation:
         ageStats['ageMortality'] = self.ageMortality
         return ageStats
         
-    def reportNumInfected(self):
-        return {self.LocalPopulationId: self.numInfected}
 
-    def runTime(self, tend):
+    def runTime(self, tend,testExtra):
         addEvents = []
         delkeys = []
+        
+ 
         sortedKeys = sorted(self.eventQueue.keys())
         offPopQueueEvents = []
+        localQevents = []
         numevents = 0
         eventTime = tend
         ## reset the daily infection lists
@@ -171,7 +189,7 @@ class LocalPopulation:
             
         for key in sortedKeys:
             SE = self.eventQueue[key]
-            eventTime = SE.getEventTime()
+            eventTime = SE.timestamp
 
             if eventTime < tend:
                 numevents += 1
@@ -180,27 +198,37 @@ class LocalPopulation:
                                 
                 if isinstance(SE,SimEvent.InfectionEvent):                
                     #print("Infection")
-                    op = self.infectRandomAgent(tend,SE.getAgeCohort())
+                    infectingAgent = {}
+                    infectingAgent['personId'] = SE.infectingAgentId
+                    infectingAgent['HHID'] = SE.infectingAgentHHID
+                    if isinstance(SE,SimEvent.NonLocalInfectionEvent):
+                        infectingAgent['LPID'] = SE.LocalPopulationId
+                        infectingAgent['RegionId'] = SE.RegionId
+                    else:
+                        infectingAgent['LPID'] = self.LocalPopulationId
+                        infectingAgent['RegionId'] = self.RegionId
+                    
+                    op = self.infectRandomAgent(tend,SE.ageCohort,infectingAgent)
                     
                     # add Events to non local pop queue
                     offPopQueueEvents.extend(op)    
                 elif isinstance(SE,SimEvent.PersonStatusUpdate):
                     #print("status update")
-                    HHID = SE.getHouseholdId()
-                    personId = SE.getPersonId()
+                    HHID = SE.HouseholdId
+                    personId = SE.PersonId
                     currentStatus = self.hhset[HHID].getHouseholdPersonStatus(personId)
-                    xbefore = "Before:"+str(currentStatus)+"-->"+str(SE.getStatus())+" S:"+str(self.numSusceptible)+" N:"+str(self.numIncubating)+" C:"+str(self.numContagious)+" I:"+str(self.numInfected)+" R:"+str(self.numRecovered)+" H:"+str(self.numHospitalized)
+                    xbefore = "Before:"+str(currentStatus)+"-->"+str(SE.Status)+" S:"+str(self.numSusceptible)+" N:"+str(self.numIncubating)+" C:"+str(self.numContagious)+" I:"+str(self.numInfected)+" R:"+str(self.numRecovered)+" H:"+str(self.numHospitalized)
                     checkval = self.numSusceptible+self.numIncubating+self.numContagious+self.numInfected+self.numRecovered+self.numDead
                     
-                    #print(currentStatus,SE.getStatus())
+                    
                     # If updating to incubating -- patient could only be susceptible
-                    if SE.getStatus() == ParameterSet.Incubating:
+                    if SE.Status == ParameterSet.Incubating:
                         self.numIncubating += 1                
                         self.numSusceptible -= 1
                     
                     # If updating to Contagious
                         # could have been incubating or been symptomatic                        
-                    elif SE.getStatus() == ParameterSet.Contagious:
+                    elif SE.Status == ParameterSet.Contagious:
                         if currentStatus == ParameterSet.Incubating:
                             self.numIncubating -= 1
                         elif currentStatus == ParameterSet.Symptomatic:
@@ -210,7 +238,7 @@ class LocalPopulation:
                         self.numContagious += 1
                         
                     # if updating to symptomatic could only have been contagious (added incubating for possible later change)
-                    elif SE.getStatus() == ParameterSet.Symptomatic:
+                    elif SE.Status == ParameterSet.Symptomatic:
                         if currentStatus == ParameterSet.Incubating:
                             self.numIncubating -= 1
                         elif currentStatus == ParameterSet.Contagious:    
@@ -218,7 +246,7 @@ class LocalPopulation:
                         self.numInfected += 1
                         
                     # if updating to recovered could have come from symptomatic or contagious
-                    elif SE.getStatus() == ParameterSet.Recovered or SE.getStatus() == ParameterSet.Dead:
+                    elif SE.Status == ParameterSet.Recovered or SE.Status == ParameterSet.Dead:
                         
                         if currentStatus == ParameterSet.Symptomatic:
                             self.numInfected -= 1
@@ -226,7 +254,7 @@ class LocalPopulation:
                             self.numContagious -= 1
                         elif currentStatus == ParameterSet.Incubating:    
                             self.numIncubating -= 1
-                        if SE.getStatus() == ParameterSet.Dead:
+                        if SE.Status == ParameterSet.Dead:
                             self.ageMortality[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
                             self.numDead += 1                      
                         else:
@@ -251,7 +279,7 @@ class LocalPopulation:
                     else:
                         print("Need to throw error here2 ... something went wrong")
                         
-                    self.hhset[HHID].setHouseholdPersonStatus(personId,SE.getStatus())
+                    self.hhset[HHID].setHouseholdPersonStatus(personId,SE.Status)
                         
                         
                     checkval2 = self.numSusceptible+self.numIncubating+self.numContagious+self.numInfected+self.numRecovered+self.numDead
@@ -262,10 +290,17 @@ class LocalPopulation:
                     
                 elif isinstance(SE,SimEvent.PersonHospEvent): 
                     #print("hosp")
-                    HHID = SE.getHouseholdId() 
-                    personId = SE.getPersonId()
-                    Hospital = SE.getHospital()
+                    # Person went to the hospital/er/doctor
+                    HHID = SE.HouseholdId
+                    personId = SE.PersonId
+                    Hospital = SE.Hospital
+                    # First check if they were hospitalized
+                    # if they were then assign them to a hospital and update their status
+                    # for quarantine check that they quarantine or now
                     if isinstance(SE,SimEvent.PersonHospCritEvent) or isinstance(SE,SimEvent.PersonHospICUEvent): 
+                        if self.timeNow > self.DiseaseParameters['TestingAvailabilityDateHosp']:
+                            self.numTests += 1
+                            self.confirmedcases += 1
                         self.ageInfectionHosp[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
                         self.HospitalInfectionList[Hospital]+=1
                         if isinstance(SE,SimEvent.PersonHospICUEvent):
@@ -274,17 +309,106 @@ class LocalPopulation:
                         self.HospitalNewInfectionList[Hospital]+=1
                         self.hhset[HHID].setHouseholdPersonHospStatus(personId,1,Hospital)
                         self.numHospitalized += 1
+                        ### Add contact tracing / quarantine if started
+                        if self.timeNow > self.DiseaseParameters['QuarantineStartDate']:
+                            # If intervention includes tracing contacts and testing them
+                            if self.DiseaseParameters['ContactTracing'] == 1:
+                                localQevents,offPopQueueEvents = self.addContactTracing(tend,HHID,personId,localQevents,offPopQueueEvents)
+                                
+                            if self.DiseaseParameters['QuarantineType'] == 'household':
+                                if random.random() < self.DiseaseParameters['PerFollowQuarantine']:
+                                    PIDs = self.hhset[HHID].getPersonIDs()
+                                    for pp in range(0,len(PIDs)):
+                                        if pp != personId:
+                                            offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,pp,offPopQueueEvents,delkeys) 
+                                            self.numQuarantined += 1
+                                            # If intervention includes tracing contacts and testing them, then test household
+                                            if self.DiseaseParameters['ContactTracing'] == 1:
+                                                localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
+                                    
                     elif isinstance(SE,SimEvent.PersonHospExitICUEvent):
                         self.HospitalICUInfectionList[Hospital]-=1
                         self.numHospitalizedICU -= 1
                     else:
                         self.HospitalNewEDList[Hospital]+=1
+                        if isinstance(SE,SimEvent.PersonHospTestEvent):
+                            testdate = self.DiseaseParameters['TestingAvailabilityDateComm']
+                        else:
+                            testdate = self.DiseaseParameters['TestingAvailabilityDateHosp']
+                        
+                        if self.timeNow > testdate:
+                            localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,personId,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
+                            # if detected then if they                                 
+                            if detected and self.DiseaseParameters['QuarantineType'] == 'household' and self.timeNow > self.DiseaseParameters['QuarantineStartDate'] and followQuarantine:
+                                PIDs = self.hhset[HHID].getPersonIDs()
+                                for pp in range(0,len(PIDs)):
+                                    if pp != personId:
+                                        offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,pp,offPopQueueEvents,delkeys) 
+                                        self.numQuarantined += 1
+                                        # If intervention includes tracing contacts and testing them, then test household
+                                        if self.DiseaseParameters['ContactTracing'] == 1:
+                                            localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
                         
                 elif isinstance(SE,SimEvent.HouseholdInfectionEvent):
-                        #print("house")
-                        HHID = SE.getHouseholdId()
-                        agentId = SE.getPersonId()
-                        op = self.infectAgent(tend,HHID,agentId=agentId)
+                    #print("house")
+                    HHID = SE.HouseholdId
+                    agentId = SE.PersonId
+                    op = self.infectAgent(tend,HHID,agentId=agentId)
+                        
+                elif isinstance(SE,SimEvent.ContactTraceEvent):
+                    #1. get the number of infections by this person
+                    #2. if > 0 then clear the local ones and set flags to clear the non-local
+                    infectingAgentId = SE.infectingAgentId
+                    infectingAgentHHID = SE.infectingAgentHHID
+                    infectingAgentRegionId = SE.RegionId
+                    infectingAgentLPID = SE.LocalPopulationId
+                    NumPeopleToLookFor = SE.NumPeopleToLookFor
+                    HHIDSToQ = []
+                    PersonIdsToQ = []
+                    numPFound = 0
+                    PContactRate = self.hhset[infectingAgentHHID].getPersonRandomContactRate(infectingAgentId)
+                    if PContactRate > ParameterSet.MaxQuarantinePeople:
+                        PContactRate = ParameterSet.MaxQuarantinePeople
+                        
+                    # Quarantine everyone they had contact with
+                    if NumPeopleToLookFor > 0:
+                        for HHID in range(0,self.currHouseholdIDNum):
+                            if HHID in self.hhset.keys():
+                                personId = self.hhset[HHID].WasInfectedByThisPerson(infectingAgentId,infectingAgentHHID,infectingAgentLPID,infectingAgentRegionId)
+                                if personId >= 0:
+                                    HHIDSToQ.append(HHID)
+                                    PersonIdsToQ.append(personId)
+                                    numPFound += 1
+                                    if numPFound == NumPeopleToLookFor or numPFound == PContactRate:
+                                        break                
+                                        
+                    # then randomly quarantine some additional people if we haven't made it to the persons contacts yet
+                    while numPFound < PContactRate:
+                        rperson = random.randint(0,self.npersons-1) 
+                        numPFound += 1                           
+                        if rperson < self.DefinedAgents:
+                            HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
+                            personId = self.hhset[HHID].getRandomAgent()        
+                            HHIDSToQ.append(HHID)
+                            PersonIdsToQ.append(personId)
+                    
+                    # now actually test contacts - if they are positive then         
+                    for i in range(0,len(HHIDSToQ)):
+                        HHID = HHIDSToQ[i]
+                        personId = PersonIdsToQ[i]
+                        localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,personId,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
+                        if detected and self.timeNow > self.DiseaseParameters['QuarantineStartDate'] and followQuarantine:
+                            self.numQuarantined += 1
+                            if self.DiseaseParameters['QuarantineType'] == 'household':       
+                                PIDs = self.hhset[HHID].getPersonIDs()
+                                for pp in range(0,len(PIDs)):
+                                    if pp != personId:
+                                        offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,pp,offPopQueueEvents,delkeys)
+                                        self.numQuarantined += 1
+                                        localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
+                                
+                                    
+                            
                 else:
                     print("error",SE)
                 
@@ -292,15 +416,54 @@ class LocalPopulation:
             else:
                 self.timeNow = tend
                 break
+                    
 
+        if self.timeNow > self.DiseaseParameters['TestingAvailabilityDateComm']:
+            qshow = self.DiseaseParameters['CommunityTestingRate']
+            numShowingUpforTesting=int(math.ceil(self.numContagious*qshow))
+            if self.timeNow > self.DiseaseParameters['QuarantineStartDate'] and self.DiseaseParameters['testExtra'] == 1:
+                if testExtra:                            
+                    numShowingUpforTesting+=350
+            x = []
+            for i in range(0,int(max(self.DefinedAgents-1,numShowingUpforTesting))):
+                x.append(i)        
+            samplevals = random.sample(x,numShowingUpforTesting)
+            for i in range(0,len(samplevals)):
+                rperson = samplevals[i]
+                # found existing person so can test them otherwise - assume test is negative
+                if rperson < self.DefinedAgents:
+                    HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
+                    personId = self.hhset[HHID].getRandomAgent()
+                    localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,personId,localQevents,offPopQueueEvents,delkeys)
+                    # If they are detected and they follow quarantine - then quarantince household
+                    if detected and self.DiseaseParameters['QuarantineType'] == 'household' and self.timeNow > self.DiseaseParameters['QuarantineStartDate'] and followQuarantine:
+                        PIDs = self.hhset[HHID].getPersonIDs()
+                        for pp in range(0,len(PIDs)):
+                            offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,pp,offPopQueueEvents,delkeys)
+                            self.numQuarantined += 1
+                            # If intervention includes tracing contacts and testing them, then test household
+                            if self.DiseaseParameters['ContactTracing'] == 1:
+                                localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
+                        
+                        
+                                                                            
         for i in range(0, len(delkeys)):
-            del self.eventQueue[delkeys[i]]
+            try:
+                del self.eventQueue[delkeys[i]]
+            except KeyError:
+                # could happen if the key is added twice due to testing
+                pass
+
+        # add the quarantine events
+        for i in range(0,len(localQevents)):
+            QE = localQevents[i]
+            ts = QE.timestamp
+            self.eventQueue[ts] = QE
+        
+        return offPopQueueEvents, numevents 
 
         
-        return offPopQueueEvents, numevents
-
-    
-    def infectRandomAgent(self,tend,ageCohort=-1):
+    def infectRandomAgent(self,tend,ageCohort=-1,infectingAgent={}):
         #first determine if we are infecting someone already defined or creating new household
         infectperson = random.randint(0,self.npersons-1)
         if infectperson < (self.DefinedAgents+self.EphermeralAgents):
@@ -311,32 +474,30 @@ class LocalPopulation:
                 # the household is all recovered so don't care
         else:
             HHID = self.BuildSingleHousehold()
-        
-        
-        offPopQueueEvents = self.infectAgent(tend,HHID,ageCohort=ageCohort)
+
+        offPopQueueEvents = self.infectAgent(tend,HHID,ageCohort=ageCohort,infectingAgent=infectingAgent)
                           
         return offPopQueueEvents
 
-    def infectAgent(self,tend, HHID, agentId=-1,ageCohort=-1):
+    def infectAgent(self,tend, HHID, agentId=-1,ageCohort=-1,infectingAgent={}):
         #print("Before infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
-        queueEvents, ageCohort = \
-            self.hhset[HHID].infectHousehouldMember(self.timeNow,tend,
-                                    self.LocalInteractionMatrixList,
-                                    self.RegionListGuide,
-                                    self.LocalPopulationId,self.HospitalTransitionMatrixList,
-                                                  agentId,ageCohort)
+        queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(self.timeNow,tend,self.LocalInteractionMatrixList,
+                                                                self.RegionListGuide,self.LocalPopulationId,
+                                                                self.HospitalTransitionMatrixList,agentId,ageCohort,infectingAgent,self.ProportionLowIntReduction)
         offPopQueueEvents = []
         numinfR = 0
-        
+                
+        if outcome == 'quarantined':
+            self.InfectiousEventsPrevented += 1
         # if they were infected then queue events will be returned
         if queueEvents:
             self.numSusceptible -= 1
             self.numIncubating += 1 
-            self.ageInfection[ageCohort]+=1
+            self.ageInfection[acout]+=1
             susnum = self.hhset[HHID].numHouseholdMembersSusceptible()
             tsvaltot = 0
             for QE in queueEvents:
-                ts = QE.getEventTime()
+                ts = QE.timestamp
                 if isinstance(QE,SimEvent.NonLocalInfectionEvent):
                     numinfR += 1
                     if ts <= self.SimEndDate:
@@ -353,7 +514,7 @@ class LocalPopulation:
                         tsvaltot += ts - self.timeNow 
                     if ts <= self.SimEndDate:
                         self.eventQueue[ts] = QE
-        
+ 
         if numinfR > 100:
             self.R0Calc[100]+=1
         else:
@@ -368,8 +529,88 @@ class LocalPopulation:
         return self.infectionEvents
         
     def addEventsFromOtherLocalPopulations(self, QE):
-        ts = QE.getEventTime()
+        ts = QE.timestamp
         self.eventQueue[ts] = QE
         return 
+        
+    def addContactTracing(self,tend,HHID,personId,localQevents,offPopQueueEvents):
+        if self.timeNow > self.DiseaseParameters['QuarantineStartDate']:
+            self.numQuarantined += 1    
+            timeToFindContacts = random.triangular(24,12,72)/24
+            t = tend+.001 + random.random() * timeToFindContacts
+            numLocalInfections = self.hhset[HHID].getLocalInfections(personId)
+            numNonLocalInfections, NonLocalRegionsInfected, NonLocalPopsInfected = self.hhset[HHID].getNonLocalInfections(personId)
+            localQevents.append(SimEvent.LocalContactTraceEvent(t,self.RegionId,self.LocalPopulationId, HHID,personId,numLocalInfections))
+            if numNonLocalInfections > 0:
+                for nlp in range(0,len(NonLocalRegionsInfected)):   
+                    offPopQueueEvents.append(SimEvent.NonLocalContactTraceEvent(tend+.001, NonLocalRegionsInfected[nlp],NonLocalPopsInfected[nlp], HHID, personId,numNonLocalInfections ))
+                
+        return localQevents,offPopQueueEvents,
 
+    # Function to test agents
+    # If the agent is detected then adds contact tracing (if started) and if they follow quarantine then clears off potential infections                
+    def testAgent(self,tend,HHID,personId,localQevents,offPopQueueEvents,delkeys):
+        detected = False
+        followQuarantine = False
+        self.numTests += 1
+        if self.hhset[HHID].getHouseholdPersonStatus(personId) == ParameterSet.Contagious:
+            # did the test detect positive
+            if random.random() < ParameterSet.TestEfficacy:
+                self.confirmedcases += 1
+                detected = True
+                if self.DiseaseParameters['ContactTracing'] == 1:
+                    localQevents,offPopQueueEvents = self.addContactTracing(tend,HHID,personId,localQevents,offPopQueueEvents)
+                if random.random() < self.DiseaseParameters['PerFollowQuarantine']:
+                    followQuarantine = True
+                    offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,personId,offPopQueueEvents,delkeys)        
+        return localQevents,offPopQueueEvents,delkeys, detected, followQuarantine
+    
+    # function to clear future infections
+    # gets the future infection events to be cleared    
+    def clearForwardInfections(self,tend,HHID,personId,offPopQueueEvents,delkeys):
+        self.hhset[HHID].setPersonQuarantine(personId,self.timeNow,self.timeNow+ParameterSet.QuarantineTime)
+        numLocalInfections = self.hhset[HHID].getLocalInfections(personId)
+        numNonLocalInfections, NonLocalRegionsInfected, NonLocalPopsInfected = self.hhset[HHID].getNonLocalInfections(personId)
+        if numLocalInfections > 0:
+            dk = self.getEventsToBeCleared(tend,HHID,personId,numLocalInfections)
+            delkeys.extend(dk)    
+            self.InfectiousEventsCleared += len(dk)
+        if numNonLocalInfections > 0:
+            for nlp in range(0,len(NonLocalRegionsInfected)):   
+                offPopQueueEvents.append(SimEvent.ClearInfectionEvents(tend+.001, NonLocalRegionsInfected[nlp],NonLocalPopsInfected[nlp], HHID, personId,numNonLocalInfections,self.RegionId,self.LocalPopulationId ))   
+                #print( tend+.001, NonLocalRegionsInfected[nlp],NonLocalPopsInfected[nlp], HHID, personId,numNonLocalInfections,self.RegionId,self.LocalPopulationId)
+        return offPopQueueEvents,delkeys
+            
+    # function to search queue for infection events (only clears them with some probability)
+    def getEventsToBeCleared(self,tend,HHID,personId,numLocalInfections):
+        foundthem = 0
+        dekeys = []
+        for key2 in self.eventQueue.keys():
+            SE2 = self.eventQueue[key2]
+            if isinstance(SE2,SimEvent.LocalInfectionEvent):
+                ts2 = SE2.timestamp
+                if ts2 > tend:
+                    if SE2.IsInfectionBy(HHID,personId):
+                        foundthem+=1
+                        if random.random() < ParameterSet.ProbTransmissionCleared:
+                            dekeys.append(key2)
+            if foundthem == numLocalInfections:
+                break
+                    
+        return dekeys
+
+                
+    def clearInfectionEvents(self,QE):
+        delkeys = []
+
+        for key in self.eventQueue.keys():
+            SE = self.eventQueue[key]
+            if isinstance(SE,SimEvent.NonLocalInfectionEvent):
+                if SE.IsNonLocalInfectionBy(QE.infectingRegionId,QE.infectingLocalPopulationId,QE.infectingAgentHHID,QE.infectingAgentId):
+                    delkeys.append(key)
+                    break
+        
+        for i in range(0, len(delkeys)):
+            del self.eventQueue[delkeys[i]]
+        self.InfectiousEventsCleared += len(delkeys)
         
