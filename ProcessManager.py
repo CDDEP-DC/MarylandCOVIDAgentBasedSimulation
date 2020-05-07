@@ -432,7 +432,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,Lo
             if not item:
                 t2 = time.time()
                 if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
-                    endRun(procs, eventqueues,RegionalList)
+                    endRun(procs, eventqueues,RegionalList,modelPopNames)
                     exit()
                 continue
             else:
@@ -441,7 +441,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,Lo
                     doneprocs[item.msg_src] = 1
                    
                 if item.msg_type == "FATAL":
-                    endRun(procs, eventqueues,RegionalList)
+                    endRun(procs, eventqueues,RegionalList,modelPopNames)
                     time.sleep(2) ## add here to let all the procs exit
                     exit()
                                             
@@ -587,12 +587,12 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,Lo
         results[tend] = numInfList
         Utils.PickleFileWrite(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"),results)
             
-    endRun(procs,eventqueues,RegionalList)       
+    endRun(procs,eventqueues,RegionalList,modelPopNames)       
 
     print("Finished run")
     return RegionalList
             
-def endRun(procs,eventqueues,RegionalList):
+def endRun(procs,eventqueues,RegionalList,modelPopNames):
     for i in range(0,len(procs)):
         eventqueues[i].safe_put(EventMessage("stop_procs", "END", "END"))
     
@@ -606,24 +606,29 @@ def endRun(procs,eventqueues,RegionalList):
         try:
             os.remove(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"))
         except:
-            pass
+            print("error removing queue")
         
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"HOSPLIST.pickle"))
         except:
-            pass
+            print("error removing hosplist")
+            
+        try:
+            os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+".pickle"))
+        except:
+            print("error removing ",str(modelPopNames))
             
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"RegionStats.pickle"))
         except:
-            pass
+            print("error removing regionstats")
             
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"R0Stats.pickle"))
         except:
-            pass
+            print("error removing R0stats")
             
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"AgeStats.pickle"))
         except:
-            pass
+            print("error removing agestats")

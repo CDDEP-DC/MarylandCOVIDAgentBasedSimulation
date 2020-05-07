@@ -558,11 +558,12 @@ class LocalPopulation:
             if random.random() < ParameterSet.TestEfficacy:
                 self.confirmedcases += 1
                 detected = True
-                if self.DiseaseParameters['ContactTracing'] == 1:
-                    localQevents,offPopQueueEvents = self.addContactTracing(tend,HHID,personId,localQevents,offPopQueueEvents)
-                if random.random() < self.DiseaseParameters['PerFollowQuarantine']:
-                    followQuarantine = True
-                    offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,personId,offPopQueueEvents,delkeys)        
+                if self.timeNow > self.DiseaseParameters['QuarantineStartDate']:
+                    if self.DiseaseParameters['ContactTracing'] == 1:
+                        localQevents,offPopQueueEvents = self.addContactTracing(tend,HHID,personId,localQevents,offPopQueueEvents)
+                    if random.random() < self.DiseaseParameters['PerFollowQuarantine']:
+                        followQuarantine = True
+                        offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,personId,offPopQueueEvents,delkeys)        
         return localQevents,offPopQueueEvents,delkeys, detected, followQuarantine
     
     # function to clear future infections

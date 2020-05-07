@@ -30,28 +30,28 @@ def JiggleParameters():
     #agecohort 0 -- 0-4
     AG04GammaScale = 6
     AG04GammaShape = 2.1
-    AG04AsymptomaticRate = random.randint(990,999)/1000
+    AG04AsymptomaticRate = random.randint(990,990)/1000
     AG04HospRate = random.randint(1,1)/100
     AG04MortalityRate = random.randint(1,2)/10000
       
     #agecohort 1 -- 5-17
     AG517GammaScale = 6
     AG517GammaShape = 3
-    AG517AsymptomaticRate = random.randint(990,999)/1000
+    AG517AsymptomaticRate = random.randint(990,990)/1000
     AG517HospRate = random.randint(1,1)/100
     AG517MortalityRate = random.randint(1,2)/1000
     
     #agecohort 2 -- 18-49
     AG1849GammaScale = 6
     AG1849GammaShape = 2.5
-    AG1849AsymptomaticRate = random.randint(80,90)/100
-    AG1849HospRate = random.randint(9,11)/100
+    AG1849AsymptomaticRate = random.randint(80,80)/100
+    AG1849HospRate = random.randint(10,10)/100
     AG1849MortalityRate = random.randint(6,8)/1000
      
     #agecohort 3 -- 50-64
     AG5064GammaScale = 6
     AG5064GammaShape = 2.3
-    AG5064AsymptomaticRate = random.randint(80,90)/100
+    AG5064AsymptomaticRate = random.randint(80,80)/100
     AG5064HospRate = random.randint(25,25)/100
     AG5064MortalityRate = random.randint(13,15)/1000
 
@@ -79,7 +79,7 @@ def JiggleParameters():
             
     PopulationParameters['AGGammaScale'] = [AG04GammaScale,AG517GammaScale,AG1849GammaScale,AG5064GammaScale,AG65GammaScale]
     PopulationParameters['AGGammaShape'] = [AG04GammaShape,AG517GammaShape,AG1849GammaShape,AG5064GammaShape,AG65GammaShape]
-    PopulationParameters['householdcontactRate'] = random.randint(35,42)
+    PopulationParameters['householdcontactRate'] = random.randint(36,36)
     
     PopulationParameters['AgeCohortInteraction'] = AgeCohortInteraction
     
@@ -87,28 +87,28 @@ def JiggleParameters():
     DiseaseParameters['IncubationTime'] = random.randint(3,3)
     
     # gamma1
-    DiseaseParameters['mildContagiousTime'] = random.randint(5,6)
+    DiseaseParameters['mildContagiousTime'] = random.randint(5,5)
     DiseaseParameters['AsymptomaticReducationTrans'] = random.randint(80,80)/100 #20%
     
     # gamma2
     DiseaseParameters['preContagiousTime'] = random.randint(2,2)  
     DiseaseParameters['symptomaticTime'] = random.randint(9,9)  # with symptomatic contact rate reduction similar to five days
-    DiseaseParameters['postContagiousTime']	= random.randint(1,2)
+    DiseaseParameters['postContagiousTime']	= random.randint(2,2)
     DiseaseParameters['symptomaticContactRateReduction'] = 1 #random.randint(80,90)/100 #10-20%
     
-    DiseaseParameters['preHospTime'] = random.randint(4,6) 
-    DiseaseParameters['hospitalSymptomaticTime'] = random.randint(4,5)
-    DiseaseParameters['ICURate'] = random.randint(40,42)/100
-    DiseaseParameters['ICUtime'] = random.randint(8,10)
-    DiseaseParameters['PostICUTime'] = random.randint(2,4)
+    DiseaseParameters['preHospTime'] = random.randint(5,5) 
+    DiseaseParameters['hospitalSymptomaticTime'] = random.randint(5,5)
+    DiseaseParameters['ICURate'] = random.randint(42,42)/100
+    DiseaseParameters['ICUtime'] = random.randint(10,10)
+    DiseaseParameters['PostICUTime'] = random.randint(4,4)
     DiseaseParameters['hospitalSymptomaticContactRateReduction'] = 1 #random.randint(40,50)/100
     
     
-    DiseaseParameters['EDVisit'] = random.randint(60,80)/100 
+    DiseaseParameters['EDVisit'] = random.randint(80,80)/100 
     
     
-    DiseaseParameters['ImportationRate'] = random.randint(20,20)
-    DiseaseParameters['ProbabilityOfTransmissionPerContact'] = random.randint(40,40)/1000
+    DiseaseParameters['ImportationRate'] = random.randint(5,5)
+    DiseaseParameters['ProbabilityOfTransmissionPerContact'] = random.randint(4021,4021)/100000
     
     DiseaseParameters['QuarantineLookBackTime'] = 5
     DiseaseParameters['CommunityTestingRate'] = random.randint(5,5)/100
@@ -152,15 +152,19 @@ def main(argv):
     interventions['distance.base']['InterventionReductionLow'] = []
     interventions['distance.base']['SchoolInterventionReduction'] = []
     
-    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
+    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 3, 31) - startdate).days):
+        interventions['distance.base']['InterventionReduction'].append(.31)    
+        interventions['distance.base']['InterventionReductionLow'].append(.72)
+    
+    for i in range((datetime(2020, 4, 1) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
         interventions['distance.base']['InterventionReduction'].append(.15)    
-        interventions['distance.base']['InterventionReductionLow'].append(.6)
+        interventions['distance.base']['InterventionReductionLow'].append(.5)
         
     interventions['distance.base']['SchoolInterventionDate'] = (datetime(2020, 3, 15) - startdate).days
     for i in range((datetime(2020, 3, 15) - startdate).days,(datetime(2020, 3, 24) - startdate).days):
         interventions['distance.base']['SchoolInterventionReduction'].append(.25)
     interventions['distance.base']['SchoolInterventionReduction'].extend(interventions['distance.base']['InterventionReduction'])
-    interventions['distance.base']['InterventionMobilityEffect'] = .5
+    interventions['distance.base']['InterventionMobilityEffect'] = .72
     interventions['distance.base']['QuarantineType'] = ''
     interventions['distance.base']['PerFollowQuarantine'] = 0
     interventions['distance.base']['QuarantineStartDate'] = 500
@@ -179,15 +183,19 @@ def main(argv):
     interventions['distance.HHQonly']['InterventionReductionLow'] = []
     interventions['distance.HHQonly']['SchoolInterventionReduction'] = []
     
-    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
+    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 3, 31) - startdate).days):
+        interventions['distance.HHQonly']['InterventionReduction'].append(.311)    
+        interventions['distance.HHQonly']['InterventionReductionLow'].append(.727)
+    
+    for i in range((datetime(2020, 4, 1) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
         interventions['distance.HHQonly']['InterventionReduction'].append(.15)    
-        interventions['distance.HHQonly']['InterventionReductionLow'].append(.6)
+        interventions['distance.HHQonly']['InterventionReductionLow'].append(.5)
         
     interventions['distance.HHQonly']['SchoolInterventionDate'] = (datetime(2020, 3, 15) - startdate).days
     for i in range((datetime(2020, 3, 15) - startdate).days,(datetime(2020, 3, 24) - startdate).days):
         interventions['distance.HHQonly']['SchoolInterventionReduction'].append(.25)
     interventions['distance.HHQonly']['SchoolInterventionReduction'].extend(interventions['distance.HHQonly']['InterventionReduction'])
-    interventions['distance.HHQonly']['InterventionMobilityEffect'] = .5
+    interventions['distance.HHQonly']['InterventionMobilityEffect'] = .72
     interventions['distance.HHQonly']['QuarantineType'] = 'household'
     interventions['distance.HHQonly']['PerFollowQuarantine'] = 0.9
     interventions['distance.HHQonly']['QuarantineStartDate'] = (datetime(2020, 5, 15) - startdate).days
@@ -206,15 +214,19 @@ def main(argv):
     interventions['distance.QAll']['InterventionReductionLow'] = []
     interventions['distance.QAll']['SchoolInterventionReduction'] = []
     
-    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
+    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 3, 31) - startdate).days):
+        interventions['distance.QAll']['InterventionReduction'].append(.311)    
+        interventions['distance.QAll']['InterventionReductionLow'].append(.727)
+    
+    for i in range((datetime(2020, 4, 1) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
         interventions['distance.QAll']['InterventionReduction'].append(.15)    
-        interventions['distance.QAll']['InterventionReductionLow'].append(.6)
+        interventions['distance.QAll']['InterventionReductionLow'].append(.5)
         
     interventions['distance.QAll']['SchoolInterventionDate'] = (datetime(2020, 3, 15) - startdate).days
     for i in range((datetime(2020, 3, 15) - startdate).days,(datetime(2020, 3, 24) - startdate).days):
         interventions['distance.QAll']['SchoolInterventionReduction'].append(.25)
     interventions['distance.QAll']['SchoolInterventionReduction'].extend(interventions['distance.QAll']['InterventionReduction'])
-    interventions['distance.QAll']['InterventionMobilityEffect'] = .5
+    interventions['distance.QAll']['InterventionMobilityEffect'] = .72
     interventions['distance.QAll']['QuarantineType'] = 'household'
     interventions['distance.QAll']['PerFollowQuarantine'] = 0.9
     interventions['distance.QAll']['QuarantineStartDate'] = (datetime(2020, 5, 15) - startdate).days
@@ -233,15 +245,19 @@ def main(argv):
     interventions['distance.QAllPlus']['InterventionReductionLow'] = []
     interventions['distance.QAllPlus']['SchoolInterventionReduction'] = []
     
-    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
+    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 3, 31) - startdate).days):
+        interventions['distance.QAllPlus']['InterventionReduction'].append(.311)    
+        interventions['distance.QAllPlus']['InterventionReductionLow'].append(.727)
+    
+    for i in range((datetime(2020, 4, 1) - startdate).days,(datetime(2020, 10, 31) - startdate).days):
         interventions['distance.QAllPlus']['InterventionReduction'].append(.15)    
-        interventions['distance.QAllPlus']['InterventionReductionLow'].append(.6)
+        interventions['distance.QAllPlus']['InterventionReductionLow'].append(.5)
         
     interventions['distance.QAllPlus']['SchoolInterventionDate'] = (datetime(2020, 3, 15) - startdate).days
     for i in range((datetime(2020, 3, 15) - startdate).days,(datetime(2020, 3, 24) - startdate).days):
         interventions['distance.QAllPlus']['SchoolInterventionReduction'].append(.25)
     interventions['distance.QAllPlus']['SchoolInterventionReduction'].extend(interventions['distance.QAllPlus']['InterventionReduction'])
-    interventions['distance.QAllPlus']['InterventionMobilityEffect'] = .5
+    interventions['distance.QAllPlus']['InterventionMobilityEffect'] = .72
     interventions['distance.QAllPlus']['QuarantineType'] = 'household'
     interventions['distance.QAllPlus']['PerFollowQuarantine'] = 0.9
     interventions['distance.QAllPlus']['QuarantineStartDate'] = (datetime(2020, 5, 15) - startdate).days
@@ -263,14 +279,19 @@ def main(argv):
     interventions['distance.QAllPlusJune']['SchoolInterventionDate'] = (datetime(2020, 3, 15) - startdate).days
     for i in range((datetime(2020, 3, 15) - startdate).days,(datetime(2020, 3, 24) - startdate).days):
         interventions['distance.QAllPlusJune']['SchoolInterventionReduction'].append(.25)
-        
-    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 5, 31) - startdate).days):
-        interventions['distance.QAllPlusJune']['InterventionReduction'].append(.15)    
-        interventions['distance.QAllPlusJune']['InterventionReductionLow'].append(.6)
+    
+    for i in range((datetime(2020, 3, 25) - startdate).days,(datetime(2020, 3, 31) - startdate).days):
+        interventions['distance.QAllPlusJune']['InterventionReduction'].append(.311)    
+        interventions['distance.QAllPlusJune']['InterventionReductionLow'].append(.727)
         interventions['distance.QAllPlusJune']['SchoolInterventionReduction'].append(.25)
         
+    for i in range((datetime(2020, 4, 1) - startdate).days,(datetime(2020, 5, 31) - startdate).days):
+        interventions['distance.QAllPlusJune']['InterventionReduction'].append(.15)    
+        interventions['distance.QAllPlusJune']['InterventionReductionLow'].append(.5)
+        interventions['distance.QAllPlusJune']['SchoolInterventionReduction'].append(.25)
+                
     intval = .15
-    intval2 = .6
+    intval2 = .5
     for i in range((datetime(2020, 6, 1) - startdate).days,(datetime(2020, 6, 30) - startdate).days):
         interventions['distance.QAllPlusJune']['InterventionReduction'].append(intval)
         interventions['distance.QAllPlusJune']['InterventionReductionLow'].append(intval2)
@@ -285,7 +306,7 @@ def main(argv):
         interventions['distance.QAllPlusJune']['InterventionReductionLow'].append(intval2)
         interventions['distance.QAllPlusJune']['SchoolInterventionReduction'].append(1)    
         
-    interventions['distance.QAllPlusJune']['InterventionMobilityEffect'] = .5
+    interventions['distance.QAllPlusJune']['InterventionMobilityEffect'] = .72
     interventions['distance.QAllPlusJune']['QuarantineType'] = 'household'
     interventions['distance.QAllPlusJune']['PerFollowQuarantine'] = 0.9
     interventions['distance.QAllPlusJune']['QuarantineStartDate'] = (datetime(2020, 5, 15) - startdate).days
