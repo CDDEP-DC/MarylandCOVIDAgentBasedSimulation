@@ -1,0 +1,36 @@
+READ ME
+
+Running the program
+The Main file can run and of the models specified in data/Models.csv.
+
+[Add description of Models.csv]
+
+Each model specified has to have an associated folder in the data folder containing the interventions file and any other additional files needed.
+
+[add description of interventions file]
+
+[add description of fitting process and associated files]
+
+[add description of phone encounter data and associated files]
+
+Current possible models include
+MDDCVAregion - a model of the Maryland region
+UScounty - a model of all US counties [hard to run to scale given the size]
+
+In addition to running main models, can also run forecast models based on the CDC forecast tool [add links and description]
+
+Required Parameters
+-m Model to run (see Models above)
+
+Optional Parameters
+-j XXXX Specify the folder to run the model and results in where XXXX is the name of the folder. 
+-d Run in debug mode
+-f Fit the model (see fit above) must specify hospitalizations or deaths
+-n Number of times to run the model
+
+Example:
+python3 Main.py -j testdelete -n 2 -m MDDCVAregion -d -f hospitalizations
+
+python3 USForecast.py -j testdelete -m UScounty -f deaths
+
+

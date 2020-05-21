@@ -1,3 +1,23 @@
+"""
+
+Copyright (C) 2020  Eili Klein
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    
+
+"""
+
 # System Imports
 import numpy as np
 import random
@@ -8,82 +28,240 @@ import time
 import pandas as pd
 from datetime import datetime  
 from datetime import timedelta  
+import traceback
+import copy
 
 ## Model Imports
 import ProcessManager
 import GlobalLocationSetup
 import ParameterSet
 import data.ConstructInteractionMatrix
-import data.MDDCVAregion.ProcessDataMDDCVAED
 import Utils
 import PostProcessing
 
 
-def MDVADCInteractionMatrix():
-    print("Loading Maryland/DC/Virgina Zipcode Centroid ...")
-    MDPop = pd.read_csv('data/MDDCVAregion/MDDCVAregionCentroid.csv')
-    MDPop = MDPop.dropna(subset=['POPULATION'])
-    MDPop = MDPop[MDPop.POPULATION != 0].copy()
+def getCountyHHsAgesMatrix(dfHH,dfNational57,fip_code,zip_code):
+        
+    SelectedCounty = dfHH.loc[fip_code,:].values
+    SelectedCountyAges = SelectedCounty * dfNational57.values
+    
+    HHSizeDist = list(SelectedCounty*100)
+    HHSizeDist = [round(elem, 2) for elem in HHSizeDist]
+    HHSizeAgeDist = {}
+    for i in range(len(HHSizeDist)):
+        HHSizeAgeDist[i+1] = [round(elem, 2) for elem in SelectedCountyAges[:,i]*100]
+
+    return HHSizeDist, HHSizeAgeDist
+
+def getHospitalData(ModelType,modelvals,popdata):
+
+    #""" Import Adjacency Matrix from the Input Folder """
+    
+    if int(modelvals['UseHospital']) == 1:
+        try:
+            ComHosAdj = pd.read_csv(os.path.join("data",ModelType,modelvals['HospitalMatrixFile']), index_col=0)
+        except:
+            print("Error reading Hospital Matrix file. Please ensure this is correctly specified")
+            if ParameterSet.logginglevel == "debug":
+                print(traceback.format_exc())
+            raise Exception("File Read Error")
+            
+        #""" Create Adjacency Flow Matrix """
+        td = pd.DataFrame(popdata[modelvals['GeographicScale']].copy())
+        
+        td = td.merge(pd.DataFrame(ComHosAdj), how='left',
+                      left_on=modelvals['GeographicScale'], right_index=True) # left join on population > 0
+        td = td.set_index(modelvals['GeographicScale'])
+        TranCH = np.asarray(td.values)
+        
+        HosNames = list(ComHosAdj.columns)
+        #FacList = pd.read_csv(os.path.join("data",ModelType,modelvals['HospitalNamesFile']))
+        
+        #HosNames = []
+        # This makes sure it runs on all unix systems
+        #for i in range(0,len(FacList.HOSPID)):
+        #    HosNames.append(FacList.ProviderNames[i].encode("ascii",errors="ignore").decode())
+        
+    else:
+        
+        PopulationData = np.asarray(popdata['POPULATION'])
+        RegionalNames = np.asarray(popdata[modelvals['RegionalPopName']])
+        hospitals = np.unique(np.asarray(popdata[modelvals['RegionalPopName']]))
+        
+        HospitalInteractionMatrix = np.empty([len(PopulationData), len(hospitals)], np.single)
+        for i in range(0, len(PopulationData)):
+            for j in range(0, len(hospitals)):
+                if RegionalNames[i] == hospitals[j]:
+                    HospitalInteractionMatrix[i][j] = (1)
+                else:
+                    HospitalInteractionMatrix[i][j] = (0)
+
+        TranCH = np.empty([len(PopulationData), len(hospitals)], np.single)
+        for i in range(0, len(PopulationData)):
+            rowSum = 0.0
+            for j in range(0, len(hospitals)):
+                rowSum = rowSum + HospitalInteractionMatrix[i, j]
+            for j in range(0, len(hospitals)):
+                TranCH[i][j] = HospitalInteractionMatrix[i, j] / rowSum
+    
+        HosNames = []
+        for i in range(0,len(hospitals)):
+            HosNames.append(hospitals[i])
+        
+    return TranCH, HosNames
+    
+def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
+    print("Loading",ModelType," ...")
+    
+    PopData = pd.read_csv(os.path.join("data",ModelType,modelvals['PopulationFile']))
+    if substate:
+        PopData = PopData.loc[PopData['stname'] == substate]
+        
+    # just check that there are no NAs in the file
+    PopData = PopData.dropna(subset=['POPULATION'])
+    PopData = PopData[PopData.POPULATION != 0].copy()
     # delete all rows not in ED Matrix
-    NoEDZip = MDPop[(MDPop['ZIP_CODE'] == 20656) |
-                    (MDPop['ZIP_CODE'] == 20701) |
-                    (MDPop['ZIP_CODE'] == 20771) |
-                    (MDPop['ZIP_CODE'] == 21031) |
-                    (MDPop['ZIP_CODE'] == 21240)].index
-    MDPop = MDPop.drop(NoEDZip)
-    # ZipNames = np.asarray(MDPop['ZIP_CODE'])
-    PopulationData = np.asarray(MDPop['POPULATION'])
-    PopulationDensity = np.asarray(MDPop['POPULATION']/MDPop['SQMI'])
-    Zipcodes = np.asarray(MDPop['ZIP_CODE'])
-    Zipcodes = np.asarray(MDPop['ZIP_CODE'])
-    States = np.asarray(MDPop['STATE'])
-    LongCentroid = np.asarray(MDPop['Longitude'])
-    LatCentroid = np.asarray(MDPop['Latitude'])
-    BAProportion = np.asarray(MDPop['BAProportion'])
-    NursingCareFacilities = np.asarray(MDPop['NursingCareFacilities'])
-    AssistedLivingFacilities = np.asarray(MDPop['AssistedLivingFacilities'])
-    LTCF = np.asarray(MDPop['LTCF'])
-    HealthcareWorkerPercent = np.asarray(MDPop['HealthcareWorkerPercent'])
-
-    MDHospitalData = data.MDDCVAregion.ProcessDataMDDCVAED.InputData('data/MDDCVAregion', MDPop) # Process movement network
-    HospitalTransitionRate = MDHospitalData.TranCH
+    PopulationData = np.asarray(PopData['POPULATION'])
+    PopulationDensity = np.asarray(PopData['POPULATION']/PopData['SQMI'])
+    GeoArea = np.asarray(PopData[modelvals['GeographicScale']])
+    CountyFIP = np.asarray(PopData['STCOUNTYFP'])
+    LPNames = np.asarray(PopData[modelvals['LocalPopName']])
+    RegionalNames = np.asarray(PopData[modelvals['RegionalPopName']])
+    LongCentroid = np.asarray(PopData['Longitude'])
+    LatCentroid = np.asarray(PopData['Latitude'])
+    BAProportion = np.asarray(PopData['BAProportion'])
+    NursingCareFacilities = np.asarray(PopData['NursingCareFacilities'])
+    AssistedLivingFacilities = np.asarray(PopData['AssistedLivingFacilities'])
+    LTCF = np.asarray(PopData['LTCF'])
+    HealthcareWorkerPercent = np.asarray(PopData['HealthcareWorkerPercent'])
     
-    # This makes sure it runs on all unix systems
-    HospitalColNamesRaw = MDHospitalData.ProviderNamesColumn # Dictionary of hospital names to adj matrix column
-    HospitalColNames = []
-    for i in range(0,len(HospitalColNamesRaw)):
-        HospitalColNames.append(HospitalColNamesRaw[i].encode("ascii",errors="ignore").decode())
-
+    # Now get the hospital data
+    HospitalTransitionRate, HospitalColNames = getHospitalData(ModelType,modelvals,PopData)
+    
     numpops = len(PopulationData)  # number of HRRs
-    print("Loaded: ", numpops, " Populations, with a total population of ", sum(PopulationData), " (mean:",
-          sum(PopulationData) / len(PopulationData), " max:", max(PopulationData), " min:", min(PopulationData))
+    print("Found: ", numpops, " Populations, with a total population of ", sum(PopulationData), " (mean:",
+          sum(PopulationData) / len(PopulationData), " max:", max(PopulationData), " min:", min(PopulationData),")")
 
-    
     InteractionMatrix = data.ConstructInteractionMatrix. \
         CreateInteractionMatrix(LongCentroid, LatCentroid, PopulationData)
     
-    HHSizeDist = [14.7,26.9,18.6,20.1,10.9,4.8,4]
-    HHSizeAgeDist = {}
-    HHSizeAgeDist[1] = [0,0,5.1,3.7,5.9]
-    HHSizeAgeDist[2] = [0.1,0.8,7.6,9.1,9.3]
-    HHSizeAgeDist[3] = [1.1,2.8,8.2,4.6,1.9]
-    HHSizeAgeDist[4] = [1.8,5.7,9,2.8,0.8]
-    HHSizeAgeDist[5] = [1,3.8,4.5,1.2,0.4]
-    HHSizeAgeDist[6] = [0.5,1.7,1.9,0.5,0.2]
-    HHSizeAgeDist[7] = [0.5,1.4,1.5,0.4,0.2]    
+    # Get the data to create the household matrices    
+    dfHH = pd.read_csv(os.path.join("data","HHSize_USCounty.csv"), index_col = 'FIPS')
+    dfHH = dfHH.loc[:,'1.Person.Household':].div(dfHH.Total, axis=0) # get the percentage
+    dfNational57 = pd.read_csv(os.path.join("data","AgeAvgHH_Matrix.csv"), index_col = 0)
         
+    
+    #county_fips        county_name  PRE.mean  APRIL.mean  MAY.LastWeek.mean
+    #print(dfPhoneData)
+    if DiseaseParameters['UseCountyLevel'] == 1:
+        # Get the county level phonse use data if using
+        dfPhoneData = pd.read_csv(os.path.join("data",ModelType,modelvals['CountyEncountersFile']), index_col = 'county_fips')
+        minval = abs(min(dfPhoneData['APRIL.mean']))+1
+    
+    # Now load the global locations
     GlobalLocations = []
-    for i in range(0, numpops):
+    for G in range(0, numpops):
+        HHSizeDist, HHSizeAgeDist = getCountyHHsAgesMatrix(dfHH,dfNational57,CountyFIP[G],GeoArea[G])
+        
+        newdeclinevals = []
+        newdeclinevalsLow = []
+        
+        if DiseaseParameters['UseCountyLevel'] == 1:
+            
+            premean = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('PRE.mean')]+minval
+            aprilmean = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('APRIL.mean')]+minval
+            maylatest = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('MAY.LastWeek.mean')]+minval
+            
+            perreduc = (premean-aprilmean)/premean
+            perreducLow = perreduc*DiseaseParameters['InterventionReductionPerLow']
+            mayopen = (premean-maylatest)/premean
+            if mayopen < 0:
+                mayopen = 0
+            mayopenLow = mayopen*DiseaseParameters['InterventionReductionPerLow']    
+            
+            transmissonmodifier=1-math.exp(-premean/DiseaseParameters['pdscale1'])+math.log1p(PopulationDensity[G])/DiseaseParameters['pdscale2']
+            
+            for i in range(0,DiseaseParameters['InterventionStartReductionDate']):
+                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier)
+                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier)
+            
+            intdays = int(DiseaseParameters['InterventionStartReductionDateCalcDays'])-int(DiseaseParameters['InterventionStartReductionDate'])    
+            intredred = perreduc/intdays
+            intredredLow = perreducLow/intdays
+            intredval = 1
+            intredvalLow = 1
+            
+            for i in range(int(DiseaseParameters['InterventionStartReductionDate']),int(DiseaseParameters['InterventionStartReductionDateCalcDays'])):
+                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
+                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
+                intredval -= intredred
+                intredvalLow -= intredredLow
+                
+            
+                
+            for i in range(int(DiseaseParameters['InterventionStartReductionDateCalcDays'])+1,int(DiseaseParameters['InterventionStartEndLift'])):
+                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
+            
+            
+            OpenDateNow = (Utils.dateparser("2020-05-18") - DiseaseParameters['startdate']).days    
+            opendays = OpenDateNow - (int(DiseaseParameters['InterventionStartEndLift'])+1)
+            openinc = ((1-mayopen)-(1-perreduc))/opendays
+            openincLow = ((1-mayopenLow)-(1-perreducLow))/opendays
+            
+            for i in range(int(DiseaseParameters['InterventionStartEndLift']+1),OpenDateNow):
+                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
+                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
+                intredval+=openinc
+                intredvalLow+=openincLow
+            
+            RestOfOpenDays = int(DiseaseParameters['InterventionStartEndLiftCalcDays']) - OpenDateNow
+            lefttoincrease = (perreduc)*float(DiseaseParameters['InterventionEndPerIncrease']) - intredval
+            lefttoincreaseLow = (perreducLow)*float(DiseaseParameters['InterventionEndPerIncrease']) - intredvalLow
+            #print(lefttoincrease,(perreduc),DiseaseParameters['InterventionEndPerIncrease'], intredval)
+            if lefttoincrease > 0:
+                openinc = lefttoincrease / RestOfOpenDays
+            else:
+                openinc = 0
+            if lefttoincreaseLow > 0:
+                openincLow = lefttoincreaseLow / RestOfOpenDays
+            else:
+                openincLow = 0
+            for i in range(OpenDateNow+1),int(DiseaseParameters['InterventionStartEndLiftCalcDays']):
+                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
+                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
+                intredval+=openinc
+                intredvalLow+=openincLow
+                                          
+            opendays = (int(DiseaseParameters['finaldate']) - int(DiseaseParameters['InterventionStartEndLiftCalcDays']+1))
+            openinc = (1-intredval)/opendays
+            openincLow = (1-intredvalLow)/opendays
+            for i in range(int(DiseaseParameters['InterventionStartEndLiftCalcDays']+1),int(DiseaseParameters['finaldate'])):
+                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
+                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
+                intredval+=openinc
+                intredvalLow+=openincLow
+                
+        else:    
+            newdeclinevals = DiseaseParameters['TransProb'].copy()
+            newdeclinevalsLow = DiseaseParameters['TransProbLow'].copy()
+
+        if min(newdeclinevals) < 0:
+            print(newdeclinevals)
+            exit()
+        if min(newdeclinevalsLow) < 0:
+            print(newdeclinevalsLow)
+            exit()
         GL = GlobalLocationSetup.\
-            GlobalLocationSetup(i, PopulationData[i], HHSizeDist,
-                                                     HHSizeAgeDist, PopulationDensity[i], Zipcodes[i],States[i],(1-BAProportion[i])+HealthcareWorkerPercent[i],NursingCareFacilities[i]+AssistedLivingFacilities[i]+LTCF[i])
+            GlobalLocationSetup(G, PopulationData[G], HHSizeDist,HHSizeAgeDist, 
+                                DiseaseParameters, LPNames[G],RegionalNames[G],
+                                (1-BAProportion[G])+HealthcareWorkerPercent[G],NursingCareFacilities[G]+AssistedLivingFacilities[G]+LTCF[G],newdeclinevals,newdeclinevalsLow)
         GlobalLocations.append(GL)
-    
-    
+    print("Loaded Populations")    
     return PopulationData, InteractionMatrix, HospitalTransitionRate, HospitalColNames,GlobalLocations
 
+    
 
-def modelSetup(PopulationParameters,DiseaseParameters):
+def modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters,substate=None):
 
     ## Need error check here to make sure that modelpopnames is a valid system name
     #if modelPopNames is None:
@@ -98,7 +276,7 @@ def modelSetup(PopulationParameters,DiseaseParameters):
     
     GlobalLocations = []
     
-    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations = MDVADCInteractionMatrix()
+    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations = LoadModel(ModelType,modelvals,DiseaseParameters,substate=substate)
     LocationImportationRisk = []
     popsum = sum(PopulationData)
     for i in range(0,len(PopulationData)):
@@ -107,68 +285,97 @@ def modelSetup(PopulationParameters,DiseaseParameters):
     return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk
 
 
-def RunDefaultModelType(ModelType,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,stepLength=1,writefolder='',startDate=datetime(2020,2,1)):
+def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],fitvals=[],fitper=.3):
     
     cleanUp(modelPopNames)
     ParameterVals = PopulationParameters
     ParameterVals.update(DiseaseParameters)
-       
-    PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
     
-    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(PopulationParameters,DiseaseParameters)
+    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
-    RegionalList = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,startDate=startDate,modelPopNames=modelPopNames)
-    results = Utils.PickleFileRead(os.path.join(ParameterSet.ResultsFolder,"Results_" + resultsName + ".pickle"))
-    PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
-    cleanUp(modelPopNames)
+    RegionalList, timeRange, fitted = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,fitvals=fitvals,fitper=fitper)
+    
+    if fitted:
+        PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
+        results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
+        PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
+    
+    cleanUp(modelPopNames,len(RegionalList))
     if os.path.exists(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle")):    
         os.remove(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"))
 
-def RunFitModelType(ModelType,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,startDate):
+    return fitted
+
+def RunUSStateForecastModel(ModelType,state,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],fitvals=[],fitper=.3):
     
     cleanUp(modelPopNames)
+    ParameterVals = PopulationParameters
+    ParameterVals.update(DiseaseParameters)
     
-    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(PopulationParameters,DiseaseParameters)
+    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters,substate=state)
     
-    RegionalList = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,modelPopNames=modelPopNames,startDate=startDate)
+    RegionalList, timeRange, fitted = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,fitvals=fitvals,fitper=fitper)
     
-    results = Utils.PickleFileRead(os.path.join(ParameterSet.ResultsFolder,"Results_" + resultsName + ".pickle"))
-    return results
+    if fitted:
+        PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
+        results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
+        PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
+    
+    cleanUp(modelPopNames,len(RegionalList))
+    if os.path.exists(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle")):    
+        os.remove(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"))
+
+    return fitted
+
             
-def cleanUp(modelPopNames=''):
+def cleanUp(modelPopNames='',lengthnum=1000):
     
     # Cleanup population data
-    i = 0
-    RegionalList = []
-    for filename in os.listdir(ParameterSet.PopDataFolder):
-        if os.path.exists(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+".pickle")):
-            RegionalList.append(i)
-            i += 1
-
-    for i in range(0, len(RegionalList)):
+    for i in range(0, lengthnum):
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+".pickle"))
         except:
+            #print("error removing main model")
             pass
+            
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"STATS.pickle"))
+        except:
+            #print("error removing Stats")
+            pass
+            
+        try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"AgeStats.pickle"))
+        except:
+            #print("error removing AgeStats")
+            pass
+            
+        try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"RegionStats.pickle"))
         except:
+            #print("error removing RegionStats")
             pass
             
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"HOSPLIST.pickle"))
         except:
+            #print("error removing HOSPLIST")
             pass
             
         try:
             os.remove(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"))
         except:
+            #print("error removing Queue")
+            pass
+        try:
+            os.remove(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"testextra.pickle"))
+        except:
+            #print("error removing testextra")
             pass
             
         try:
             os.remove(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"R0Stats.pickle"))
         except:
+            #print("error removing ROstats")
             pass
     

@@ -1,6 +1,23 @@
-# -----------------------------------------------------------------------------
-# LocalPopulation.py builds and stores the population for each local model
-# -----------------------------------------------------------------------------
+"""
+
+Copyright (C) 2020  Eili Klein
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    
+
+"""
+
 
 import random
 import time
@@ -15,8 +32,9 @@ import agents.AgentClasses
 
 class LocalPopulation:
     def __init__(self, LocalPopulationId, npersons, HHSizeDist, HHSizeAgeDist,
-                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationDensity,LocalIdentification,
-                    RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate,ProportionLowIntReduction,NursingFacilities):
+                 LocalInteractionMatrixList, RegionId, RegionListGuide,HospitalTransitionMatrixList,LocalIdentification,
+                    RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate,ProportionLowIntReduction,
+                    NursingFacilities,TransProb,TransProbLow):
         """
         initalize class and builds synthetic population for local point
 
@@ -42,14 +60,16 @@ class LocalPopulation:
 
         self.PopulationParameters = PopulationParameters
         self.DiseaseParameters = DiseaseParameters
+        self.TransProb = TransProb
+        self.TransProbLow = TransProbLow
+        
         
         self.UndefinedAgents = npersons
         self.DefinedAgents = 0
         self.EphermeralAgents = 0
         self.npersons = npersons #save original pop
         self.currHouseholdIDNum = 0
-        self.PopulationDensity = PopulationDensity
-
+        
         # Interaction matrix with other populations
         self.LocalInteractionMatrixList = LocalInteractionMatrixList
         self.RegionListGuide = RegionListGuide
@@ -66,11 +86,12 @@ class LocalPopulation:
             self.ageInfectionHosp.append(0)
             self.ageMortality.append(0)
 
-        for i in range(0,len(HospitalTransitionMatrixList)):
-            self.HospitalInfectionList.append(0)
-            self.HospitalNewInfectionList.append(0)
-            self.HospitalNewEDList.append(0)
-            self.HospitalICUInfectionList.append(0)
+        if ParameterSet.SaveHospitalData:    
+            for i in range(0,len(HospitalTransitionMatrixList)):
+                self.HospitalInfectionList.append(0)
+                self.HospitalNewInfectionList.append(0)
+                self.HospitalNewEDList.append(0)
+                self.HospitalICUInfectionList.append(0)
         
         self.numSusceptible = npersons
         self.numInfected = 0
@@ -95,17 +116,17 @@ class LocalPopulation:
 
         # Households
         self.hhset = {}
-            
+        
     def BuildSingleHousehold(self):
         
         numtries = 0
         maxval = self.npersons - self.DefinedAgents - self.EphermeralAgents
-        
+
         addNF = False
-        if self.NursingFacilities > 0 and self.NursingFacilitiesAdded < self.NursingFacilities and maxval > 100:
-            if random.random() < ((self.NursingFacilities*100) / self.npersons):
+        if self.NursingFacilities > 0 and self.NursingFacilitiesAdded < self.NursingFacilities and maxval > 130:
+            if random.random() < ((self.NursingFacilities*130) / self.npersons):
                 addNF = True
-                HHSize = 100
+                HHSize = 130
         
         if not addNF:
             # this is to make sure we don't make a household that pushes over the size of the population
@@ -117,15 +138,16 @@ class LocalPopulation:
                 numtries += 1
                 if numtries > 100:
                     #print(HHSize+1," ",maxval," ",numdefinedagents, " " , infectperson)
-                    print("LOOP ERROR")
+                    print("BuildSingleHousehold: LOOP ERROR")
                     break
 
         # Now create household
-        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, self.HHSizeAgeDist,self.PopulationDensity,self.PopulationParameters,self.DiseaseParameters,Facility=addNF)
+        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, self.HHSizeAgeDist,self.PopulationParameters,self.DiseaseParameters,Facility=addNF)
         self.hhset[self.currHouseholdIDNum] = HH
         self.currHouseholdIDNum += 1
         self.UndefinedAgents -= (HHSize + 1)
         self.DefinedAgents += (HHSize + 1)
+        
         return HH.HouseholdId
     
     def reportPopulationStats(self):
@@ -138,8 +160,12 @@ class LocalPopulation:
         stats['H'] = self.numHospitalized
         stats['D'] = self.numDead
         stats['ICU'] = self.numHospitalizedICU
-        stats['HI'] = sum(self.HospitalNewInfectionList)
-        stats['HE'] = sum(self.HospitalNewEDList)
+        if ParameterSet.SaveHospitalData:
+            stats['HI'] = sum(self.HospitalNewInfectionList)
+            stats['HE'] = sum(self.HospitalNewEDList)
+        else:    
+            stats['HI'] = -1
+            stats['HE'] = -1
         stats['localpopid'] = self.LocalIdentification
         stats['regionalid'] = self.RegionalIdentification
         stats['numTests'] = self.numTests
@@ -179,10 +205,11 @@ class LocalPopulation:
         numevents = 0
         eventTime = tend
         ## reset the daily infection lists
-        for i in range(0,len(self.HospitalNewInfectionList)):
-            self.HospitalNewInfectionList[i] = 0
-        for i in range(0,len(self.HospitalNewEDList)):
-            self.HospitalNewEDList[i] = 0
+        if ParameterSet.SaveHospitalData:
+            for i in range(0,len(self.HospitalNewInfectionList)):
+                self.HospitalNewInfectionList[i] = 0
+            for i in range(0,len(self.HospitalNewEDList)):
+                self.HospitalNewEDList[i] = 0
         
         if len(sortedKeys) == 0:
             self.timeNow = tend
@@ -265,7 +292,8 @@ class LocalPopulation:
                             self.hhset[HHID].setHouseholdPersonHospStatus(personId,0)
                             self.numHospitalized -= 1
                             #print("Patient left " + str(HospId),self.numHospitalized,self.HospitalInfectionList)
-                            self.HospitalInfectionList[HospId]-=1
+                            if ParameterSet.SaveHospitalData:
+                                self.HospitalInfectionList[HospId]-=1
                             
                             
                         # check if everyone is recovered, if so delete household
@@ -302,12 +330,15 @@ class LocalPopulation:
                             self.numTests += 1
                             self.confirmedcases += 1
                         self.ageInfectionHosp[self.hhset[HHID].getPersonAgeCohort(personId)]+=1
-                        self.HospitalInfectionList[Hospital]+=1
+                        if ParameterSet.SaveHospitalData:
+                            self.HospitalInfectionList[Hospital]+=1
                         if isinstance(SE,SimEvent.PersonHospICUEvent):
-                            self.HospitalICUInfectionList[Hospital]+=1
+                            if ParameterSet.SaveHospitalData:
+                                self.HospitalICUInfectionList[Hospital]+=1
                             self.numHospitalizedICU += 1
-                        self.HospitalNewInfectionList[Hospital]+=1
-                        self.hhset[HHID].setHouseholdPersonHospStatus(personId,1,Hospital)
+                        if ParameterSet.SaveHospitalData:
+                            self.HospitalNewInfectionList[Hospital]+=1
+                            self.hhset[HHID].setHouseholdPersonHospStatus(personId,1,Hospital)
                         self.numHospitalized += 1
                         ### Add contact tracing / quarantine if started
                         if self.timeNow > self.DiseaseParameters['QuarantineStartDate']:
@@ -324,13 +355,15 @@ class LocalPopulation:
                                             self.numQuarantined += 1
                                             # If intervention includes tracing contacts and testing them, then test household
                                             if self.DiseaseParameters['ContactTracing'] == 1:
-                                                localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
+                                                localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys,clearInfections=False) ### adds quarantine events if positive / already cleared events so no need to do so again
                                     
                     elif isinstance(SE,SimEvent.PersonHospExitICUEvent):
-                        self.HospitalICUInfectionList[Hospital]-=1
+                        if ParameterSet.SaveHospitalData:
+                            self.HospitalICUInfectionList[Hospital]-=1
                         self.numHospitalizedICU -= 1
                     else:
-                        self.HospitalNewEDList[Hospital]+=1
+                        if ParameterSet.SaveHospitalData:
+                            self.HospitalNewEDList[Hospital]+=1
                         if isinstance(SE,SimEvent.PersonHospTestEvent):
                             testdate = self.DiseaseParameters['TestingAvailabilityDateComm']
                         else:
@@ -347,7 +380,7 @@ class LocalPopulation:
                                         self.numQuarantined += 1
                                         # If intervention includes tracing contacts and testing them, then test household
                                         if self.DiseaseParameters['ContactTracing'] == 1:
-                                            localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys) ### adds quarantine events if positive
+                                            localQevents,offPopQueueEvents,delkeys, detected, followQuarantine = self.testAgent(tend,HHID,pp,localQevents,offPopQueueEvents,delkeys,clearInfections=False) ### adds quarantine events if positive / already cleared events so no need to do so again
                         
                 elif isinstance(SE,SimEvent.HouseholdInfectionEvent):
                     #print("house")
@@ -421,6 +454,7 @@ class LocalPopulation:
         if self.timeNow > self.DiseaseParameters['TestingAvailabilityDateComm']:
             qshow = self.DiseaseParameters['CommunityTestingRate']
             numShowingUpforTesting=int(math.ceil(self.numContagious*qshow))
+            # This is deprecated for now
             if self.timeNow > self.DiseaseParameters['QuarantineStartDate'] and self.DiseaseParameters['testExtra'] == 1:
                 if testExtra:                            
                     numShowingUpforTesting+=350
@@ -483,7 +517,8 @@ class LocalPopulation:
         #print("Before infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
         queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(self.timeNow,tend,self.LocalInteractionMatrixList,
                                                                 self.RegionListGuide,self.LocalPopulationId,
-                                                                self.HospitalTransitionMatrixList,agentId,ageCohort,infectingAgent,self.ProportionLowIntReduction)
+                                                                self.HospitalTransitionMatrixList,self.TransProb,self.TransProbLow,
+                                                                agentId,ageCohort,infectingAgent,self.ProportionLowIntReduction)
         offPopQueueEvents = []
         numinfR = 0
                 
@@ -549,7 +584,7 @@ class LocalPopulation:
 
     # Function to test agents
     # If the agent is detected then adds contact tracing (if started) and if they follow quarantine then clears off potential infections                
-    def testAgent(self,tend,HHID,personId,localQevents,offPopQueueEvents,delkeys):
+    def testAgent(self,tend,HHID,personId,localQevents,offPopQueueEvents,delkeys,clearInfections=True):
         detected = False
         followQuarantine = False
         self.numTests += 1
@@ -558,12 +593,12 @@ class LocalPopulation:
             if random.random() < ParameterSet.TestEfficacy:
                 self.confirmedcases += 1
                 detected = True
+                if random.random() < self.DiseaseParameters['PerFollowQuarantine'] and clearInfections == True:
+                    followQuarantine = True
+                    offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,personId,offPopQueueEvents,delkeys)        
                 if self.timeNow > self.DiseaseParameters['QuarantineStartDate']:
                     if self.DiseaseParameters['ContactTracing'] == 1:
                         localQevents,offPopQueueEvents = self.addContactTracing(tend,HHID,personId,localQevents,offPopQueueEvents)
-                    if random.random() < self.DiseaseParameters['PerFollowQuarantine']:
-                        followQuarantine = True
-                        offPopQueueEvents,delkeys = self.clearForwardInfections(tend,HHID,personId,offPopQueueEvents,delkeys)        
         return localQevents,offPopQueueEvents,delkeys, detected, followQuarantine
     
     # function to clear future infections

@@ -1,0 +1,45 @@
+variable,min,max,reference
+AG04GammaScale,6,6,
+AG04GammaShape,2.1,2.1,
+AG04AsymptomaticRate,0.99,0.99,"Authors' estimate; Bendavid E, Mulaney B, Sood N, et al. (2020); Sutton D, Fuchs K, D'Alton M and Goffman D (2020)"
+AG04HospRate,0.01,0.01,"Authors' estimate; CDC COVID-19 Response Team (2020); Garg S, Kim L, Whitaker M, et al. (2020)"
+AG04MortalityRate,0.0002,0.0002,"Richardson S, Hirsch JS, Narasimhan M, et al. (2020)"
+AG517GammaScale,6,6,
+AG517GammaShape,3,3,
+AG517AsymptomaticRate,0.99,0.99,"Authors' estimate; Bendavid E, Mulaney B, Sood N, et al. (2020); Sutton D, Fuchs K, D'Alton M and Goffman D (2020)"
+AG517HospRate,0.01,0.01,"Authors' estimate; CDC COVID-19 Response Team (2020); Garg S, Kim L, Whitaker M, et al. (2020)"
+AG517MortalityRate,0.0002,0.0002,"Richardson S, Hirsch JS, Narasimhan M, et al. (2020)"
+AG1849GammaScale,6,6,
+AG1849GammaShape,2.5,2.5,
+AG1849AsymptomaticRate,0.85,0.95,"Bendavid E, Mulaney B, Sood N, et al. (2020); Sutton D, Fuchs K, D'Alton M and Goffman D (2020)"
+AG1849HospRate,0.08,0.12,"Authors' estimate; CDC COVID-19 Response Team (2020); Garg S, Kim L, Whitaker M, et al. (2020)"
+AG1849MortalityRate,0.05,0.1,"Richardson S, Hirsch JS, Narasimhan M, et al. (2020)"
+AG5064GammaScale,6,6,
+AG5064GammaShape,2.3,2.3,
+AG5064AsymptomaticRate,0.7,0.9,"Bendavid E, Mulaney B, Sood N, et al. (2020); Sutton D, Fuchs K, D'Alton M and Goffman D (2020)"
+AG5064HospRate,0.23,0.27,"Authors' estimate; CDC COVID-19 Response Team (2020); Garg S, Kim L, Whitaker M, et al. (2020)"
+AG5064MortalityRate,0.15,0.25,"Richardson S, Hirsch JS, Narasimhan M, et al. (2020)"
+AG65GammaScale,6,6,
+AG65GammaShape,2.1,2.1,
+AG65AsymptomaticRate,0.7,0.9,"Bendavid E, Mulaney B, Sood N, et al. (2020); Sutton D, Fuchs K, D'Alton M and Goffman D (2020)"
+AG65HospRate,0.5,0.6,"Authors' estimate; CDC COVID-19 Response Team (2020); Garg S, Kim L, Whitaker M, et al. (2020)"
+AG65MortalityRate,0.4,0.5,"Richardson S, Hirsch JS, Narasimhan M, et al. (2020)"
+householdcontactRate,36,36,
+IncubationTime,2,4,"Lin G, Strauss AT, Pinz M, et al. (2020); Liu T, Hu J, Xiao J, et al. (2020)"
+mildContagiousTime,4,6,
+AsymptomaticReducationTrans,0.5,0.9,
+preContagiousTime,1,2,
+symptomaticTime,8,10,
+postContagiousTime,1,2,
+symptomaticContactRateReduction,0.6,0.9,
+preHospTime,4,6,
+hospitalSymptomaticTime,5,7,
+ICURate,0.4,0.45,Unknown (14.2% https://jamanetwork.com/journals/jama/fullarticle/2765184; 37.7% https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3548753)
+ICUtime,9,11,
+PostICUTime,3,5,
+hospitalSymptomaticContactRateReduction,0.5,0.9,
+EDVisit,0.25,0.25,
+ProbabilityOfTransmissionPerContact,0.035,0.045,
+CommunityTestingRate,0.05,0.05,
+pdscale1,0.25,0.25,
+pdscale2,50,50,

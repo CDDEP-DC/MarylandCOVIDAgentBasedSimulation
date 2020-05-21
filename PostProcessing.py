@@ -1,6 +1,23 @@
-# -----------------------------------------------------------------------------
-# PostProcessing.py extracts results
-# -----------------------------------------------------------------------------
+"""
+
+Copyright (C) 2020  Eili Klein
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    
+
+"""
+
 import time
 #import matplotlib.pyplot as plt
 #from matplotlib  import cm
@@ -10,6 +27,23 @@ import ParameterSet
 import Utils
 
 import os
+
+def CompileResults(resultsName,modelPopNames,RegionalList,timeRange):
+    
+    results = {}
+    for tend in timeRange:
+        results[tend] = {}
+    
+    for i in range(0,len(RegionalList)):
+        regionVals = Utils.PickleFileRead(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"RegionStats.pickle"))
+        for tend in timeRange:
+            dayVals = regionVals[tend]
+            for day in dayVals.keys():
+                rdict = dayVals[day]
+                results[tend][i]=rdict
+        
+    return results
+    
 
 def WriteParameterVals(resultsName,model,ParameterVals,writefolder=''):
 
@@ -36,27 +70,6 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     if writefolder == '':
         writefolder = ParameterSet.ResultsFolder
        
-    
-    ### Get the age stats
-    csvFileAge = os.path.join(writefolder,"Age_"+model+"_"+resultsName+".csv")
-
-    AgeStats = [0]*15
-    for i in range(0,len(RegionalList)):
-        if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle"):
-            AgeStatsList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "AgeStats.pickle")
-            for key in AgeStatsList.keys():
-                AgeStat = AgeStatsList[key]
-                for rkey in AgeStat.keys():
-                    rvals = AgeStat[rkey]
-                    aon = 0
-                    for agekey in rvals.keys():
-                        avals = rvals[agekey]
-                        for r in range(0,len(avals)):
-                            AgeStats[aon] += avals[r]
-                            aon+=1
-    
-    np.savetxt(csvFileAge,AgeStats,delimiter=",", fmt='%5s')
-    
     ### Get the results
     totdays = len(results.keys())
     csvFile = writefolder+"/ResultsByDay_"+model+"_"+resultsName+".csv"
@@ -85,6 +98,7 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     keyvals = ['S','N','I','C','R','D','H','HI','HE','ICU','numTests','numQ','numInfPrev','InfEvtClear','CC']
     colvals = ['Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','NewAdmissions','EDVisits','ICU','Tests','Quarantined','numHousholdQuarantined','InfectiousEventsPrevented','confirmedcases']
     colvaltitles = []
+    
     if len(regionalvals) > 1:
         for j in range(0,len(regionalvals)):
             for i in range(0,len(colvals)):
@@ -92,13 +106,15 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
         colvaltitles.extend(colvals)        
     else:
         colvaltitles = list(colvals)
-    
     #set up output    
     output = np.empty((totdays,len(colvaltitles)+1),dtype=int)
     
     # now go through the results and add the results as totals to each bucket
     for day in results.keys():
-        resultdayvals = [0]*(len(colvals)*len(regionalvals)+len(colvals))
+        if len(regionalvals) > 1:
+            resultdayvals = [0]*(len(colvals)*len(regionalvals)+len(colvals))
+        else:
+            resultdayvals = [0]*(len(colvals))
         numInfList = results[day]
         for reg in numInfList.keys():
             rdict = numInfList[reg]
@@ -112,11 +128,12 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
                 for i in range(st,st+(len(colvals))):
                     resultdayvals[i]+=lpdict[keyvals[keyon]]
                     keyon+=1
-                keyon = 0    
-                for i in range(totst,totst+(len(colvals))):
-                    resultdayvals[i]+=lpdict[keyvals[keyon]]
-                    keyon+=1
-                    
+                keyon = 0  
+                if len(regionalvals) > 1:  
+                    for i in range(totst,totst+(len(colvals))):
+                        resultdayvals[i]+=lpdict[keyvals[keyon]]
+                        keyon+=1
+
         output[(day - 1), :] = [day]+resultdayvals
     titles = ['Day']
     titles.extend(colvaltitles)
@@ -148,125 +165,45 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     
     np.savetxt(csvFileLocal,np.vstack([titles,output]),delimiter=",", fmt='%5s')
     ##############################################################################
+    if ParameterSet.SaveHospitalData:
+        hospstatsnames = ['occupancy','admissions','edvisits','ICU']
     
-    hospstatsnames = ['occupancy','admissions','edvisits','ICU']
-
-    HospitalOccupancyByDay = {}
-    for day in range(0, endTime + 1):
-        hoc = []
-        for hsn in hospstatsnames:
-            for h in range(0, len(HospitalNames)):
-                hoc.append(0)
-        HospitalOccupancyByDay[day] = hoc
-    
-    for i in range(0,len(RegionalList)):
-        if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
-            CurrentHospOccList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
-            #print(CurrentHospOccList)
-            
-            
-            for key in CurrentHospOccList.keys():
-                tydict = CurrentHospOccList[key]
-                for key2 in tydict:
-                    hsdict = tydict[key2]  
-                    x = 0
-                    for hsn in hospstatsnames: 
-                        lpdict = hsdict[hsn]
-                        for h in range(0,len(lpdict)):
-                            HospitalOccupancyByDay[key][x] += lpdict[h]
-                            x += 1
-
-    # print(HospitalOccupancyByDay)
-    csvFile = writefolder+"/HospitalOccupancyByDay_"+model+"_"+resultsName+".csv"
-    try:
-        with open(csvFile, 'w') as f:
-            f.write("day")
+        HospitalOccupancyByDay = {}
+        for day in range(0, endTime + 1):
+            hoc = []
             for hsn in hospstatsnames:
-                for h1 in range(0, len(HospitalNames)):
-                    f.write(",%s_%s" % (HospitalNames[h1],hsn))
-            f.write("\n")        
-            for key in HospitalOccupancyByDay.keys():
-                f.write("%s" % key)
-                for h in range(0, len(HospitalOccupancyByDay[key])):
-                    f.write(",%s" % HospitalOccupancyByDay[key][h])
-                f.write("\n")
-
-    except IOError:
-        print("I/O error")
-
-
-def WriteAggregatedCountyResults(results,model,resultsName):
-
-    # reattach zipcodes
-    MDPop = pd.read_csv('data/Maryland/MDZipCentroidPop.csv')
-    MDPop = MDPop.dropna(subset=['POPULATION'])
-    MDPop = MDPop[MDPop.POPULATION != 0].copy()
-    zipnames = np.asarray(MDPop['ZIP_CODE'])
-
-    # attach zipcode ot county
-    ZipToCounty = pd.read_csv('data/Maryland/ZipToCountyMaryland.csv')
-    ZipCodes = ZipToCounty.ZIP             # zipcodes
-    CountyName = ZipToCounty.COUNTYNAME     # county names
-    Fips = ZipToCounty.STCOUNTYFP
-
-    CountyToZipDict = dict.fromkeys(CountyName)
-    for i in range(0,len(ZipCodes)):
-        CountyToZipDict[CountyName[i]] = []
-    for i in range(0, len(ZipCodes)):
-        CountyToZipDict[CountyName[i]].append(ZipCodes[i])
-
-    # find unique counties and store as keys
-    CountyToFips = {}
-    for i in range(0, len(CountyName)):
-        fips = Fips[i]
-        if fips not in CountyToFips.keys():
-            CountyToFips[CountyName[i]] = fips
-
-    countyOut = dict.fromkeys(CountyToZipDict.keys())
-    for i in CountyToZipDict.keys():
-        print('Writing results for ' + i)
-        totdays = len(results.keys())
-        output = np.zeros((totdays, 8), dtype=int)
-        dailyOut = dict.fromkeys(results.keys())
-        for day in results.keys():
-            sus = 0
-            inc = 0
-            inf = 0
-            col = 0
-            rec = 0
-            hos = 0
-            dead = 0
-            numInfList = results[day]
-            for reg in numInfList.keys():
-                rdict = numInfList[reg]
-                for rkey in rdict:
-                    if zipnames[rkey - 1] in CountyToZipDict[i]:
-                        lpdict = rdict[rkey]
-                        if len(lpdict) > 0:
-                            inf += lpdict['I']
-                            col += lpdict['C']
-                            hos += lpdict['H']
-                            inc += lpdict['N']
-                            rec += lpdict['R']
-                            sus += lpdict['S']
-                            dead += lpdict['D']
-            output[(day - 1), :] = [day, sus, inc, inf, col, rec, dead, hos]
-            dailyOut[day] = {'S': sus, 'N': inc, 'I': inf, 'C': col, 'R': rec, 'D': dead, 'H': hos}
-        countyOut[i] = dailyOut
-        csvFile = writefolder + "/CountyResultsByDay_" + str(i) + "_" + resultsName +".csv"
-        titles = ['Day', 'Susceptible', 'Incubating', 'Infected', 'Colonized',
-                  'Recovered', 'Dead','Hospitalized']
-        np.savetxt(csvFile, np.vstack([titles, output]), delimiter=",", fmt='%5s')
-
-    # print(countyOut)
-
-    jsonOut = {}
-    for day in results.keys():
-        for county in countyOut.keys():
-            if day not in jsonOut:
-                jsonOut[day] = {}
-            jsonOut[day] = {**jsonOut[day], **{CountyToFips[county] : countyOut[county][day]}}
-
-    print(jsonOut)
-
-    pass
+                for h in range(0, len(HospitalNames)):
+                    hoc.append(0)
+            HospitalOccupancyByDay[day] = hoc
+        
+        for i in range(0,len(RegionalList)):
+            if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
+                CurrentHospOccList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
+                for key in CurrentHospOccList.keys():
+                    tydict = CurrentHospOccList[key]
+                    for key2 in tydict.keys():
+                        hsdict = tydict[key2]  
+                        x = 0
+                        for hsn in hospstatsnames: 
+                            lpdict = hsdict[hsn]
+                            for h in range(0,len(lpdict)):
+                                HospitalOccupancyByDay[key][x] += lpdict[h]
+                                x += 1
+    
+        csvFile = writefolder+"/HospitalOccupancyByDay_"+model+"_"+resultsName+".csv"
+        try:
+            with open(csvFile, 'w') as f:
+                f.write("day")
+                for hsn in hospstatsnames:
+                    for h1 in range(0, len(HospitalNames)):
+                        f.write(",%s_%s" % (HospitalNames[h1],hsn))
+                f.write("\n")        
+                for key in HospitalOccupancyByDay.keys():
+                    f.write("%s" % key)
+                    for h in range(0, len(HospitalOccupancyByDay[key])):
+                        f.write(",%s" % HospitalOccupancyByDay[key][h])
+                    f.write("\n")
+    
+        except IOError:
+            print("I/O error")
+    

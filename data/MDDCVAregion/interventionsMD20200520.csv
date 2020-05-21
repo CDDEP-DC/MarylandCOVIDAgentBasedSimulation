@@ -1,0 +1,6 @@
+InterventionName,type,SchoolCloseDate,SchoolCloseReductionPer,SchoolOpenDate,SchoolOpenReductionAmt,InterventionStartReductionDate,InterventionReductionPerMin,InterventionReductionPerMax,InterventionReductionPerLowMin,InterventionReductionPerLowMax,InterventionStartReductionDateCalcDays,InterventionStartEndLift,InterventionStartEndLiftCalcDays,InterventionEndPerIncrease,InterventionMobilityEffect,QuarantineType,PerFollowQuarantine,QuarantineStartDate,TestingAvailabilityDateHosp,TestingAvailabilityDateComm,finaldate,ContactTracing,testExtra
+distance.moderatefast,distance,3/13/2020,0.25,9/8/2020,0.5,3/11/2020,0.09,0.25,0.45,0.65,3/29/2020,5/1/2020,6/15/2020,0.5,0.75,,0.9,,3/6/2020,4/1/2020,4/30/2021,0,0
+distance.moderateslow,distance,3/13/2020,0.25,9/8/2020,0.5,3/11/2020,0.09,0.25,0.45,0.65,3/29/2020,5/1/2020,9/7/2020,0.5,0.75,,0.9,,3/6/2020,4/1/2020,4/30/2021,0,0
+distance.highslow,distance,3/13/2020,0.25,9/8/2020,0.5,3/11/2020,0.09,0.25,0.45,0.65,3/29/2020,5/1/2020,9/7/2020,0.75,0.75,,0.9,,3/6/2020,4/1/2020,4/30/2021,0,0
+distance.lowfast,distance,3/13/2020,0.25,9/8/2020,0.5,3/11/2020,0.09,0.25,0.45,0.65,3/29/2020,5/1/2020,6/15/2020,0.25,0.75,,0.9,,3/6/2020,4/1/2020,4/30/2021,0,0
+distance.lowslow,distance,3/13/2020,0.25,9/8/2020,0.5,3/11/2020,0.09,0.25,0.45,0.65,3/29/2020,5/1/2020,9/7/2020,0.25,0.75,,0.9,,3/6/2020,4/1/2020,4/30/2021,0,0

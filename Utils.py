@@ -1,3 +1,23 @@
+"""
+
+Copyright (C) 2020  Eili Klein
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    
+
+"""
+
 import random
 import pickle
 import os
@@ -6,6 +26,7 @@ import string
 import ParameterSet
 from datetime import datetime
 import sys, getopt
+import traceback
 
 def Multinomial(listvals):
     return multinomial(listvals,sum(listvals)) 
@@ -81,76 +102,149 @@ def deleteAllFilesInFolder(folder):
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
     
+def dateparser(dateval):
+    # if in yyyy-mm-dd format
+    if "-" in dateval:
+        datelist = dateval.split("-")
+        if int(datelist[0]) < 2020 or int(datelist[0]) > 2022:
+            print(dateval,"year is greater than 2022 or less than 2020 or not in yyyy-mm-dd format correctly")
+            raise Exception("Date Error")
+        if int(datelist[1]) < 1 or int(datelist[1]) > 12:
+            print(dateval,"month is greater than 12 or less than 1 or not in yyyy-mm-dd format correctly")
+            raise Exception("Date Error")
+        if int(datelist[2]) < 1 or int(datelist[2]) > 31:
+            print(dateval,"day is greater than 31 or less than 1 or not in yyyy-mm-dd format correctly")
+            raise Exception("Date Error")
+        try:
+            retdate = datetime.strptime(dateval, '%Y-%m-%d').date()        
+            return retdate
+        except:
+            print(dateval," is not correctly formatted as yyyy-mm-dd.")
+            raise Exception("Date Error")
+            
+    elif "/" in dateval:
+        datelist = dateval.split("/")
+        yearval = int(datelist[2])
+        if yearval < 30:
+            yearval += 2000
+            dateval = datelist[0]+"/"+datelist[1]+"/"+str(yearval)
+        if yearval < 2020 or yearval > 2022:
+            print(dateval,"year is greater than 2022 or less than 2020 or not in mm/dd/yyyy format correctly")
+            raise Exception("Date Error")
+        if int(datelist[0]) < 1 or int(datelist[0]) > 12:
+            print(dateval,"month is greater than 12 or less than 1 or not in mm/dd/yyyy format correctly")
+            raise Exception("Date Error")
+        if int(datelist[1]) < 1 or int(datelist[1]) > 31:
+            print(dateval,"day is greater than 31 or less than 1 or not in mm/dd/yyyy format correctly")
+            raise Exception("Date Error")
+        try:
+            retdate = datetime.strptime(dateval, '%m/%d/%Y').date()        
+            return retdate
+        except:
+            print(dateval," is not correctly formatted as mm/dd/yyyy.")    
+            raise Exception("Date Error")
+    else:
+        print(dateval,": Only yyyy-mm-dd and mm/dd/yyyy formats accepted now.")
+        raise Exception("Date Error") 
+            
 def ModelFolderStructureSetup(argv):
 
-    runs = 100 # sets the number of times to run model - results print after each run to ensure that if the job fails the data is still there
-    intname = ''
-    debug = False
-    
-    # Function for passing in a job name for the containing folder - so this can be run multiple times in the same folder
-    dateTimeObj = datetime.now()
-    FolderContainer = str(dateTimeObj.year) + str(dateTimeObj.month) + \
-                  str(dateTimeObj.day) + str(dateTimeObj.hour) + \
-                  str(dateTimeObj.minute) + str(dateTimeObj.second) + \
-                  str(dateTimeObj.microsecond)
     try:
-        opts, args = getopt.getopt(argv,"j:n:d",["job=","nruns="])
-    except getopt.GetoptError as e:
-        print('Error:',e)
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-j':
-            fname = arg
-            FolderContainer = clean_filename(fname)
-        if opt == '-n':
-            try:
-                nval = int(arg)
-                runs = nval
-            except:
-                print("input number not an integer")
-        if opt == '-i':
-            intname = arg
-                 
-        if opt == '-d':
-            debug = True    
-               
-    if FolderContainer == ParameterSet.PopDataFolder or \
-            FolderContainer == ParameterSet.QueueFolder or \
-            FolderContainer == ParameterSet.ResultsFolder or \
-            FolderContainer == ParameterSet.OutputFolder or \
-            FolderContainer == "__pycache__":
-        FolderContainer = FolderContainer + str(random.randint(100000,999999))
+        runs = 100 # sets the number of times to run model - results print after each run to ensure that if the job fails the data is still there
+        debug = False
+        generatePresentationVals = False
+        Model = 'MDDCVAregion'
+        ParameterSet.FitMD = True
+        # Function for passing in a job name for the containing folder - so this can be run multiple times in the same folder
+        dateTimeObj = datetime.now()
+        FolderContainer = str(dateTimeObj.year) + str(dateTimeObj.month) + \
+                      str(dateTimeObj.day) + str(dateTimeObj.hour) + \
+                      str(dateTimeObj.minute) + str(dateTimeObj.second) + \
+                      str(dateTimeObj.microsecond)
+        try:
+            opts, args = getopt.getopt(argv,"j:n:m:dgqf:",["job=","nruns=","model="])
+        except getopt.GetoptError as e:
+            print('Error:',e)
+            sys.exit(2)
+        for opt, arg in opts:
+            if opt == '-j':
+                fname = arg
+                FolderContainer = clean_filename(fname)
+            if opt == '-n':
+                try:
+                    nval = int(arg)
+                    runs = nval
+                except:
+                    print("input number not an integer")
                 
-    ParameterSet.PopDataFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.PopDataFolder)
-    ParameterSet.QueueFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.QueueFolder)
-    ParameterSet.ResultsFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.ResultsFolder)
-    OutputResultsFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.OutputFolder)
-    
-    if os.path.exists(os.path.join(ParameterSet.OperationsFolder,FolderContainer)):
-        if os.path.exists(ParameterSet.PopDataFolder):
-            deleteAllFilesInFolder(ParameterSet.PopDataFolder)
-        if os.path.exists(ParameterSet.QueueFolder):
-            deleteAllFilesInFolder(ParameterSet.QueueFolder)
-        if os.path.exists(ParameterSet.ResultsFolder):
-            deleteAllFilesInFolder(ParameterSet.ResultsFolder)
-    else:
-        os.makedirs(os.path.join(ParameterSet.OperationsFolder,FolderContainer))
+            if opt == '-d':
+                 ParameterSet.logginglevel = "debug"   
+                
+            if opt == '-g':
+                generatePresentationVals = True
+                   
+            if opt == '-q':
+                ParameterSet.UseQueuesForQueues = True
             
-    ### Below here is model runs and should not be altered
-    if not os.path.exists(ParameterSet.PopDataFolder):
-        os.makedirs(ParameterSet.PopDataFolder)
+            if opt == '-m':
+                Model = arg        
+                if Model != 'MDDCVAregion':
+                    ParameterSet.FitMD = False
+                    
+            if opt == '-f':
+                ParameterSet.FitModel = True
+                if arg != 'hospitalizations' and arg != 'deaths':
+                    print("Can only fit to 'hospitalizations' or 'deaths'")
+                    raise Exception("Invalid fitting command")
+                else:
+                    ParameterSet.FitValue = arg
+                    
+        if FolderContainer == ParameterSet.PopDataFolder or \
+                FolderContainer == ParameterSet.QueueFolder or \
+                FolderContainer == ParameterSet.ResultsFolder or \
+                FolderContainer == ParameterSet.OutputFolder or \
+                FolderContainer == "__pycache__":
+            FolderContainer = FolderContainer + str(random.randint(100000,999999))
+                    
+        ParameterSet.PopDataFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.PopDataFolder)
+        ParameterSet.QueueFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.QueueFolder)
+        ParameterSet.ResultsFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.ResultsFolder)
+        OutputResultsFolder = os.path.join(ParameterSet.OutputFolder,FolderContainer)
         
-    if not os.path.exists(ParameterSet.QueueFolder):
-        os.makedirs(ParameterSet.QueueFolder)
+        if os.path.exists(os.path.join(ParameterSet.OperationsFolder,FolderContainer)):
+            if os.path.exists(ParameterSet.PopDataFolder):
+                deleteAllFilesInFolder(ParameterSet.PopDataFolder)
+            if os.path.exists(ParameterSet.QueueFolder):
+                deleteAllFilesInFolder(ParameterSet.QueueFolder)
+            if os.path.exists(ParameterSet.ResultsFolder):
+                deleteAllFilesInFolder(ParameterSet.ResultsFolder)
+        else:
+            os.makedirs(os.path.join(ParameterSet.OperationsFolder,FolderContainer))
+                
+        ### Below here is model runs and should not be altered
+        if not os.path.exists(ParameterSet.PopDataFolder):
+            os.makedirs(ParameterSet.PopDataFolder)
+            
+        if not os.path.exists(ParameterSet.QueueFolder):
+            os.makedirs(ParameterSet.QueueFolder)
         
-    
-    if not os.path.exists(ParameterSet.ResultsFolder):
-        os.makedirs(ParameterSet.ResultsFolder)
-   
-    if not os.path.exists(OutputResultsFolder):
-        os.makedirs(OutputResultsFolder)    
-    
-    return runs, OutputResultsFolder, FolderContainer, intname, debug
+        if not os.path.exists(ParameterSet.ResultsFolder):
+            os.makedirs(ParameterSet.ResultsFolder)
+       
+        if not os.path.exists(OutputResultsFolder):
+            os.makedirs(OutputResultsFolder)    
+        
+        if generatePresentationVals:
+            OutputRunsFolder = os.path.join(ParameterSet.OutputFolder,FolderContainer,"runs")
+            if not os.path.exists(OutputRunsFolder):
+                os.makedirs(OutputRunsFolder)    
+        else:
+            OutputRunsFolder = OutputResultsFolder
+    except:
+        print(traceback.format_exc())
+        raise Exception("Error in setup")
+                    
+    return runs, OutputResultsFolder, FolderContainer, generatePresentationVals, OutputRunsFolder, Model
         
 #def JiggleParameters(case='reg'):
 #    #B1=0.49997542 B2=0.49990543 gamma1=0.32194843 gamma2=0.0300116  gamma3=0.21929508    

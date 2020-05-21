@@ -1,6 +1,23 @@
-# -----------------------------------------------------------------------------
-# Region.py creates the location specific attributes
-# -----------------------------------------------------------------------------
+"""
+
+Copyright (C) 2020  Eili Klein
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    
+
+"""
+
 import random
 import time
 import math
@@ -41,7 +58,8 @@ class Region:
                 LocalPopulation(GLP.globalId, GLP.populationAmt,
                                 GLP.HHSizeDist, GLP.HHSizeAgeDist,
                                 RegionalInteractionMatrixList[i], self.RegionId,
-                                RegionListGuide,HTM,GLP.PopulationDensity,GLP.LocalIdentification,GLP.RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate,GLP.ProportionLowIntReduction,GLP.NursingFacilities)
+                                RegionListGuide,HTM,GLP.LocalIdentification,GLP.RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate,
+                                GLP.ProportionLowIntReduction,GLP.NursingFacilities,GLP.TransProb,GLP.TransProbLow)
             self.Locations[GLP.globalId] = LP
             
     def IsThisWhuhanMktRegion(self):
@@ -54,14 +72,26 @@ class Region:
         R0Stats = {}
         hospitalStats = {}
         numEvents = 0
+        fitval = 0
         for LPKey in self.Locations.keys():
             LP = self.Locations[LPKey]
             op, NE = LP.runTime(tend,LP.LocalPopulationId in testlpvals)
             numEvents += NE
             offPopQueueEvents.extend(op)
             regionStats[LPKey] = LP.reportPopulationStats()
-            
-        return regionStats, offPopQueueEvents, numEvents
+            if ParameterSet.FitMD:
+                if regionStats[LPKey]['regionalid'] == 'MD':
+                    if ParameterSet.FitValue == 'hospitalizations':
+                        fitval += regionStats[LPKey]['H']        
+                    elif ParameterSet.FitValue == 'deaths':
+                        fitval += regionStats[LPKey]['D']        
+            else:
+                if ParameterSet.FitValue == 'hospitalizations':
+                    fitval += regionStats[LPKey]['H']        
+                elif ParameterSet.FitValue == 'deaths':
+                    fitval += regionStats[LPKey]['D']        
+                    
+        return regionStats, offPopQueueEvents, numEvents, fitval
 
     def getInfectedNums(self):
         infectedNums = {}

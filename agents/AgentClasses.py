@@ -1,6 +1,22 @@
-# -----------------------------------------------------------------------------
-# AgentClasses.py stores the class objects
-# -----------------------------------------------------------------------------
+"""
+
+Copyright (C) 2020  Eili Klein
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    
+
+"""
 
 import random
 import numpy as np
@@ -13,7 +29,7 @@ import disease.DiseaseProgression
 
 
 class Household:
-    def __init__(self, HouseholdId, HHSize, HHSizeAgeDist,PopulationDensity,PopulationParameters,DiseaseParameters,Facility=False,FacilitySize=100):
+    def __init__(self, HouseholdId, HHSize, HHSizeAgeDist,PopulationParameters,DiseaseParameters,Facility=False,FacilitySize=100):
         """
         Initialize household class representing a single family/household in
         a location and stores household-specific information
@@ -26,13 +42,13 @@ class Household:
         self.FacilitySize = FacilitySize
 
         self.PopulationParameters = PopulationParameters
-        pdscale = 1/(1+ .25*math.exp(-.001*PopulationDensity))
+        
         
         if self.Facility:
             ageCohort = len(HHSizeAgeDist[1])-1
             for x in range(0, self.FacilitySize):
                 numRandomContacts = math.floor(random.gammavariate(
-                        PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort] * pdscale))
+                        PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort]))
                 numHouseholdContacts = numRandomContacts
                 person = Person(DiseaseParameters,x, HouseholdId, ageCohort, ParameterSet.Susceptible,
                                                     numHouseholdContacts,
@@ -42,12 +58,9 @@ class Household:
             for x in range(0, HHSize+1):
                 ageCohort = Utils.multinomial(HHSizeAgeDist[HHSize+1],
                                               sum(HHSizeAgeDist[HHSize+1]))
-                
-        
-                
-                #print(PopulationDensity," --",pdscale)
+              
                 numRandomContacts = math.floor(random.gammavariate(
-                        PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort] * pdscale))
+                        PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort]))
                 numHouseholdContacts = PopulationParameters['householdcontactRate']
                 person = Person(DiseaseParameters,x, HouseholdId, ageCohort, ParameterSet.Susceptible,
                                                     numHouseholdContacts,
@@ -63,11 +76,12 @@ class Household:
         return True
         
         
-    def numHouseholdMembersSusceptible(self):   
+    def numHouseholdMembersSusceptible(self,agentId=-1):   
         susnum = 0
         for personkey in self.persons:
-            if self.persons[personkey].status == 0:
-                susnum += 1        
+            if personkey != agentId:
+                if self.persons[personkey].status == 0:
+                    susnum += 1       
         return susnum
         
     def deleteHousehold(self):   
@@ -85,7 +99,7 @@ class Household:
             self.persons[key].reset()
         
     def infectHousehouldMember(self, timeNow, tend, LocalInteractionMatrixList,
-                    RegionListGuide, LocalPopulationId,HospitalTransitionMatrixList,
+                    RegionListGuide, LocalPopulationId,HospitalTransitionMatrixList,TransProb,TransProbLow,
                                currentAgentId=-1, ageCohort=-1,infectingAgent={},ProportionLowIntReduction=0):
         
         
@@ -96,16 +110,13 @@ class Household:
             
                 # if we are infecting in our household (so pass in agent) then choose someone else in household
                 if currentAgentId >= 0:
-                    if self.numHouseholdMembersSusceptible() > 0:
+                    if self.numHouseholdMembersSusceptible(currentAgentId) > 0:
                         #make sure it doesn't get stuck here
-                        numtries = 0
-                        p = random.choice(list(self.persons.keys()))
-                        while p == currentAgentId or self.persons[p].status != ParameterSet.Susceptible:
-                            p = random.choice(list(self.persons.keys()))
-                            numtries+=1
-                            if numtries > 100:
-                                print("LOOP ERROR")
-                                break
+                        xlist=[]
+                        for personkey in self.persons:
+                            if self.persons[personkey].status == 0:
+                                xlist.append(personkey)
+                        p = random.choice(xlist)
                     else:
                         return [],0,'household all infected',-1
                 else:
@@ -113,7 +124,7 @@ class Household:
                     
             outcome, queueEvents, ac = self.persons[p].infect(timeNow, tend, LocalInteractionMatrixList,
                                                  RegionListGuide, LocalPopulationId,self.numHouseholdMembersSusceptible(),
-                                                 HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction)
+                                                 HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow)
         return queueEvents, ac, outcome, p
 
     
@@ -210,7 +221,7 @@ class Person:
             self.QuarantineStart = timeNow
             self.QuarantineEnd = timeNow + QuarantineTime
         
-    def infect(self, timeNow, tend, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction):
+    def infect(self, timeNow, tend, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow):
         queueEvents = []
         infectNow = True
         outcome = ''
@@ -242,7 +253,7 @@ class Person:
                                                 self.ageCohort,
                                                 numHouseholdMembersSusceptible,
                                                 HospitalTransitionMatrixList,
-                                                ProportionLowIntReduction)
+                                                ProportionLowIntReduction,TransProb,TransProbLow)
                          
                                                 
         
