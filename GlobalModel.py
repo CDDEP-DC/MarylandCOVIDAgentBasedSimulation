@@ -155,7 +155,7 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
     #print(dfPhoneData)
     if DiseaseParameters['UseCountyLevel'] == 1:
         # Get the county level phonse use data if using
-        dfPhoneData = pd.read_csv(os.path.join("data",ModelType,modelvals['CountyEncountersFile']), index_col = 'county_fips')
+        dfPhoneData = pd.read_csv(os.path.join("data",ModelType,DiseaseParameters['CountyEncountersFile']), index_col = 'county_fips')
         minval = abs(min(dfPhoneData['APRIL.mean']))+1
     
     # Now load the global locations
