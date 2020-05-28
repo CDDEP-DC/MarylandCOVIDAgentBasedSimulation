@@ -77,8 +77,6 @@ def main(argv):
                     modelvals['FitPer'] = rows[10]
                     modelvals['ImportationRate'] = rows[11]
                     modelvals['intfile'] = rows[12]
-                    modelvals['UseCountyLevel'] = rows[13]
-                    modelvals['CountyEncountersFile'] = rows[14]
                     
                     if startdate > enddate:
                         print("Parameter input error. Start date is greater than end date. Please correct in the parameters file.")
@@ -118,7 +116,8 @@ def main(argv):
     
     ### For fitting purposes
     fitdates = []
-    fitvals = []
+    hospitalizations = []
+    deaths = []
     fitper = .3
     if ParameterSet.FitModel:
         try:
@@ -134,11 +133,8 @@ def main(argv):
                         raise Exception("Parameter Error")    
                     
                     fitdates.append((fitdate - startdate).days)
-                    if ParameterSet.FitValue == 'hospitalizations':
-                        fitvals.append(int(rows[1]))
-                    elif ParameterSet.FitValue == 'deaths':
-                        fitvals.append(int(rows[2]))
-                    
+                    hospitalizations.append(int(rows[1]))
+                    deaths.append(int(rows[2]))
                     
         except Exception as e:
             print("Fit values error. Please confirm the FitVals file exists and is correctly specified")
@@ -183,18 +179,12 @@ def main(argv):
         np.random.seed(seed=mprandomseed)
         endTime = (enddate - startdate).days
         DiseaseParameters['startdate'] = startdate
-        
-        if int(modelvals['UseCountyLevel']) == 1 and os.path.exists(os.path.join("data",Model,modelvals['CountyEncountersFile'])):
-            DiseaseParameters['UseCountyLevel'] = 1
-            DiseaseParameters['CountyEncountersFile'] = modelvals['CountyEncountersFile']
-        else:
-            DiseaseParameters['UseCountyLevel'] = 0
             
-        DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters)
+        DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model)
         
         resultsNameP = key + "_" + resultsName
                     
-        fitted = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,fitvals=fitvals,fitper=fitper)
+        fitted = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper)
         if fitted:
             totruns[inton]-=1
             

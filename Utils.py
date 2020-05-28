@@ -146,7 +146,14 @@ def dateparser(dateval):
     else:
         print(dateval,": Only yyyy-mm-dd and mm/dd/yyyy formats accepted now.")
         raise Exception("Date Error") 
-            
+
+def RepresentsInt(s):
+    try: 
+        int(s)
+        return True
+    except ValueError:
+        return False
+                    
 def ModelFolderStructureSetup(argv):
 
     try:
@@ -193,8 +200,8 @@ def ModelFolderStructureSetup(argv):
                     
             if opt == '-f':
                 ParameterSet.FitModel = True
-                if arg != 'hospitalizations' and arg != 'deaths':
-                    print("Can only fit to 'hospitalizations' or 'deaths'")
+                if arg != 'hospitalizations' and arg != 'deaths' and arg != 'both':
+                    print("Can only fit to 'hospitalizations' or 'deaths' or 'both'")
                     raise Exception("Invalid fitting command")
                 else:
                     ParameterSet.FitValue = arg

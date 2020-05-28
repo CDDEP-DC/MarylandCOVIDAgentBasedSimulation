@@ -174,12 +174,13 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
             
             perreduc = (premean-aprilmean)/premean
             perreducLow = perreduc*DiseaseParameters['InterventionReductionPerLow']
-            mayopen = (premean-maylatest)/premean
+            mayopen = ((premean-maylatest)/premean)*.5
             if mayopen < 0:
                 mayopen = 0
-            mayopenLow = mayopen*DiseaseParameters['InterventionReductionPerLow']    
+            #mayopenLow = mayopen*DiseaseParameters['InterventionReductionPerLow']    
             
-            transmissonmodifier=1-math.exp(-premean/DiseaseParameters['pdscale1'])+math.log1p(PopulationDensity[G])/DiseaseParameters['pdscale2']
+            #transmissonmodifier=1-math.exp(-premean/DiseaseParameters['pdscale1'])+math.log1p(PopulationDensity[G])/DiseaseParamet ers['pdscale2'] ## pdscale1 = .25  / pdscale2 = 50
+            transmissonmodifier = 1/(1+ DiseaseParameters['pdscale1']*math.exp(-1*DiseaseParameters['pdscale2']*PopulationDensity[G]))  ## pdscale1 = .25  / pdscale2 = .001
             
             for i in range(0,DiseaseParameters['InterventionStartReductionDate']):
                 newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier)
@@ -196,41 +197,36 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
                 newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
                 intredval -= intredred
                 intredvalLow -= intredredLow
-                
             
-                
             for i in range(int(DiseaseParameters['InterventionStartReductionDateCalcDays'])+1,int(DiseaseParameters['InterventionStartEndLift'])):
                 newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
-            
+                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
             
             OpenDateNow = (Utils.dateparser("2020-05-18") - DiseaseParameters['startdate']).days    
             opendays = OpenDateNow - (int(DiseaseParameters['InterventionStartEndLift'])+1)
-            openinc = ((1-mayopen)-(1-perreduc))/opendays
-            openincLow = ((1-mayopenLow)-(1-perreducLow))/opendays
+            openinc = (((1-mayopen)-(1-perreduc))/opendays)*.5
+            #openincLow = ((1-mayopenLow)-(1-perreducLow))/opendays
             
             for i in range(int(DiseaseParameters['InterventionStartEndLift']+1),OpenDateNow):
                 newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
                 newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
                 intredval+=openinc
-                intredvalLow+=openincLow
+                #intredvalLow+=openincLow
             
             RestOfOpenDays = int(DiseaseParameters['InterventionStartEndLiftCalcDays']) - OpenDateNow
             lefttoincrease = (perreduc)*float(DiseaseParameters['InterventionEndPerIncrease']) - intredval
-            lefttoincreaseLow = (perreducLow)*float(DiseaseParameters['InterventionEndPerIncrease']) - intredvalLow
+            #lefttoincreaseLow = (perreducLow)*float(DiseaseParameters['InterventionEndPerIncrease']) - intredvalLow
             #print(lefttoincrease,(perreduc),DiseaseParameters['InterventionEndPerIncrease'], intredval)
             if lefttoincrease > 0:
                 openinc = lefttoincrease / RestOfOpenDays
             else:
                 openinc = 0
-            if lefttoincreaseLow > 0:
-                openincLow = lefttoincreaseLow / RestOfOpenDays
-            else:
-                openincLow = 0
+            
             for i in range(OpenDateNow+1),int(DiseaseParameters['InterventionStartEndLiftCalcDays']):
                 newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
                 newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
                 intredval+=openinc
-                intredvalLow+=openincLow
+                #intredvalLow+=openincLow
                                           
             opendays = (int(DiseaseParameters['finaldate']) - int(DiseaseParameters['InterventionStartEndLiftCalcDays']+1))
             openinc = (1-intredval)/opendays
@@ -285,7 +281,7 @@ def modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters,substa
     return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk
 
 
-def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],fitvals=[],fitper=.3):
+def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],fitper=.3):
     
     cleanUp(modelPopNames)
     ParameterVals = PopulationParameters
@@ -293,7 +289,7 @@ def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,Population
     
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
-    RegionalList, timeRange, fitted = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,fitvals=fitvals,fitper=fitper)
+    RegionalList, timeRange, fitted = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper)
     
     if fitted:
         PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
@@ -306,7 +302,7 @@ def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,Population
 
     return fitted
 
-def RunUSStateForecastModel(ModelType,state,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],fitvals=[],fitper=.3):
+def RunUSStateForecastModel(ModelType,state,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],fitper=.3):
     
     cleanUp(modelPopNames)
     ParameterVals = PopulationParameters

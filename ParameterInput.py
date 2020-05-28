@@ -29,7 +29,7 @@ import csv
 import ParameterSet
 import Utils
 
-def setInfectionProb(interventions,intname,DiseaseParameters):
+def setInfectionProb(interventions,intname,DiseaseParameters,Model):
 
     interventions[intname]['InterventionReduction'] = []
     interventions[intname]['InterventionReductionLow'] = []
@@ -140,6 +140,21 @@ def setInfectionProb(interventions,intname,DiseaseParameters):
     DiseaseParameters['testExtra'] = int(interventions[intname]['testExtra'])
     DiseaseParameters['ContactTracing'] = int(interventions[intname]['ContactTracing'])
     
+    if 'TimeToFindContactsLow' in interventions[intname] and Utils.RepresentsInt(interventions[intname]['TimeToFindContactsLow']) and \
+        'TimeToFindContactsHigh' in interventions[intname] and Utils.RepresentsInt(interventions[intname]['TimeToFindContactsHigh']):
+        DiseaseParameters['TimeToFindContactsLow'] = int(interventions[intname]['TimeToFindContactsLow'])
+        DiseaseParameters['TimeToFindContactsHigh'] = int(interventions[intname]['TimeToFindContactsHigh'])
+    else:
+        DiseaseParameters['TimeToFindContactsLow'] = 24
+        DiseaseParameters['TimeToFindContactsHigh'] = 72
+
+    if 'UseCountyLevel' in interventions[intname]: 
+        if interventions[intname]['UseCountyLevel'] == "1" and os.path.exists(os.path.join("data",Model,interventions[intname]['CountyEncountersFile'])):
+            DiseaseParameters['UseCountyLevel'] = 1
+            DiseaseParameters['CountyEncountersFile'] = interventions[intname]['CountyEncountersFile']
+        else:
+            DiseaseParameters['UseCountyLevel'] = 0
+    
     return DiseaseParameters
     
 
@@ -236,6 +251,7 @@ def SetRunParameters(PID):
     DiseaseParameters['ProbabilityOfTransmissionPerContact'] = ProbabilityOfTransmissionPerContact
     
     DiseaseParameters['CommunityTestingRate'] = CommunityTestingRate
+    
     
     
     return PopulationParameters, DiseaseParameters
