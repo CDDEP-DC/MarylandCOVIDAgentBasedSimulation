@@ -571,7 +571,7 @@ class LocalPopulation:
     def addContactTracing(self,tend,HHID,personId,localQevents,offPopQueueEvents):
         if self.timeNow > self.DiseaseParameters['QuarantineStartDate']:
             self.numQuarantined += 1    
-            timeToFindContacts = random.triangular(DiseaseParameters['TimeToFindContactsLow'],DiseaseParameters['TimeToFindContactsHigh'])/24
+            timeToFindContacts = random.triangular(self.DiseaseParameters['TimeToFindContactsLow'],self.DiseaseParameters['TimeToFindContactsHigh'])/24
             t = tend+.001 + timeToFindContacts
             numLocalInfections = self.hhset[HHID].getLocalInfections(personId)
             numNonLocalInfections, NonLocalRegionsInfected, NonLocalPopsInfected = self.hhset[HHID].getNonLocalInfections(personId)
