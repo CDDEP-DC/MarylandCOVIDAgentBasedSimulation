@@ -285,12 +285,14 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     fitpervals = 0
                     f = 0
                     for x in range(min(fitdates),max(fitdates)):
-                        fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])*(f+1)
+                        #fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])*(f+1)
+                        fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])
                         if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
                             print(numFitHospitalizations[x],hospitalizations[f],abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x]))
                         f += 1
                     N=len(hospitalizations)
-                    avgperdiff = fitpervals / (N+(N-1)*N/2)
+                    #avgperdiff = fitpervals / (N+(N-1)*N/2)
+                    avgperdiff = fitpervals / (N)
                     if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
                         print(fitpervals,len(hospitalizations),avgperdiff)
                     if avgperdiff > fitper:
@@ -304,12 +306,14 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     fitpervals = 0
                     f = 0
                     for x in range(min(fitdates),max(fitdates)):
-                        fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
+                        #fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
+                        fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])
                         if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
                             print(numFitDeaths[x],deaths[f],abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x]))
                         f += 1
                     N=len(deaths)
-                    avgperdiff = fitpervals / (N+(N-1)*N/2)
+                    #avgperdiff = fitpervals / (N+(N-1)*N/2)
+                    avgperdiff = fitpervals / (N)
                     if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
                         print(fitpervals,len(deaths),avgperdiff)
                     if avgperdiff > fitper:

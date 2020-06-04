@@ -50,7 +50,7 @@ def main(argv):
         runs, OutputResultsFolder, FolderContainer, generatePresentationVals, OutputRunsFolder, Model = Utils.ModelFolderStructureSetup(argv)
     except:
         print("Setup error. There was an error setting up the folders for output. Please ensure that you have permission to create files and directories on this system.")
-        if ParameterSet.logginglevel == "debug":
+        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
         
@@ -79,10 +79,6 @@ def main(argv):
                     modelvals['FitPer'] = rows[10]
                     modelvals['ImportationRate'] = rows[11]
                     modelvals['intfile'] = rows[12]
-                    modelvals['UseCountyLevel'] = rows[13]
-                    if modelvals['UseCountyLevel'] != "1":
-                        modelvals['UseCountyLevel'] = 0 
-                    modelvals['CountyEncountersFile'] = rows[14]
                     if startdate > enddate:
                         print("Parameter input error. Start date is greater than end date. Please correct in the parameters file.")
                         raise Exception("Parameter Error")
@@ -92,7 +88,7 @@ def main(argv):
             raise("Model not found error")
     except:
         print("Model input error. Please confirm the Models.csv file exists and is correctly specified")
-        if ParameterSet.logginglevel == "debug":
+        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
         
@@ -108,7 +104,7 @@ def main(argv):
                 minmaxvals['min'] = rows[1]
                 minmaxvals['max'] = rows[2]
                 ParametersInputData[rows[0]] = minmaxvals
-                
+        ParametersInputData['ProbabilityOfTransmissionPerContact']['min'] = .02
     except Exception as e:
         print("Parameter input error. Please confirm the parameter file exists and is correctly specified")
         if ParameterSet.logginglevel == "debug":
@@ -182,7 +178,7 @@ def main(argv):
                   str(dateTimeObj.day) + str(dateTimeObj.hour) + \
                   str(dateTimeObj.minute)
     
-    enddate = (dateTimeObj + timedelta(days=130)).date()
+    enddate = (dateTimeObj + timedelta(days=30)).date()
                   
     for state in USStates:
         stepLength = 1
@@ -199,7 +195,7 @@ def main(argv):
             startdate = (deathfitdata[state]['startdate'] - timedelta(days=random.randint(14,45)))
             endTime = (enddate - startdate).days
             # This sets the interventions
-            interventions = ParameterInput.InterventionsParameters(Model,modelvals['intfile'],startdate,submodel=state)
+            interventions = ParameterInput.InterventionsParameters(Model,modelvals['intfile'],startdate)
             
             if len(interventions) == 0:
                 print("Interventions input error. Please confirm the intervention file exists and is correctly specified")
@@ -210,13 +206,7 @@ def main(argv):
             DiseaseParameters['ImportationRate'] = random.randint(1,int(modelvals['ImportationRate']))
             DiseaseParameters['startdate'] = startdate
             
-            if int(modelvals['UseCountyLevel']) == 1 and os.path.exists(os.path.join("data",Model,modelvals['CountyEncountersFile'])):
-                DiseaseParameters['UseCountyLevel'] = 1
-                DiseaseParameters['CountyEncountersFile'] = modelvals['CountyEncountersFile']
-            else:
-                DiseaseParameters['UseCountyLevel'] = 0
-            DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters)
-            
+                        
             # get fotvals and dates
             fitvals = []
             fitdates = []
@@ -233,9 +223,12 @@ def main(argv):
             print(startdate)
             print(deathfitdata[state])
             
+            DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates)
+            
             resultsNameP = state + "_" + overallResultsName
                         
-            fitted = GlobalModel.RunUSStateForecastModel(Model,state,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,fitvals=fitvals,fitper=fitper)
+            fitted = GlobalModel.RunUSStateForecastModel(Model,state,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,deaths=deaths,fitper=fitper)
+            
             if not fitted:
                 attempt += 1
                 if attempt > 50:

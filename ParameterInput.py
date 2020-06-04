@@ -29,19 +29,27 @@ import csv
 import ParameterSet
 import Utils
 
-def setInfectionProb(interventions,intname,DiseaseParameters,Model):
+def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[]):
 
     interventions[intname]['InterventionReduction'] = []
     interventions[intname]['InterventionReductionLow'] = []
     interventions[intname]['SchoolInterventionReduction'] = []
     interventions[intname]['Mobility'] = []
         
+    if 'Seasonality' in interventions[intname]:
+        DiseaseParameters['Seasonality'] = interventions[intname]['Seasonality']
+    else:
+        DiseaseParameters['Seasonality'] = 0    
+    
+    # get values of intervention amounts
     interventions[intname]['SchoolInterventionDate'] = interventions[intname]['SchoolCloseDate']
     intred = random.random()*(float(interventions[intname]['InterventionReductionPerMax'])-float(interventions[intname]['InterventionReductionPerMin']))+float(interventions[intname]['InterventionReductionPerMin'])
     intredLow = random.random()*(float(interventions[intname]['InterventionReductionPerLowMax'])-float(interventions[intname]['InterventionReductionPerLowMin']))+float(interventions[intname]['InterventionReductionPerLowMin'])
-    intdays = int(interventions[intname]['InterventionStartReductionDateCalcDays'])-int(interventions[intname]['InterventionStartReductionDate'])
     mobeffect = float(interventions[intname]['InterventionMobilityEffect'])
-        
+    
+    
+    # set amount for beginning phase reduction in social distancing
+    intdays = int(interventions[intname]['InterventionStartReductionDateCalcDays'])-int(interventions[intname]['InterventionStartReductionDate'])
     intredred = (1-intred)/intdays
     intredLowred = (1-intredLow)/intdays
     intredval = 1 - intredred
@@ -58,25 +66,64 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model):
         intredvalLow -= intredLowred
         mobeffectval -= mobeffectred
 
+    # constant lower level till end of intervention    
     for i in range(int(interventions[intname]['InterventionStartReductionDateCalcDays'])+1,int(interventions[intname]['InterventionStartEndLift'])):
         interventions[intname]['InterventionReduction'].append(intredval)    
         interventions[intname]['InterventionReductionLow'].append(intredvalLow)
         interventions[intname]['SchoolInterventionReduction'].append(intredval)
         interventions[intname]['Mobility'].append(mobeffectval)
+        
+    if len(fitdates) > 0 and max(fitdates) > int(interventions[intname]['InterventionStartEndLift']+1):
     
-    opendays = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(interventions[intname]['InterventionStartEndLift']+1)
-    openinc = ((1-intred)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
-    openincLow = ((1-intredLow)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
-    mobinc = ((1-mobeffect)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
-    
-    for i in range(int(interventions[intname]['InterventionStartEndLift']+1),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
-        interventions[intname]['InterventionReduction'].append(intredval)    
-        interventions[intname]['InterventionReductionLow'].append(intredvalLow)
-        interventions[intname]['SchoolInterventionReduction'].append(intredval)
-        interventions[intname]['Mobility'].append(mobeffectval)
-        intredval+=openinc
-        intredvalLow+=openincLow
-        mobeffectval += mobinc
+        opendays1 = max(fitdates) - int(interventions[intname]['InterventionStartEndLift']+1)
+        opendays2 = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(max(fitdates)+1)
+        
+        percentstart = random.random()*(opendays1/(opendays1+opendays2))
+        
+        firstpart = percentstart*float(interventions[intname]['InterventionEndPerIncrease'])
+        secondpart = (1-percentstart)*float(interventions[intname]['InterventionEndPerIncrease'])
+        
+        openinc1 = ((1-intred)*firstpart)/opendays1
+        openincLow1 = ((1-intredLow)*firstpart)/opendays1
+        mobinc1 = ((1-mobeffect)*firstpart)/opendays1
+        
+        
+        openinc2 = ((1-intred)*secondpart)/opendays2
+        openincLow2 = ((1-intredLow)*secondpart)/opendays2
+        mobinc2 = ((1-mobeffect)*secondpart)/opendays2
+        
+        for i in range(int(interventions[intname]['InterventionStartEndLift']+1),max(fitdates)):
+            interventions[intname]['InterventionReduction'].append(intredval)    
+            interventions[intname]['InterventionReductionLow'].append(intredvalLow)
+            interventions[intname]['SchoolInterventionReduction'].append(intredval)
+            interventions[intname]['Mobility'].append(mobeffectval)
+            intredval+=openinc1
+            intredvalLow+=openincLow1
+            mobeffectval += mobinc1
+            
+        for i in range(int(max(fitdates)+1),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
+            interventions[intname]['InterventionReduction'].append(intredval)    
+            interventions[intname]['InterventionReductionLow'].append(intredvalLow)
+            interventions[intname]['SchoolInterventionReduction'].append(intredval)
+            interventions[intname]['Mobility'].append(mobeffectval)
+            intredval+=openinc2
+            intredvalLow+=openincLow2
+            mobeffectval += mobinc2 
+        
+    else:    
+        opendays = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(interventions[intname]['InterventionStartEndLift']+1)
+        openinc = ((1-intred)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+        openincLow = ((1-intredLow)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+        mobinc = ((1-mobeffect)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+        
+        for i in range(int(interventions[intname]['InterventionStartEndLift']+1),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
+            interventions[intname]['InterventionReduction'].append(intredval)    
+            interventions[intname]['InterventionReductionLow'].append(intredvalLow)
+            interventions[intname]['SchoolInterventionReduction'].append(intredval)
+            interventions[intname]['Mobility'].append(mobeffectval)
+            intredval+=openinc
+            intredvalLow+=openincLow
+            mobeffectval += mobinc
     
     opendays = (int(interventions[intname]['finaldate']) - int(interventions[intname]['InterventionStartEndLiftCalcDays']+1))
     openinc = (1-intredval)/opendays
@@ -154,6 +201,24 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model):
             DiseaseParameters['CountyEncountersFile'] = interventions[intname]['CountyEncountersFile']
         else:
             DiseaseParameters['UseCountyLevel'] = 0
+    else:
+        DiseaseParameters['UseCountyLevel'] = 0
+        
+    if 'AdjustPopDensity' in interventions[intname]: 
+        if interventions[intname]['AdjustPopDensity'] == "1":
+            DiseaseParameters['AdjustPopDensity'] = 1
+        else:
+            DiseaseParameters['AdjustPopDensity'] = 0
+    else:
+        DiseaseParameters['AdjustPopDensity'] = 0    
+        
+    if 'TestIncreaseLow' in interventions[intname]: 
+        DiseaseParameters['TestIncrease'] = random.random()*(float(interventions[intname]['TestIncreaseHigh']) - float(interventions[intname]['TestIncreaseLow'])) + float(interventions[intname]['TestIncreaseLow'])
+        DiseaseParameters['TestIncreaseDate'] = int(interventions[intname]['InterventionStartEndLiftCalcDays'])
+    else:
+        DiseaseParameters['TestIncrease'] = 0
+        DiseaseParameters['TestIncreaseDate'] = 1000
+
     
     return DiseaseParameters
     

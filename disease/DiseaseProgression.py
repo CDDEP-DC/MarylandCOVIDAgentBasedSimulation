@@ -237,7 +237,10 @@ def SetupTransmissableContactEvents(timeNow,tend,DiseaseParameters, LocalInterac
                 
                 detected = False
                 t2E = t1 + diseasetimeline['preHospTime']
-                if random() < DiseaseParameters['EDVisit']:
+                probTest = DiseaseParameters['EDVisit']
+                if timeNow > DiseaseParameters['TestIncreaseDate']:
+                    probTest += DiseaseParameters['TestIncrease']
+                if random() < probTest:
                     # If they go to see a provider - then we can capture them for testing 
                     queueEvents.append(SimEvent.PersonHospEDEvent(timeNow+t2E, HouseholdId, PersonId, 0))
                     #if t2E > DiseaseParameters['TestingAvailabilityDateHosp']:

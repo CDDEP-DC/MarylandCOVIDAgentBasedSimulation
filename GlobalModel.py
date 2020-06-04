@@ -158,6 +158,7 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
         dfPhoneData = pd.read_csv(os.path.join("data",ModelType,DiseaseParameters['CountyEncountersFile']), index_col = 'county_fips')
         minval = abs(min(dfPhoneData['APRIL.mean']))+1
     
+    
     # Now load the global locations
     GlobalLocations = []
     for G in range(0, numpops):
@@ -170,7 +171,7 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
             
             premean = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('PRE.mean')]+minval
             aprilmean = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('APRIL.mean')]+minval
-            maylatest = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('MAY.LastWeek.mean')]+minval
+            maylatest = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('LastWeek.mean')]+minval
             
             perreduc = (premean-aprilmean)/premean
             perreducLow = perreduc*DiseaseParameters['InterventionReductionPerLow']
@@ -238,15 +239,15 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
                 intredvalLow+=openincLow
                 
         else:    
-            newdeclinevals = DiseaseParameters['TransProb'].copy()
-            newdeclinevalsLow = DiseaseParameters['TransProbLow'].copy()
+            if DiseaseParameters['AdjustPopDensity']:
+                transmissonmodifier = 1/(1+ DiseaseParameters['pdscale1']*math.exp(-1*DiseaseParameters['pdscale2']*PopulationDensity[G]))  ## pdscale1 = .25  / pdscale2 = .001
+                for TP in range(0,len(DiseaseParameters['TransProb'])):
+                    newdeclinevals.append(DiseaseParameters['TransProb'][TP]*transmissonmodifier)
+                    newdeclinevalsLow.append(DiseaseParameters['TransProbLow'][TP]*transmissonmodifier)
+            else:                  
+                newdeclinevals = DiseaseParameters['TransProb'].copy()
+                newdeclinevalsLow = DiseaseParameters['TransProbLow'].copy()
 
-        if min(newdeclinevals) < 0:
-            print(newdeclinevals)
-            exit()
-        if min(newdeclinevalsLow) < 0:
-            print(newdeclinevalsLow)
-            exit()
         GL = GlobalLocationSetup.\
             GlobalLocationSetup(G, PopulationData[G], HHSizeDist,HHSizeAgeDist, 
                                 DiseaseParameters, LPNames[G],RegionalNames[G],
@@ -310,7 +311,7 @@ def RunUSStateForecastModel(ModelType,state,modelvals,modelPopNames,resultsName,
     
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters,substate=state)
     
-    RegionalList, timeRange, fitted = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,fitvals=fitvals,fitper=fitper)
+    RegionalList, timeRange, fitted = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper)
     
     if fitted:
         PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)

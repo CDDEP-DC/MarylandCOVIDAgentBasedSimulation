@@ -180,7 +180,7 @@ def main(argv):
         endTime = (enddate - startdate).days
         DiseaseParameters['startdate'] = startdate
             
-        DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model)
+        DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates)
         
         resultsNameP = key + "_" + resultsName
                     
