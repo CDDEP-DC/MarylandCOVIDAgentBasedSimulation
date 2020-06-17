@@ -169,7 +169,7 @@ def ModelFolderStructureSetup(argv):
                       str(dateTimeObj.minute) + str(dateTimeObj.second) + \
                       str(dateTimeObj.microsecond)
         try:
-            opts, args = getopt.getopt(argv,"j:n:m:dgqf:",["job=","nruns=","model="])
+            opts, args = getopt.getopt(argv,"j:n:m:dgqf",["job=","nruns=","model="])
         except getopt.GetoptError as e:
             print('Error:',e)
             sys.exit(2)
@@ -200,11 +200,6 @@ def ModelFolderStructureSetup(argv):
                     
             if opt == '-f':
                 ParameterSet.FitModel = True
-                if arg != 'hospitalizations' and arg != 'deaths' and arg != 'both':
-                    print("Can only fit to 'hospitalizations' or 'deaths' or 'both'")
-                    raise Exception("Invalid fitting command")
-                else:
-                    ParameterSet.FitValue = arg
                     
         if FolderContainer == ParameterSet.PopDataFolder or \
                 FolderContainer == ParameterSet.QueueFolder or \

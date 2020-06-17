@@ -74,6 +74,7 @@ class Region:
         numEvents = 0
         fitdeaths = 0
         fithospitalizations = 0
+        fitcases = 0
         for LPKey in self.Locations.keys():
             LP = self.Locations[LPKey]
             op, NE = LP.runTime(tend,LP.LocalPopulationId in testlpvals)
@@ -83,11 +84,13 @@ class Region:
             if ParameterSet.FitMD:
                 if regionStats[LPKey]['regionalid'] == 'MD':
                     fithospitalizations += regionStats[LPKey]['H']        
-                    fitdeaths += regionStats[LPKey]['D']        
+                    fitdeaths += regionStats[LPKey]['D']
+                    fitcases += regionStats[LPKey]['CC']        
             else:
                 fithospitalizations += regionStats[LPKey]['H']        
                 fitdeaths += regionStats[LPKey]['D']        
-        fitval = [fithospitalizations,fitdeaths]
+                fitcases += regionStats[LPKey]['CC']        
+        fitval = [fithospitalizations,fitdeaths,fitcases]
         return regionStats, offPopQueueEvents, numEvents, fitval
 
     def getInfectedNums(self):

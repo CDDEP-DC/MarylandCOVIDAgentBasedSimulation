@@ -20,21 +20,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 import pandas as pd
-from datetime import datetime
+from datetime import datetime  
+from datetime import timedelta 
 import random
 import traceback
 import os
 import csv
+
 
 import ParameterSet
 import Utils
 
 def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[]):
 
-    interventions[intname]['InterventionReduction'] = []
-    interventions[intname]['InterventionReductionLow'] = []
-    interventions[intname]['SchoolInterventionReduction'] = []
-    interventions[intname]['Mobility'] = []
+    DiseaseParameters['TransProb'] = []
+    DiseaseParameters['TransProbLow'] = []
+    DiseaseParameters['TransProbSchool'] = []
+    DiseaseParameters['InterventionMobilityEffect'] = []
+    DiseaseParameters['InterventionStartReductionDateCalcDays'] = int(interventions[intname]['InterventionStartReductionDateCalcDays'])
+    DiseaseParameters['InterventionStartReductionDate'] = int(interventions[intname]['InterventionStartReductionDate'])
+    DiseaseParameters['InterventionStartEndLift'] = int(interventions[intname]['InterventionStartEndLift'])
+    DiseaseParameters['InterventionStartEndLiftCalcDays'] = int(interventions[intname]['InterventionStartEndLiftCalcDays'])
+    DiseaseParameters['finaldate'] = int(interventions[intname]['finaldate'])
+    DiseaseParameters['InterventionEndPerIncrease'] = interventions[intname]['InterventionEndPerIncrease']
+
         
     if 'Seasonality' in interventions[intname]:
         DiseaseParameters['Seasonality'] = interventions[intname]['Seasonality']
@@ -57,122 +66,98 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[]):
     mobeffectred = (1-mobeffect)/intdays
     mobeffectval = 1 - mobeffectred
     
+    for i in range(0,interventions[intname]['InterventionStartReductionDate']):
+        DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
+        DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
+        DiseaseParameters['InterventionMobilityEffect'].append(1)    
+
+    for i in range(0,interventions[intname]['SchoolCloseDate']):
+        DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
+    
+    if interventions[intname]['SchoolCloseDate'] < interventions[intname]['InterventionStartReductionDate']:
+        for i in range(interventions[intname]['SchoolCloseDate'],interventions[intname]['InterventionStartReductionDate']):
+            DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+            
     for i in range(int(interventions[intname]['InterventionStartReductionDate']),int(interventions[intname]['InterventionStartReductionDateCalcDays'])):
-        interventions[intname]['InterventionReduction'].append(intredval)    
-        interventions[intname]['InterventionReductionLow'].append(intredvalLow)
-        interventions[intname]['SchoolInterventionReduction'].append(float(interventions[intname]['SchoolCloseReductionPer']))
-        interventions[intname]['Mobility'].append(mobeffectval)
+        DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+        DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
+        if i >= interventions[intname]['SchoolCloseDate']:
+            if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
+                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
+            else:
+                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+        DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
         intredval -= intredred
         intredvalLow -= intredLowred
         mobeffectval -= mobeffectred
 
     # constant lower level till end of intervention    
-    for i in range(int(interventions[intname]['InterventionStartReductionDateCalcDays'])+1,int(interventions[intname]['InterventionStartEndLift'])):
-        interventions[intname]['InterventionReduction'].append(intredval)    
-        interventions[intname]['InterventionReductionLow'].append(intredvalLow)
-        interventions[intname]['SchoolInterventionReduction'].append(intredval)
-        interventions[intname]['Mobility'].append(mobeffectval)
+    for i in range(int(interventions[intname]['InterventionStartReductionDateCalcDays']),int(interventions[intname]['InterventionStartEndLift'])):
+        DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+        DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
+        if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
+            DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
+        else:
+            DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+        DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
         
-    if len(fitdates) > 0 and max(fitdates) > int(interventions[intname]['InterventionStartEndLift']+1):
+    opendays = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(interventions[intname]['InterventionStartEndLift'])
+    openinc = ((1-intred)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+    openincLow = ((1-intredLow)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+    mobinc = ((1-mobeffect)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
     
-        opendays1 = max(fitdates) - int(interventions[intname]['InterventionStartEndLift']+1)
-        opendays2 = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(max(fitdates)+1)
-        
-        percentstart = random.random()*(opendays1/(opendays1+opendays2))
-        
-        firstpart = percentstart*float(interventions[intname]['InterventionEndPerIncrease'])
-        secondpart = (1-percentstart)*float(interventions[intname]['InterventionEndPerIncrease'])
-        
-        openinc1 = ((1-intred)*firstpart)/opendays1
-        openincLow1 = ((1-intredLow)*firstpart)/opendays1
-        mobinc1 = ((1-mobeffect)*firstpart)/opendays1
-        
-        
-        openinc2 = ((1-intred)*secondpart)/opendays2
-        openincLow2 = ((1-intredLow)*secondpart)/opendays2
-        mobinc2 = ((1-mobeffect)*secondpart)/opendays2
-        
-        for i in range(int(interventions[intname]['InterventionStartEndLift']+1),max(fitdates)):
-            interventions[intname]['InterventionReduction'].append(intredval)    
-            interventions[intname]['InterventionReductionLow'].append(intredvalLow)
-            interventions[intname]['SchoolInterventionReduction'].append(intredval)
-            interventions[intname]['Mobility'].append(mobeffectval)
-            intredval+=openinc1
-            intredvalLow+=openincLow1
-            mobeffectval += mobinc1
-            
-        for i in range(int(max(fitdates)+1),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
-            interventions[intname]['InterventionReduction'].append(intredval)    
-            interventions[intname]['InterventionReductionLow'].append(intredvalLow)
-            interventions[intname]['SchoolInterventionReduction'].append(intredval)
-            interventions[intname]['Mobility'].append(mobeffectval)
-            intredval+=openinc2
-            intredvalLow+=openincLow2
-            mobeffectval += mobinc2 
-        
-    else:    
-        opendays = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(interventions[intname]['InterventionStartEndLift']+1)
-        openinc = ((1-intred)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
-        openincLow = ((1-intredLow)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
-        mobinc = ((1-mobeffect)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
-        
-        for i in range(int(interventions[intname]['InterventionStartEndLift']+1),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
-            interventions[intname]['InterventionReduction'].append(intredval)    
-            interventions[intname]['InterventionReductionLow'].append(intredvalLow)
-            interventions[intname]['SchoolInterventionReduction'].append(intredval)
-            interventions[intname]['Mobility'].append(mobeffectval)
-            intredval+=openinc
-            intredvalLow+=openincLow
-            mobeffectval += mobinc
-    
-    opendays = (int(interventions[intname]['finaldate']) - int(interventions[intname]['InterventionStartEndLiftCalcDays']+1))
+    for i in range(int(interventions[intname]['InterventionStartEndLift']),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
+        DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+        DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
+        if i < (interventions[intname]['SchoolOpenDate']):
+            if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
+                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
+            else:
+                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+        else:
+            DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolOpenReductionAmt']))
+        DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
+        intredval+=openinc
+        intredvalLow+=openincLow
+        mobeffectval += mobinc
+
+    opendays = (int(interventions[intname]['finaldate']) - int(interventions[intname]['InterventionStartEndLiftCalcDays']))
     openinc = (1-intredval)/opendays
     openincLow = (1-intredvalLow)/opendays    
     mobinc = (1-mobeffectval)/opendays
-    for i in range(int(interventions[intname]['InterventionStartEndLiftCalcDays']+1),int(interventions[intname]['finaldate'])):
-        interventions[intname]['InterventionReduction'].append(intredval)    
-        interventions[intname]['InterventionReductionLow'].append(intredvalLow)
+    
+    
+    for i in range(int(interventions[intname]['InterventionStartEndLiftCalcDays']),int(interventions[intname]['finaldate'])):
+        DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+        DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
         if i < (interventions[intname]['SchoolOpenDate']):
-            interventions[intname]['SchoolInterventionReduction'].append(intredval)
-        interventions[intname]['Mobility'].append(mobeffectval)
+            DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+        else:
+            DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolOpenReductionAmt']))        
+        DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
         intredval+=openinc
         intredvalLow+=openincLow
         mobeffectval += mobinc
         
-    for i in range(int(interventions[intname]['SchoolOpenDate']),int(interventions[intname]['finaldate'])):
-        interventions[intname]['SchoolInterventionReduction'].append(float(interventions[intname]['SchoolOpenReductionAmt']))
-
-    DiseaseParameters['TransProb'] = []
-    DiseaseParameters['TransProbLow'] = []
-    DiseaseParameters['TransProbSchool'] = []
-    DiseaseParameters['InterventionMobilityEffect'] = []
-    DiseaseParameters['InterventionStartReductionDateCalcDays'] = int(interventions[intname]['InterventionStartReductionDateCalcDays'])
-    DiseaseParameters['InterventionStartReductionDate'] = int(interventions[intname]['InterventionStartReductionDate'])
-    DiseaseParameters['InterventionStartEndLift'] = int(interventions[intname]['InterventionStartEndLift'])
-    DiseaseParameters['InterventionStartEndLiftCalcDays'] = int(interventions[intname]['InterventionStartEndLiftCalcDays'])
-    DiseaseParameters['finaldate'] = int(interventions[intname]['finaldate'])
-    DiseaseParameters['InterventionEndPerIncrease'] = interventions[intname]['InterventionEndPerIncrease']
-    
-    for i in range(0,interventions[intname]['SchoolCloseDate']):
-        DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
-    
-    for i in range(0,interventions[intname]['InterventionStartReductionDate']):
-        DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
-        DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
-        DiseaseParameters['InterventionMobilityEffect'].append(1)
-    
-    for i in range(0,len(interventions[intname]['InterventionReduction'])):
-        DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*interventions[intname]['InterventionReduction'][i])
-        DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*interventions[intname]['InterventionReductionLow'][i])
-        DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*interventions[intname]['SchoolInterventionReduction'][i])
-        DiseaseParameters['InterventionMobilityEffect'].append(interventions[intname]['Mobility'][i])
-    
+ 
+    #startDate = datetime(2020,2,10)
+    #for i in range(1,interventions[intname]['finaldate']):
+    #    if i == int(interventions[intname]['InterventionStartReductionDate']):
+    #        print('InterventionStartReductionDate')
+    #    if i == int(interventions[intname]['InterventionStartReductionDateCalcDays']):
+    #        print('InterventionStartReductionDateCalcDays')
+    #    if i == int(interventions[intname]['InterventionStartEndLift']):
+    #        print('InterventionStartEndLift')
+    #    if i == int(interventions[intname]['InterventionStartEndLiftCalcDays']):
+    #        print('InterventionStartEndLiftCalcDays')   
+    #    if i == int(interventions[intname]['SchoolCloseDate']):
+    #        print('SchoolCloseDate')
+    #    if i == int(interventions[intname]['SchoolOpenDate']):
+    #        print('SchoolOpenDate')
+    #    print(i,startDate + timedelta(days=i) ,DiseaseParameters['TransProb'][i])
+        
     DiseaseParameters['InterventionDate'] = interventions[intname]['InterventionStartReductionDate']
     
-    DiseaseParameters['InterventionReduction'] = interventions[intname]['InterventionReduction']
-    DiseaseParameters['InterventionReductionLow'] = interventions[intname]['InterventionReductionLow']
-    DiseaseParameters['SchoolInterventionDate'] = interventions[intname]['SchoolInterventionDate']
-    DiseaseParameters['SchoolInterventionReduction'] = interventions[intname]['SchoolInterventionReduction']
     DiseaseParameters['InterventionReductionPer'] = intred
     DiseaseParameters['InterventionReductionPerLow'] = intredLow
     
@@ -219,11 +204,55 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[]):
         DiseaseParameters['TestIncrease'] = 0
         DiseaseParameters['TestIncreaseDate'] = 1000
 
-    
-    return DiseaseParameters
-    
 
-def SetRunParameters(PID):
+    return DiseaseParameters
+
+    
+def SampleParam(ParamMax,ParamMin,**kwargs):
+    
+    
+    
+    if 'MC' in kwargs:
+        MC = kwargs['MC']
+    else:
+        MC = False
+    
+    if 'dict' in kwargs:
+        dict = kwargs['dict']
+    else:
+        dict = {}
+        
+    if 'dictkey' in kwargs:
+        dictkey = kwargs['dictkey']
+    else:
+        dictkey = ''
+        
+    if 'listval' in kwargs:
+        listval = kwargs['listval']
+    else:
+        listval = -1
+        
+    if 'maxstepsize' in kwargs:
+        maxstep = kwargs['maxstepsize']
+    else:
+        maxstep = .05
+               
+    if not MC:
+        val = random.random()*(ParamMax - ParamMin) + ParamMin
+    else:
+        if listval >= 0:
+            CurrentVal = dict[dictkey][listval]
+        else:
+            CurrentVal = dict[dictkey]
+            
+        sdval = (ParamMax - ParamMin)/4
+        val = CurrentVal - maxstep*sdval*random.random() if random.random() < .5 else CurrentVal + maxstep*sdval*random.random()
+        if CurrentVal > ParamMax: CurrentVal = ParamMax
+        elif CurrentVal > ParamMin: CurrentVal = ParamMin
+
+    return val
+
+def SampleRunParameters(PID,MC=False,PopulationParameters = {},DiseaseParameters = {},maxstepsize=.05):
 
     AgeCohortInteraction = {0:{0:1.39277777777778,1:0.328888888888889,2:0.299444444444444,3:0.224444444444444,4:0.108333333333333},
                         1:{0:0.396666666666667,1:2.75555555555556,2:0.342407407407407,3:0.113333333333333,4:0.138333333333333},
@@ -231,59 +260,59 @@ def SetRunParameters(PID):
                         3:{0:0.268888888888889,1:0.164074074074074, 2:0.219444444444444,3:0.787777777777778,4:0.27},
                         4:{0:0.181666666666667,1:0.138888888888889, 2:0.157222222222222,3:0.271666666666667,4:0.703333333333333}}
 
-                    
-    AG04GammaScale = random.random()*(float(PID['AG04GammaScale']['max']) - float(PID['AG04GammaScale']['min'])) + float(PID['AG04GammaScale']['min'])
-    AG04GammaShape = random.random()*(float(PID['AG04GammaShape']['max']) - float(PID['AG04GammaShape']['min'])) + float(PID['AG04GammaShape']['min'])
-    AG04AsymptomaticRate = random.random()*(float(PID['AG04AsymptomaticRate']['max']) - float(PID['AG04AsymptomaticRate']['min'])) + float(PID['AG04AsymptomaticRate']['min'])
-    AG04HospRate = random.random()*(float(PID['AG04HospRate']['max']) - float(PID['AG04HospRate']['min'])) + float(PID['AG04HospRate']['min'])
-    AG04MortalityRate = random.random()*(float(PID['AG04MortalityRate']['max']) - float(PID['AG04MortalityRate']['min'])) + float(PID['AG04MortalityRate']['min'])
-    AG517GammaScale = random.random()*(float(PID['AG517GammaScale']['max']) - float(PID['AG517GammaScale']['min'])) + float(PID['AG517GammaScale']['min'])
-    AG517GammaShape = random.random()*(float(PID['AG517GammaShape']['max']) - float(PID['AG517GammaShape']['min'])) + float(PID['AG517GammaShape']['min'])
-    AG517AsymptomaticRate = random.random()*(float(PID['AG517AsymptomaticRate']['max']) - float(PID['AG517AsymptomaticRate']['min'])) + float(PID['AG517AsymptomaticRate']['min'])
-    AG517HospRate = random.random()*(float(PID['AG517HospRate']['max']) - float(PID['AG517HospRate']['min'])) + float(PID['AG517HospRate']['min'])
-    AG517MortalityRate = random.random()*(float(PID['AG517MortalityRate']['max']) - float(PID['AG517MortalityRate']['min'])) + float(PID['AG517MortalityRate']['min'])
-    AG1849GammaScale = random.random()*(float(PID['AG1849GammaScale']['max']) - float(PID['AG1849GammaScale']['min'])) + float(PID['AG1849GammaScale']['min'])
-    AG1849GammaShape = random.random()*(float(PID['AG1849GammaShape']['max']) - float(PID['AG1849GammaShape']['min'])) + float(PID['AG1849GammaShape']['min'])
-    AG1849AsymptomaticRate = random.random()*(float(PID['AG1849AsymptomaticRate']['max']) - float(PID['AG1849AsymptomaticRate']['min'])) + float(PID['AG1849AsymptomaticRate']['min'])
-    AG1849HospRate = random.random()*(float(PID['AG1849HospRate']['max']) - float(PID['AG1849HospRate']['min'])) + float(PID['AG1849HospRate']['min'])
-    AG1849MortalityRate = random.random()*(float(PID['AG1849MortalityRate']['max']) - float(PID['AG1849MortalityRate']['min'])) + float(PID['AG1849MortalityRate']['min'])
-    AG5064GammaScale = random.random()*(float(PID['AG5064GammaScale']['max']) - float(PID['AG5064GammaScale']['min'])) + float(PID['AG5064GammaScale']['min'])
-    AG5064GammaShape = random.random()*(float(PID['AG5064GammaShape']['max']) - float(PID['AG5064GammaShape']['min'])) + float(PID['AG5064GammaShape']['min'])
-    AG5064AsymptomaticRate = random.random()*(float(PID['AG5064AsymptomaticRate']['max']) - float(PID['AG5064AsymptomaticRate']['min'])) + float(PID['AG5064AsymptomaticRate']['min'])
-    AG5064HospRate = random.random()*(float(PID['AG5064HospRate']['max']) - float(PID['AG5064HospRate']['min'])) + float(PID['AG5064HospRate']['min'])
-    AG5064MortalityRate = random.random()*(float(PID['AG5064MortalityRate']['max']) - float(PID['AG5064MortalityRate']['min'])) + float(PID['AG5064MortalityRate']['min'])
-    AG65GammaScale = random.random()*(float(PID['AG65GammaScale']['max']) - float(PID['AG65GammaScale']['min'])) + float(PID['AG65GammaScale']['min'])
-    AG65GammaShape = random.random()*(float(PID['AG65GammaShape']['max']) - float(PID['AG65GammaShape']['min'])) + float(PID['AG65GammaShape']['min'])
-    AG65AsymptomaticRate = random.random()*(float(PID['AG65AsymptomaticRate']['max']) - float(PID['AG65AsymptomaticRate']['min'])) + float(PID['AG65AsymptomaticRate']['min'])
-    AG65HospRate = random.random()*(float(PID['AG65HospRate']['max']) - float(PID['AG65HospRate']['min'])) + float(PID['AG65HospRate']['min'])
-    AG65MortalityRate = random.random()*(float(PID['AG65MortalityRate']['max']) - float(PID['AG65MortalityRate']['min'])) + float(PID['AG65MortalityRate']['min'])
-    householdcontactRate = random.random()*(float(PID['householdcontactRate']['max']) - float(PID['householdcontactRate']['min'])) + float(PID['householdcontactRate']['min'])
-    IncubationTime = random.random()*(float(PID['IncubationTime']['max']) - float(PID['IncubationTime']['min'])) + float(PID['IncubationTime']['min'])
-    mildContagiousTime = random.random()*(float(PID['mildContagiousTime']['max']) - float(PID['mildContagiousTime']['min'])) + float(PID['mildContagiousTime']['min'])
-    AsymptomaticReducationTrans = random.random()*(float(PID['AsymptomaticReducationTrans']['max']) - float(PID['AsymptomaticReducationTrans']['min'])) + float(PID['AsymptomaticReducationTrans']['min'])
-    preContagiousTime = random.random()*(float(PID['preContagiousTime']['max']) - float(PID['preContagiousTime']['min'])) + float(PID['preContagiousTime']['min'])
-    symptomaticTime = random.random()*(float(PID['symptomaticTime']['max']) - float(PID['symptomaticTime']['min'])) + float(PID['symptomaticTime']['min'])
-    postContagiousTime = random.random()*(float(PID['postContagiousTime']['max']) - float(PID['postContagiousTime']['min'])) + float(PID['postContagiousTime']['min'])
-    symptomaticContactRateReduction = random.random()*(float(PID['symptomaticContactRateReduction']['max']) - float(PID['symptomaticContactRateReduction']['min'])) + float(PID['symptomaticContactRateReduction']['min'])
-    preHospTime = random.random()*(float(PID['preHospTime']['max']) - float(PID['preHospTime']['min'])) + float(PID['preHospTime']['min'])
-    hospitalSymptomaticTime = random.random()*(float(PID['hospitalSymptomaticTime']['max']) - float(PID['hospitalSymptomaticTime']['min'])) + float(PID['hospitalSymptomaticTime']['min'])
-    ICURate = random.random()*(float(PID['ICURate']['max']) - float(PID['ICURate']['min'])) + float(PID['ICURate']['min'])
-    ICUtime = random.random()*(float(PID['ICUtime']['max']) - float(PID['ICUtime']['min'])) + float(PID['ICUtime']['min'])
-    PostICUTime = random.random()*(float(PID['PostICUTime']['max']) - float(PID['PostICUTime']['min'])) + float(PID['PostICUTime']['min'])
-    hospitalSymptomaticContactRateReduction = random.random()*(float(PID['hospitalSymptomaticContactRateReduction']['max']) - float(PID['hospitalSymptomaticContactRateReduction']['min'])) + float(PID['hospitalSymptomaticContactRateReduction']['min'])
-    EDVisit = random.random()*(float(PID['EDVisit']['max']) - float(PID['EDVisit']['min'])) + float(PID['EDVisit']['min'])
-    ProbabilityOfTransmissionPerContact = random.random()*(float(PID['ProbabilityOfTransmissionPerContact']['max']) - float(PID['ProbabilityOfTransmissionPerContact']['min'])) + float(PID['ProbabilityOfTransmissionPerContact']['min'])
-    CommunityTestingRate = random.random()*(float(PID['CommunityTestingRate']['max']) - float(PID['CommunityTestingRate']['min'])) + float(PID['CommunityTestingRate']['min'])
-    pdscale1 = random.random()*(float(PID['pdscale1']['max']) - float(PID['pdscale1']['min'])) + float(PID['pdscale1']['min'])
-    pdscale2 = random.random()*(float(PID['pdscale2']['max']) - float(PID['pdscale2']['min'])) + float(PID['pdscale2']['min'])
+
+    AG04GammaScale = SampleParam(float(PID['AG04GammaScale']['max']),float(PID['AG04GammaScale']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaScale',listval=0)
+    AG04GammaShape = SampleParam(float(PID['AG04GammaShape']['max']), float(PID['AG04GammaShape']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaShape',listval=0)
+    AG04AsymptomaticRate = SampleParam(float(PID['AG04AsymptomaticRate']['max']), float(PID['AG04AsymptomaticRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGAsymptomaticRate',listval=0)
+    AG04HospRate = SampleParam(float(PID['AG04HospRate']['max']), float(PID['AG04HospRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGHospRate',listval=0)
+    AG04MortalityRate = SampleParam(float(PID['AG04MortalityRate']['max']), float(PID['AG04MortalityRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGMortalityRate',listval=0)
+    AG517GammaScale = SampleParam(float(PID['AG517GammaScale']['max']), float(PID['AG517GammaScale']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaScale',listval=1)
+    AG517GammaShape = SampleParam(float(PID['AG517GammaShape']['max']), float(PID['AG517GammaShape']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaShape',listval=1)
+    AG517AsymptomaticRate = SampleParam(float(PID['AG517AsymptomaticRate']['max']), float(PID['AG517AsymptomaticRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGAsymptomaticRate',listval=1)
+    AG517HospRate = SampleParam(float(PID['AG517HospRate']['max']), float(PID['AG517HospRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGHospRate',listval=1)
+    AG517MortalityRate = SampleParam(float(PID['AG517MortalityRate']['max']), float(PID['AG517MortalityRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGMortalityRate',listval=1)
+    AG1849GammaScale = SampleParam(float(PID['AG1849GammaScale']['max']), float(PID['AG1849GammaScale']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaScale',listval=2)
+    AG1849GammaShape = SampleParam(float(PID['AG1849GammaShape']['max']), float(PID['AG1849GammaShape']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaShape',listval=2)
+    AG1849AsymptomaticRate = SampleParam(float(PID['AG1849AsymptomaticRate']['max']), float(PID['AG1849AsymptomaticRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGAsymptomaticRate',listval=2)
+    AG1849HospRate = SampleParam(float(PID['AG1849HospRate']['max']), float(PID['AG1849HospRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGHospRate',listval=2)
+    AG1849MortalityRate = SampleParam(float(PID['AG1849MortalityRate']['max']), float(PID['AG1849MortalityRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGMortalityRate',listval=2)
+    AG5064GammaScale = SampleParam(float(PID['AG5064GammaScale']['max']), float(PID['AG5064GammaScale']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaScale',listval=3)
+    AG5064GammaShape = SampleParam(float(PID['AG5064GammaShape']['max']), float(PID['AG5064GammaShape']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaShape',listval=3)
+    AG5064AsymptomaticRate = SampleParam(float(PID['AG5064AsymptomaticRate']['max']), float(PID['AG5064AsymptomaticRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGAsymptomaticRate',listval=3)
+    AG5064HospRate = SampleParam(float(PID['AG5064HospRate']['max']), float(PID['AG5064HospRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGHospRate',listval=3)
+    AG5064MortalityRate = SampleParam(float(PID['AG5064MortalityRate']['max']), float(PID['AG5064MortalityRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGMortalityRate',listval=3)
+    AG65GammaScale = SampleParam(float(PID['AG65GammaScale']['max']), float(PID['AG65GammaScale']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaScale',listval=4)
+    AG65GammaShape = SampleParam(float(PID['AG65GammaShape']['max']), float(PID['AG65GammaShape']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='AGGammaShape',listval=4)
+    AG65AsymptomaticRate = SampleParam(float(PID['AG65AsymptomaticRate']['max']), float(PID['AG65AsymptomaticRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGAsymptomaticRate',listval=4)
+    AG65HospRate = SampleParam(float(PID['AG65HospRate']['max']), float(PID['AG65HospRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGHospRate',listval=4)
+    AG65MortalityRate = SampleParam(float(PID['AG65MortalityRate']['max']), float(PID['AG65MortalityRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AGMortalityRate',listval=4)
+    householdcontactRate = SampleParam(float(PID['householdcontactRate']['max']), float(PID['householdcontactRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=PopulationParameters,dictkey='householdcontactRate')
+    IncubationTime = SampleParam(float(PID['IncubationTime']['max']), float(PID['IncubationTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='IncubationTime')
+    mildContagiousTime = SampleParam(float(PID['mildContagiousTime']['max']), float(PID['mildContagiousTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='mildContagiousTime')
+    AsymptomaticReducationTrans = SampleParam(float(PID['AsymptomaticReducationTrans']['max']), float(PID['AsymptomaticReducationTrans']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='AsymptomaticReducationTrans')
+    preContagiousTime = SampleParam(float(PID['preContagiousTime']['max']), float(PID['preContagiousTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='preContagiousTime')
+    symptomaticTime = SampleParam(float(PID['symptomaticTime']['max']), float(PID['symptomaticTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='symptomaticTime')
+    postContagiousTime = SampleParam(float(PID['postContagiousTime']['max']), float(PID['postContagiousTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='postContagiousTime')
+    symptomaticContactRateReduction = SampleParam(float(PID['symptomaticContactRateReduction']['max']), float(PID['symptomaticContactRateReduction']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='symptomaticContactRateReduction')
+    preHospTime = SampleParam(float(PID['preHospTime']['max']), float(PID['preHospTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='preHospTime')
+    hospitalSymptomaticTime = SampleParam(float(PID['hospitalSymptomaticTime']['max']), float(PID['hospitalSymptomaticTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='hospitalSymptomaticTime')
+    ICURate = SampleParam(float(PID['ICURate']['max']), float(PID['ICURate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='ICURate')
+    ICUtime = SampleParam(float(PID['ICUtime']['max']), float(PID['ICUtime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='ICUtime')
+    PostICUTime = SampleParam(float(PID['PostICUTime']['max']), float(PID['PostICUTime']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='PostICUTime') 
+    hospitalSymptomaticContactRateReduction = SampleParam(float(PID['hospitalSymptomaticContactRateReduction']['max']), float(PID['hospitalSymptomaticContactRateReduction']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='hospitalSymptomaticContactRateReduction')
+    EDVisit = SampleParam(float(PID['EDVisit']['max']), float(PID['EDVisit']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='EDVisit')
+    ProbabilityOfTransmissionPerContact = SampleParam(float(PID['ProbabilityOfTransmissionPerContact']['max']), float(PID['ProbabilityOfTransmissionPerContact']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='ProbabilityOfTransmissionPerContact')
+    CommunityTestingRate = SampleParam(float(PID['CommunityTestingRate']['max']), float(PID['CommunityTestingRate']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='CommunityTestingRate') 
+    pdscale1 = SampleParam(float(PID['pdscale1']['max']), float(PID['pdscale1']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='pdscale1')
+    pdscale2 = SampleParam(float(PID['pdscale2']['max']), float(PID['pdscale2']['min']),MC=MC,maxstepsize=maxstepsize,dict=DiseaseParameters,dictkey='pdscale2')
     
-    PopulationParameters = {}
+
     PopulationParameters['AGGammaScale'] = [AG04GammaScale,AG517GammaScale,AG1849GammaScale,AG5064GammaScale,AG65GammaScale]
     PopulationParameters['AGGammaShape'] = [AG04GammaShape,AG517GammaShape,AG1849GammaShape,AG5064GammaShape,AG65GammaShape]
     PopulationParameters['AgeCohortInteraction'] = AgeCohortInteraction
     PopulationParameters['householdcontactRate'] = householdcontactRate
     
-    DiseaseParameters = {}
+    
     DiseaseParameters['AGHospRate'] = [AG04HospRate,AG517HospRate,AG1849HospRate,AG5064HospRate,AG65HospRate]
     DiseaseParameters['AGAsymptomaticRate'] = [AG04AsymptomaticRate,AG517AsymptomaticRate,AG1849AsymptomaticRate,AG5064AsymptomaticRate,AG65AsymptomaticRate]
     DiseaseParameters['AGMortalityRate'] = [AG04MortalityRate,AG517MortalityRate,AG1849MortalityRate,AG5064MortalityRate,AG65MortalityRate]
@@ -316,8 +345,6 @@ def SetRunParameters(PID):
     DiseaseParameters['ProbabilityOfTransmissionPerContact'] = ProbabilityOfTransmissionPerContact
     
     DiseaseParameters['CommunityTestingRate'] = CommunityTestingRate
-    
-    
     
     return PopulationParameters, DiseaseParameters
 

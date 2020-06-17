@@ -40,6 +40,7 @@ import LocalPopulation
 import ParameterInput
 import ProcessDataForPresentation as PDFP
 import traceback
+import copy
 
 def main(argv):
         
@@ -77,7 +78,8 @@ def main(argv):
                     modelvals['FitPer'] = rows[10]
                     modelvals['ImportationRate'] = rows[11]
                     modelvals['intfile'] = rows[12]
-                    
+                    modelvals['StartInfected'] = rows[13]
+                    modelvals['FitValFile'] = rows[14]
                     if startdate > enddate:
                         print("Parameter input error. Start date is greater than end date. Please correct in the parameters file.")
                         raise Exception("Parameter Error")
@@ -116,32 +118,56 @@ def main(argv):
     
     ### For fitting purposes
     fitdates = []
+    fitdatesorig = []
     hospitalizations = []
     deaths = []
+    cases = []
     fitper = .3
     if ParameterSet.FitModel:
+        if not os.path.exists(os.path.join('data',Model,modelvals['FitValFile'])):
+            print("Fitting file does not exist")
+            exit()
+            
         try:
             fitper = float(modelvals['FitPer'])
-            FitModelVals = os.path.join('data',Model,'FitVals.csv')
+            FitModelVals = os.path.join('data',Model,modelvals['FitValFile'])
             with open(FitModelVals, mode='r') as infile:
                 reader = csv.reader(infile)
+                headers = next(reader, None)
+                if 'hospitalizations' not in headers and 'deaths' not in headers and 'cases' not in headers:
+                    print("Fitvals file is not specified correctly")
+                    raise Exception("Fitvals Error")    
                 for rows in reader:
                     
                     fitdate = Utils.dateparser(rows[0])
+                    fitdatesorig.append(fitdate)
                     if fitdate < startdate or fitdate > enddate:
                         print("Fit dates error. Fit date must be between start and end date.")
-                        raise Exception("Parameter Error")    
+                        raise Exception("Fitvals Error")    
                     
-                    fitdates.append((fitdate - startdate).days)
-                    hospitalizations.append(int(rows[1]))
-                    deaths.append(int(rows[2]))
+                    
+                    try:
+                        hospitalizations.append(int(rows[headers.index('hospitalizations')]))
+                    except ValueError:
+                        pass
+                    try:
+                        deaths.append(int(rows[headers.index('deaths')]))
+                    except ValueError:
+                        pass
+                    try:
+                        cases.append(int(rows[headers.index('cases')]))
+                    except ValueError:
+                        pass
                     
         except Exception as e:
             print("Fit values error. Please confirm the FitVals file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
                 print(traceback.format_exc())
             exit()        
-            
+    print(deaths)
+    for fitdate in fitdatesorig:
+        fitdates.append((fitdate - startdate).days)
+    
     # This sets the interventions
     interventions = ParameterInput.InterventionsParameters(Model,modelvals['intfile'],startdate)
     if len(interventions) == 0:
@@ -153,12 +179,15 @@ def main(argv):
     overallResultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
                   str(dateTimeObj.day) + str(dateTimeObj.hour) + \
                   str(dateTimeObj.minute)
-    
+                  
+    PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
+    runningavg = []                  
     run = 0
     totruns = []
     for key in interventions.keys():
         totruns.append(runs)
             
+    nummissmax = 0    
     while sum(totruns) > 0:
         stepLength = 1
         dateTimeObj = datetime.now()
@@ -172,7 +201,7 @@ def main(argv):
         key = list(interventions.keys())[inton]
     
         print("Running:",key," Remaining:",sum(totruns),totruns)
-        PopulationParameters, DiseaseParameters = ParameterInput.SetRunParameters(ParametersInputData)
+                
         DiseaseParameters['ImportationRate'] = int(modelvals['ImportationRate'])
         randomstate = random.getstate()
         mprandomseed = random.randint(100000,99999999)
@@ -184,9 +213,27 @@ def main(argv):
         
         resultsNameP = key + "_" + resultsName
                     
-        fitted = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper)
+        if Utils.RepresentsInt(modelvals['StartInfected']):
+            StartInfected = int(modelvals['StartInfected'])
+        else:
+            StartInfected = -1
+            
+        fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,StartInfected=StartInfected)
+        
         if fitted:
+            PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData,MC=True,PopulationParameters=PopulationParameters, DiseaseParameters=DiseaseParameters,maxstepsize=.05)
             totruns[inton]-=1
+        else:
+            if SLSH+SLSD+SLSC == 0:
+                nummissmax += 1
+            if nummissmax > 25:                            
+                PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
+                nummissmax = 0
+            else:
+                if avgperdiffhosp > 1:
+                    PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
+                else:
+                    PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData,MC=True,PopulationParameters=PopulationParameters, DiseaseParameters=DiseaseParameters,maxstepsize=1)
             
     if generatePresentationVals == 1:
         interventionnames = []

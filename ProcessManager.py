@@ -108,7 +108,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                 LocationImportationRisk,PopulationParameters,DiseaseParameters,
                 endTime,resultsName,mprandomseed,
                 startDate=datetime(2020,2,22),stepLength=1,numregions=-1,
-                modelPopNames='zipcodes',fitdates=[],hospitalizations=[],deaths=[],fitper=.3):
+                modelPopNames='zipcodes',fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,burnin=False,StartInfected=-1):
 
     print("Starting Run")
     fitted = True
@@ -193,22 +193,31 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
           
         numFitDeaths = []
         numFitHospitalizations = []
+        numFitCases = []
         for tend in timeRange:
         
             infect = [0]*len(RegionalList)
             LPIDinfect = -1
-            
-            if len(LocationImportationRisk) > 0:
-                LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
-                rnum = RegionListGuide[LPIDinfect]
+            if tend == 1 and StartInfected > 0:
+                for inf in range(0,StartInfected):                
+                    if len(LocationImportationRisk) > 0:
+                        LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
+                        rnum = RegionListGuide[LPIDinfect]
+                    else:
+                        rnum = random.choice(RegionalList)
+                    infect[rnum] += 1
             else:
-                rnum = random.choice(RegionalList)
-            infect[rnum] = DiseaseParameters['ImportationRate']
-    
-                
+                if len(LocationImportationRisk) > 0:
+                    LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
+                    rnum = RegionListGuide[LPIDinfect]
+                else:
+                    rnum = random.choice(RegionalList)
+                infect[rnum] = DiseaseParameters['ImportationRate']
+            
             offPopQueueEvents = []
             fithospitalizations = 0
             fitdeaths = 0
+            fitcases = 0
             try:
                 for i in range(0,len(RegionalList)):
                     procdict = {}
@@ -236,6 +245,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                             fitval = item.msg
                             fithospitalizations += fitval[0]
                             fitdeaths += fitval[1]
+                            fitcases += fitval[2]
                             
                         if item.msg_type == "offPopQueueEvent":
                             offPopQueueEvents.append(item.msg)        
@@ -268,61 +278,112 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             # This does the fitting process if fitting values are enabled and passed in
             numFitDeaths.append(fitdeaths)
             numFitHospitalizations.append(fithospitalizations)
+            numFitCases.append(fitcases)
+            SLSH = 0
+            SLSD = 0
+            SLSC = 0
+            avgperdiffhosp = 0
+            avgperdiffdeaths  = 0
+            avgperdiffcases = 0
             #print(tend,fitval,max(fitvals))
-            if (len(hospitalizations) > 0 or len(deaths) > 0) and tend > min(fitdates) and tend < max(fitdates):
-                if ParameterSet.FitValue == 'hospitalizations' or ParameterSet.FitValue == 'both':
-                    if fithospitalizations > max(hospitalizations)*3:
-                        print("Run did not fit hospitalizations ... exiting")
+            if (len(hospitalizations) > 0 or len(deaths) > 0 or len(cases) > 0) and tend > min(fitdates) and tend < max(fitdates):
+                if len(hospitalizations) > 0:
+                    if fithospitalizations > max(hospitalizations)*3 and max(hospitalizations) > 50:
+                        print("Run did not fit max hospitalizations ... exiting")
+                        fitval = None
                         fitted = False
                         break
-                if ParameterSet.FitValue == 'deaths' or ParameterSet.FitValue == 'both':
-                    if fitdeaths > max(deaths)*3:
-                        print("Run did not fit deaths ... exiting")
+                if len(deaths) > 0:
+                    if fitdeaths > max(deaths)*3 and max(deaths) > 50:
+                        print("Run did not fit max deaths ... exiting")
+                        fitval = None
                         fitted = False
                         break
-            if ParameterSet.FitValue == 'hospitalizations' or ParameterSet.FitValue == 'both':
+                if len(cases) > 0:
+                    if fitcases > max(cases)*3 and max(cases) > 50:
+                        print("Run did not fit max cases ... exiting")
+                        fitval = None
+                        fitted = False
+                        break
+                        
+            if (len(hospitalizations) > 0 or len(deaths) > 0 or len(cases) > 0) and tend == max(fitdates):
                 if len(hospitalizations) > 0 and tend == max(fitdates):
                     fitpervals = 0
                     f = 0
                     for x in range(min(fitdates),max(fitdates)):
                         #fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])*(f+1)
-                        fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])
-                        if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
-                            print(numFitHospitalizations[x],hospitalizations[f],abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x]))
+                        if numFitHospitalizations[x] > 0:
+                            fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])
+                            SLSH += (numFitHospitalizations[x]/max(hospitalizations)-hospitalizations[f]/max(hospitalizations))**2
+                            if ParameterSet.logginglevel == 'debug':
+                                print(numFitHospitalizations[x],hospitalizations[f],abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x]))
                         f += 1
                     N=len(hospitalizations)
                     #avgperdiff = fitpervals / (N+(N-1)*N/2)
-                    avgperdiff = fitpervals / (N)
+                    avgperdiffhosp = fitpervals / (N)
                     if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
-                        print(fitpervals,len(hospitalizations),avgperdiff)
-                    if avgperdiff > fitper:
-                        print("Run did not fit hospitalizations ... exiting")
-                        fitted = False
-                        break
-                    else:
-                        print("Run fit Hospitalizations!")
-            if ParameterSet.FitValue == 'deaths' or ParameterSet.FitValue == 'both':
+                        print(fitpervals,len(hospitalizations),avgperdiffhosp)
+                    if not burnin:
+                        if avgperdiffhosp > fitper:
+                            print("Run did not fit hospitalizations ... exiting")
+                            fitted = False
+                            break
+                        else:
+                            print("Run fit Hospitalizations!")
+               
                 if len(deaths) > 0 and tend == max(fitdates):
                     fitpervals = 0
                     f = 0
                     for x in range(min(fitdates),max(fitdates)):
                         #fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
-                        fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])
-                        if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
-                            print(numFitDeaths[x],deaths[f],abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x]))
+                        if numFitDeaths[x] > 0:
+                            fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])
+                            SLSD += (numFitDeaths[x]/max(deaths)-deaths[f]/max(deaths))**2
+                            if ParameterSet.logginglevel == 'debug':
+                                print(numFitDeaths[x],deaths[f],abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x]))
                         f += 1
                     N=len(deaths)
                     #avgperdiff = fitpervals / (N+(N-1)*N/2)
-                    avgperdiff = fitpervals / (N)
+                    avgperdiffdeaths = fitpervals / (N)
+                    if ParameterSet.logginglevel == 'debug':
+                        print(fitpervals,len(deaths),avgperdiffdeaths)
+                    if not burnin:
+                        if avgperdiffdeaths > fitper:
+                            print("Run did not fit deaths ... exiting")
+                            fitted = False
+                            break
+                        else:
+                            print("Run fit deaths!")            
+                
+                if len(cases) > 0 and tend == max(fitdates):
+                    fitpervalscases = 0
+                    f = 0
+                    for x in range(min(fitdates),max(fitdates)):
+                        #fitpervalscases += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
+                        if numFitCases[x] > 0:
+                            fitpervalscases += abs((numFitCases[x]-deaths[f])/numFitCases[x])
+                            SLSC += (numFitCases[x]/max(cases)-cases[f]/max(cases))**2
+                            if ParameterSet.logginglevel == 'debug':
+                                print(numFitCases[x],cases[f],abs((numFitCases[x]-cases[f])/numFitCases[x]))
+                        f += 1
+                    N=len(cases)
+                    #avgperdiff = fitpervalscases / (N+(N-1)*N/2)
+                    avgperdiffcases = fitpervalscases / (N)
                     if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
-                        print(fitpervals,len(deaths),avgperdiff)
-                    if avgperdiff > fitper:
-                        print("Run did not fit deaths ... exiting")
-                        fitted = False
-                        break
-                    else:
-                        print("Run fit deaths!")            
-                    
+                        print(fitpervalscases,len(cases),avgperdiffcases)
+                    if not burnin:
+                        if avgperdiffcases > fitper:
+                            print("Run did not fit cases ... exiting")
+                            fitted = False
+                            break
+                        else:
+                            print("Run fit cases!")            
+                
+                if burnin:
+                    print("burn run ended")
+                    break
+            
+            
             ## Get all the Reconcilliation events
             try:
                 if ParameterSet.UseQueuesForQueues:
@@ -392,7 +453,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             else:
                 sys.exit(2)
         
-    return RegionalList, timeRange, fitted
+    return RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases
         
 def printCurrentState(tend,RegionalList,modelPopNames,startDate,InfPrior,HosPrior):
 
@@ -460,10 +521,10 @@ def printCurrentState(tend,RegionalList,modelPopNames,startDate,InfPrior,HosPrio
     if ParameterSet.FitMD:
         print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numDMD:",totDMD," numHMD:",totHMD,"(" ,str(round(totHMD/HosPrior,3)),") cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
     else:
-        if ParameterSet.FitValue == 'hospitalizations':
-            print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numH:",totH," cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
-        else:
-            print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numD:",totD," cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
+        #if ParameterSet.FitValue == 'hospitalizations':
+        #    print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numH:",totH," cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
+        #else:
+        print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numH:",totH," numD:",totD," cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
     if totInf > 0:
         InfPrior = totInf
     if totHMD > 0:
