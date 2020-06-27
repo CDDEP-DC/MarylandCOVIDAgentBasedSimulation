@@ -30,6 +30,9 @@ import csv
 import unicodedata
 import string
 import pandas as pd
+import traceback
+import copy
+
 
 import PostProcessing
 import ParameterSet
@@ -39,8 +42,6 @@ import ProcessManager
 import LocalPopulation
 import ParameterInput
 import ProcessDataForPresentation as PDFP
-import traceback
-import copy
 
 def main(argv):
         
@@ -92,6 +93,7 @@ def main(argv):
         if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
+    basestartdate = startdate
         
     # Load the parameters
     input_df = None
@@ -111,7 +113,29 @@ def main(argv):
         if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
-    
+
+    ParamsTest = {}
+    try:
+        ParametersFileName = os.path.join('data',Model,'CurrentRunningParams.csv')
+        with open(ParametersFileName, mode='r') as infile:
+            reader = csv.reader(infile)
+            headers = next(reader, None)
+            num = 0
+            for rows in reader:
+                ParamsTest[num] = {}
+                hnum = 0
+                for h in headers:
+                    ParamsTest[num][h] = rows[hnum]
+                    hnum+=1
+                num+=1
+                
+    except Exception as e:
+        print("CurrentRunningParams input error. Please confirm the parameter file exists and is correctly specified")
+        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
+            print(traceback.format_exc())
+        exit()
+
+            
     ##### Do not delete
     modelPopNames = 'ZipCodes' # variable for namic files, is not important what it is - this left here for compatibility - deprecated
     ######
@@ -164,7 +188,7 @@ def main(argv):
             if ParameterSet.logginglevel == "debug":
                 print(traceback.format_exc())
             exit()        
-    print(deaths)
+    print(hospitalizations)
     for fitdate in fitdatesorig:
         fitdates.append((fitdate - startdate).days)
     
@@ -198,6 +222,7 @@ def main(argv):
         
         #for intnum in range(0,len(interventionnames)):
         inton = Utils.Multinomial(totruns)
+        
         key = list(interventions.keys())[inton]
     
         print("Running:",key," Remaining:",sum(totruns),totruns)
@@ -209,6 +234,53 @@ def main(argv):
         endTime = (enddate - startdate).days
         DiseaseParameters['startdate'] = startdate
             
+        if len(ParamsTest) > 0:  
+            x = random.randint(0,len(ParamsTest)-1)
+            altStartDate = Utils.dateparser(ParamsTest[x]['startDate'])
+            startdate = altStartDate
+            DiseaseParameters['startdate'] = startdate
+            endTime = (enddate - startdate).days
+            intdatevals = ['InterventionDate','SchoolCloseDate','SchoolOpenDate','InterventionStartReductionDate',
+                    'InterventionStartReductionDateCalcDays','InterventionStartEndLift','InterventionStartEndLiftCalcDays'
+                    ,'QuarantineStartDate','TestingAvailabilityDateHosp','TestingAvailabilityDateComm','finaldate']
+            for idv in intdatevals:
+                if idv+'_orig' in interventions[key]:
+                    print(interventions[key][idv],interventions[key][idv+'_orig'])
+                    interventions[key][idv] = (interventions[key][idv+'_orig'] - startdate).days
+            
+            PopulationParameters['householdcontactRate'] = float(ParamsTest[x]['householdcontactRate'])
+            
+            
+            DiseaseParameters['AGHospRate'] = [float(ParamsTest[x]['AG04HospRate']),float(ParamsTest[x]['AG517HospRate']),float(ParamsTest[x]['AG1849HospRate']),float(ParamsTest[x]['AG5064HospRate']),float(ParamsTest[x]['AG65HospRate'])]
+            DiseaseParameters['AGAsymptomaticRate'] = [float(ParamsTest[x]['AG04AsymptomaticRate']),float(ParamsTest[x]['AG517AsymptomaticRate']),float(ParamsTest[x]['AG1849AsymptomaticRate']),float(ParamsTest[x]['AG5064AsymptomaticRate']),float(ParamsTest[x]['AG65AsymptomaticRate'])]
+            DiseaseParameters['AGMortalityRate'] = [float(ParamsTest[x]['AG04MortalityRate']),float(ParamsTest[x]['AG517MortalityRate']),float(ParamsTest[x]['AG1849MortalityRate']),float(ParamsTest[x]['AG5064MortalityRate']),float(ParamsTest[x]['AG65MortalityRate'])]
+          
+            # Disease Progression Parameters
+            DiseaseParameters['IncubationTime'] = float(ParamsTest[x]['IncubationTime'])
+            
+            # gamma1
+            DiseaseParameters['mildContagiousTime'] = float(ParamsTest[x]['mildContagiousTime'])
+            DiseaseParameters['AsymptomaticReducationTrans'] = float(ParamsTest[x]['AsymptomaticReducationTrans'])
+            
+            # gamma2
+            DiseaseParameters['preContagiousTime'] = float(ParamsTest[x]['preContagiousTime'])
+            DiseaseParameters['symptomaticTime'] = float(ParamsTest[x]['symptomaticTime'])
+            DiseaseParameters['postContagiousTime'] = float(ParamsTest[x]['postContagiousTime'])
+            DiseaseParameters['symptomaticContactRateReduction'] = float(ParamsTest[x]['symptomaticContactRateReduction'])
+            
+            DiseaseParameters['preHospTime'] = float(ParamsTest[x]['preHospTime'])
+            DiseaseParameters['hospitalSymptomaticTime'] = float(ParamsTest[x]['hospitalSymptomaticTime'])
+            DiseaseParameters['ICURate'] = float(ParamsTest[x]['ICURate'])
+            DiseaseParameters['ICUtime'] = float(ParamsTest[x]['ICUtime'])
+            DiseaseParameters['PostICUTime'] = float(ParamsTest[x]['PostICUTime'])
+            DiseaseParameters['hospitalSymptomaticContactRateReduction'] = float(ParamsTest[x]['hospitalSymptomaticContactRateReduction'])
+            
+            DiseaseParameters['EDVisit'] = float(ParamsTest[x]['EDVisit'])
+            
+            DiseaseParameters['ProbabilityOfTransmissionPerContact'] = float(ParamsTest[x]['ProbabilityOfTransmissionPerContact'])
+           
+            
+        
         DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates)
         
         resultsNameP = key + "_" + resultsName
@@ -221,19 +293,13 @@ def main(argv):
         fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,StartInfected=StartInfected)
         
         if fitted:
-            PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData,MC=True,PopulationParameters=PopulationParameters, DiseaseParameters=DiseaseParameters,maxstepsize=.05)
+            #PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData,MC=True,PopulationParameters=PopulationParameters, DiseaseParameters=DiseaseParameters,maxstepsize=.05)
             totruns[inton]-=1
         else:
-            if SLSH+SLSD+SLSC == 0:
-                nummissmax += 1
-            if nummissmax > 25:                            
-                PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
-                nummissmax = 0
-            else:
-                if avgperdiffhosp > 1:
-                    PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
-                else:
-                    PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData,MC=True,PopulationParameters=PopulationParameters, DiseaseParameters=DiseaseParameters,maxstepsize=1)
+            PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
+            if len(ParamsTest) > 0:
+                x = random.randint(0,len(ParamsTest)-1)
+                
             
     if generatePresentationVals == 1:
         interventionnames = []
