@@ -71,7 +71,13 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
         writefolder = ParameterSet.ResultsFolder
        
     ### Get the results
-    totdays = len(results.keys())
+    maxday = 0
+    for d in results.keys():
+        daynow = d
+        if daynow > maxday:
+            maxday = daynow
+    #totdays = len(results.keys())
+    totdays = maxday
     csvFile = writefolder+"/ResultsByDay_"+model+"_"+resultsName+".csv"
     csvFileLocal = writefolder+"/LocalInfectedByDay_"+model+"_"+resultsName+".csv"
     
@@ -111,6 +117,7 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     
     # now go through the results and add the results as totals to each bucket
     for day in results.keys():
+        
         if len(regionalvals) > 1:
             resultdayvals = [0]*(len(colvals)*len(regionalvals)+len(colvals))
         else:

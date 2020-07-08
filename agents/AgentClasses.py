@@ -98,7 +98,7 @@ class Household:
         for key in self.persons.keys():
             self.persons[key].reset()
         
-    def infectHousehouldMember(self, timeNow, tend, LocalInteractionMatrixList,
+    def infectHousehouldMember(self, timeNow, LocalInteractionMatrixList,
                     RegionListGuide, LocalPopulationId,HospitalTransitionMatrixList,TransProb,TransProbLow,
                                currentAgentId=-1, ageCohort=-1,infectingAgent={},ProportionLowIntReduction=0):
         
@@ -122,7 +122,7 @@ class Household:
                 else:
                     p = self.getRandomAgent(ageCohort)
                     
-            outcome, queueEvents, ac = self.persons[p].infect(timeNow, tend, LocalInteractionMatrixList,
+            outcome, queueEvents, ac = self.persons[p].infect(timeNow, LocalInteractionMatrixList,
                                                  RegionListGuide, LocalPopulationId,self.numHouseholdMembersSusceptible(),
                                                  HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow)
         return queueEvents, ac, outcome, p
@@ -221,7 +221,7 @@ class Person:
             self.QuarantineStart = timeNow
             self.QuarantineEnd = timeNow + QuarantineTime
         
-    def infect(self, timeNow, tend, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow):
+    def infect(self, timeNow, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow):
         queueEvents = []
         infectNow = True
         outcome = ''
@@ -243,7 +243,7 @@ class Person:
             outcome = 'infection'
             self.status = ParameterSet.Incubating
             queueEvents, InfectionsDict = disease.DiseaseProgression.\
-                SetupTransmissableContactEvents(timeNow,tend,self.DiseaseParameters, LocalInteractionMatrixList,
+                SetupTransmissableContactEvents(timeNow,self.DiseaseParameters, LocalInteractionMatrixList,
                                                 RegionListGuide,
                                                 self.HouseholdId,
                                                 self.personID,

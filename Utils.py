@@ -169,7 +169,7 @@ def ModelFolderStructureSetup(argv):
                       str(dateTimeObj.minute) + str(dateTimeObj.second) + \
                       str(dateTimeObj.microsecond)
         try:
-            opts, args = getopt.getopt(argv,"j:n:m:dgqf",["job=","nruns=","model="])
+            opts, args = getopt.getopt(argv,"j:n:m:dgqfhr:",["job=","nruns=","model="])
         except getopt.GetoptError as e:
             print('Error:',e)
             sys.exit(2)
@@ -195,12 +195,20 @@ def ModelFolderStructureSetup(argv):
             
             if opt == '-m':
                 Model = arg        
-                if Model != 'MDDCVAregion':
+                if Model != 'MDDCVAregion' and Model != 'MarylandFit':
                     ParameterSet.FitMD = False
                     
             if opt == '-f':
                 ParameterSet.FitModel = True
+                
+            if opt == '-h':
+                ParameterSet.LoadHistory = True
                     
+            if opt == '-r':
+                ParameterSet.UseSavedRegion = True    
+                fname = arg
+                ParameterSet.SavedRegionContainer = clean_filename(fname)
+                
         if FolderContainer == ParameterSet.PopDataFolder or \
                 FolderContainer == ParameterSet.QueueFolder or \
                 FolderContainer == ParameterSet.ResultsFolder or \
@@ -212,6 +220,7 @@ def ModelFolderStructureSetup(argv):
         ParameterSet.QueueFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.QueueFolder)
         ParameterSet.ResultsFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.ResultsFolder)
         OutputResultsFolder = os.path.join(ParameterSet.OutputFolder,FolderContainer)
+        SaveRegionFolder = os.path.join(ParameterSet.SaveRegionFolder,FolderContainer)
         
         if os.path.exists(os.path.join(ParameterSet.OperationsFolder,FolderContainer)):
             if os.path.exists(ParameterSet.PopDataFolder):
@@ -236,6 +245,9 @@ def ModelFolderStructureSetup(argv):
         if not os.path.exists(OutputResultsFolder):
             os.makedirs(OutputResultsFolder)    
         
+        if not os.path.exists(SaveRegionFolder):
+            os.makedirs(SaveRegionFolder)            
+            
         if generatePresentationVals:
             OutputRunsFolder = os.path.join(ParameterSet.OutputFolder,FolderContainer,"runs")
             if not os.path.exists(OutputRunsFolder):

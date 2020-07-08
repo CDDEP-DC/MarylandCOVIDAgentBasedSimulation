@@ -155,6 +155,22 @@ class Region:
                 
         return self.getRegionStats()
                     
+    def initializeHistory(self,historyData):
+        numpriorcases = 0
+        numnewcases = 0 
+        for zipcode in historyData.keys():
+            for LPKey in self.Locations.keys():
+                
+                LP = self.Locations[LPKey]
+                if LP.LocalIdentification == zipcode:
+                    LP.initializeHistory(historyData[zipcode]['PriorCases'])
+                    numpriorcases += int(historyData[zipcode]['PriorCases'])
+                    op = LP.setCurrentCases(historyData[zipcode]['NewCases'])
+                    numnewcases += int(historyData[zipcode]['NewCases'])
+                    offPopQueueEvents.extend(op)
+                    break
+        return offPopQueueEvents, numpriorcases, numnewcases
+                    
     def getRegionStats(self):
         regionStats = {}
         for LPKey in self.Locations.keys():
@@ -181,4 +197,13 @@ class Region:
         for LPKey in self.Locations.keys():
             LP = self.Locations[LPKey]
             AgeLists[LPKey] = LP.getAgeStats()
-        return AgeLists        
+        return AgeLists    
+        
+    def getLastTime(self):
+        maxTime = 0
+        for LPKey in self.Locations.keys():
+            LP = self.Locations[LPKey]
+            LPtime = LP.timeNow
+            if LPtime > maxTime:
+                maxTime = LPtime
+        return maxTime

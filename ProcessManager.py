@@ -48,7 +48,7 @@ class Proc:
     def __init__(self, name, shutdown_event, event_q, reply_q,
                     PopulationParameters,DiseaseParameters,endTime,RegionalLocations,
                     RegionInteractionMatrixList,RegionListGuide,modelPopNames,
-                    HospitalTransitionMatrix,mprandomseed,eventqueues, *args):
+                    HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args):
         self.name = name
         self.shutdown_event = shutdown_event
         self.startup_event = mp.Event()
@@ -56,7 +56,7 @@ class Proc:
                                args=(name, self.startup_event, shutdown_event, event_q, reply_q,
                                PopulationParameters,DiseaseParameters,endTime,RegionalLocations,
                                RegionInteractionMatrixList,RegionListGuide,modelPopNames,
-                               HospitalTransitionMatrix,mprandomseed,eventqueues, *args))
+                               HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args))
         self.proc.start()
         started = self.startup_event.wait(timeout=Proc.STARTUP_WAIT_SECS)
         self.log(logging.DEBUG, f"Proc.__init__ starting : {name} got {started}")
@@ -108,14 +108,34 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                 LocationImportationRisk,PopulationParameters,DiseaseParameters,
                 endTime,resultsName,mprandomseed,
                 startDate=datetime(2020,2,22),stepLength=1,numregions=-1,
-                modelPopNames='zipcodes',fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,burnin=False,StartInfected=-1):
+                modelPopNames='zipcodes',fitdates=[],hospitalizations=[],
+                deaths=[],cases=[],fitper=.3,burnin=False,StartInfected=-1,
+                historyData={},FolderContainer='',saveRun=False,SavedRegionFolder=''):
 
     print("Starting Run")
+    
+
     fitted = True
     RegionalList = []
     # set the time of the simulation
     timeNow = 0
+    fithistoryhospitalizations = -1
+    if len(historyData) > 0:
+        timeNow += ParameterSet.ProbStartDateHistory #this is a negative number so add
+        fithistoryhospitalizations = 0
+        for hd in historyData.keys():
+            if ParameterSet.FitMD:
+                if historyData[hd]['State'] =='MD':
+                    fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
+            else:
+                fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
+
     timeRange = []
+    
+    if ParameterSet.UseSavedRegion:
+        testregion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region1.pickle"))
+        timeNow = testregion.getLastTime()
+        testregion = None
     
     while timeNow < endTime:
         timeNow = timeNow + stepLength
@@ -178,10 +198,59 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
         for i in range(0,num_regions):
             proc = Proc(i, shutdown_event,eventqueues[i], responseq, PopulationParameters,
                         DiseaseParameters,endTime,RegionalLocations[i],RegionInteractionMatrixList[i],
-                        RegionListGuide,modelPopNames,HospitalTransitionMatrix[i],mprandomseed,eventqueues)
+                        RegionListGuide,modelPopNames,HospitalTransitionMatrix[i],mprandomseed,eventqueues,
+                        historyData,SavedRegionFolder)
             procs.append(proc)
                     
-        
+        if len(historyData) > 0:
+            try:
+                for i in range(0,len(RegionalList)):
+                    eventqueues[i].safe_put(GBQueue.EventMessage("history", "history", 'history'))
+                allprocsdone = False
+                doneprocs = [0]*len(RegionalList)
+                
+                MAX_PROCESS_WAIT_SECS = 600.0
+                tstart = time.time()
+                while not allprocsdone:
+                    item = responseq.safe_get()
+                    if not item:
+                        t2 = time.time()
+                        if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
+                            endRun(procs, eventqueues)
+                            exit()
+                        continue
+                    else:
+                        #print(f"MainWorker.main_loop received '{item}' message")
+                        if item.msg_type == "finishedhistoryinit":
+                            doneprocs[item.msg_src] = 1
+                            
+                        if item.msg_type == "offPopQueueEvent":
+                            offPopQueueEvents.append(item.msg)        
+                        
+                        if item.msg_type == "FATAL":
+                            endRun(procs, eventqueues)
+                            for i in range(0,1000):
+                                item = responseq.safe_get()
+                            responseq.drain()
+                            responseq.safe_close()
+                            time.sleep(2) ## add here to let all the procs exit
+                            exit()
+                                                    
+                        if sum(doneprocs) == len(RegionalList):
+                            allprocsdone = True
+                            break
+            except BaseException as exc:
+                # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
+                #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
+                print("Model history init error:")
+                print(traceback.format_exc())
+                print(f"Run Exception Shutdown: {exc}")
+                responseq.drain()
+                responseq.safe_close()
+                if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
+                    raise Exception("Known error while initizaling history")
+                else:
+                    raise Exception("UNKNOWN error while initizaling history")    
               
         results = {}
         numInfList = {}
@@ -285,6 +354,17 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             avgperdiffhosp = 0
             avgperdiffdeaths  = 0
             avgperdiffcases = 0
+            if len(historyData) > 0 and fithistoryhospitalizations > 0:
+                if tend == 0:
+                    fithospval = numFitHospitalizations[len(numFitHospitalizations)-1]
+                    if fithospval > fithistoryhospitalizations*.8 and fithospval < fithistoryhospitalizations * 1.2:
+                        fitted = True
+                        print("Run fit hospitalizations!")
+                    else:
+                        print("Run DID NOT fit hospitalizations!")
+                        fitted = False
+                        break
+            
             #print(tend,fitval,max(fitvals))
             if (len(hospitalizations) > 0 or len(deaths) > 0 or len(cases) > 0) and tend > min(fitdates) and tend < max(fitdates):
                 if len(hospitalizations) > 0:
@@ -381,6 +461,60 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                 
                 if burnin:
                     print("burn run ended")
+                    if avgperdiffhosp < fitper and avgperdiffhosp > 0:
+                        fitted = True
+                        print(avgperdiffhosp," Run fit!")
+                    else:
+                        fitted = False
+                            
+                    if fitted and saveRun:
+                        try:
+                            for i in range(0,len(RegionalList)):
+                                eventqueues[i].safe_put(GBQueue.EventMessage("Main", "saveregion", FolderContainer))
+                            allprocsdone = False
+                            doneprocs = [0]*len(RegionalList)
+                            
+                            MAX_PROCESS_WAIT_SECS = 600.0
+                            tstart = time.time()
+                            while not allprocsdone:
+                                item = responseq.safe_get()
+                                if not item:
+                                    t2 = time.time()
+                                    if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
+                                        endRun(procs, eventqueues)
+                                        exit()
+                                    continue
+                                else:
+                                    #print(f"MainWorker.main_loop received '{item}' message")
+                                    if item.msg_type == "finishedsave":
+                                        doneprocs[item.msg_src] = 1
+                                                                           
+                                    if item.msg_type == "FATAL":
+                                        endRun(procs, eventqueues)
+                                        for i in range(0,1000):
+                                            item = responseq.safe_get()
+                                        responseq.drain()
+                                        responseq.safe_close()
+                                        time.sleep(2) ## add here to let all the procs exit
+                                        exit()
+                                                                
+                                    if sum(doneprocs) == len(RegionalList):
+                                        allprocsdone = True
+                                        break
+                        except BaseException as exc:
+                            # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
+                            #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
+                            print("Model save region error:")
+                            print(traceback.format_exc())
+                            print(f"Run Exception Shutdown: {exc}")
+                            responseq.drain()
+                            responseq.safe_close()
+                            if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
+                                raise Exception("Known error while saving regions")
+                            else:
+                                raise Exception("UNKNOWN error while  saving regions")    
+                          
+                        
                     break
             
             

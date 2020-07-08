@@ -33,12 +33,17 @@ FitModel = False
 FitValue = 'hospitalizations'
 FitMD = False #for just fitting maryland in MDDCVAregion model ... 
 SaveHospitalData = True
+LoadHistory = False
+UseSavedRegion = False
+SavedRegionContainer = ''
 
 OperationsFolder = 'Operations'
 PopDataFolder = 'pops'
 QueueFolder = 'Queues'
 ResultsFolder = 'results'
 OutputFolder = 'Output'
+SaveRegionFolder = 'SavedRegions'
+
 
 MAXIntVal = 9999999999999
 
@@ -54,7 +59,10 @@ InterventionMobilityEffect = .5
 SeasonalityStart = 60
 SeasonalityReduction = .98
 SeasonalityReduction2 = .95
-
+ProbStartDateHistory = -31
+OldAgeRestriction = False
+OldAgeReduction = 0
+                
 #PersonStatus:
 Susceptible = 0
 Incubating = 1

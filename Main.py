@@ -81,6 +81,8 @@ def main(argv):
                     modelvals['intfile'] = rows[12]
                     modelvals['StartInfected'] = rows[13]
                     modelvals['FitValFile'] = rows[14]
+                    modelvals['historyCaseFile'] = rows[15]
+                    modelvals['currentHospitalFile'] = rows[16]
                     if startdate > enddate:
                         print("Parameter input error. Start date is greater than end date. Please correct in the parameters file.")
                         raise Exception("Parameter Error")
@@ -93,7 +95,6 @@ def main(argv):
         if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
-    basestartdate = startdate
         
     # Load the parameters
     input_df = None
@@ -113,29 +114,7 @@ def main(argv):
         if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
-
-    ParamsTest = {}
-    try:
-        ParametersFileName = os.path.join('data',Model,'CurrentRunningParams.csv')
-        with open(ParametersFileName, mode='r') as infile:
-            reader = csv.reader(infile)
-            headers = next(reader, None)
-            num = 0
-            for rows in reader:
-                ParamsTest[num] = {}
-                hnum = 0
-                for h in headers:
-                    ParamsTest[num][h] = rows[hnum]
-                    hnum+=1
-                num+=1
-                
-    except Exception as e:
-        print("CurrentRunningParams input error. Please confirm the parameter file exists and is correctly specified")
-        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
-            print(traceback.format_exc())
-        exit()
-
-            
+    
     ##### Do not delete
     modelPopNames = 'ZipCodes' # variable for namic files, is not important what it is - this left here for compatibility - deprecated
     ######
@@ -188,16 +167,79 @@ def main(argv):
             if ParameterSet.logginglevel == "debug":
                 print(traceback.format_exc())
             exit()        
-    print(hospitalizations)
+    print(deaths)
     for fitdate in fitdatesorig:
         fitdates.append((fitdate - startdate).days)
     
+    #### For loading history data to start at
+    historyCaseData = {}
+    currentHospitalData = []
+    if ParameterSet.LoadHistory:
+        if not os.path.exists(os.path.join('data',Model,modelvals['historyCaseFile'])):
+            print("Case history file does not exists")
+            exit()
+            
+        try: 
+            with open(os.path.join('data',Model,modelvals['historyCaseFile']),mode='r') as infile:
+                reader = csv.reader(infile)      
+                headers = next(reader,None)
+                for rows in reader:
+                    historyCaseData[rows[headers.index('Zip')]] = {}
+                    historyCaseData[rows[headers.index('Zip')]]['CurrentCases'] = rows[headers.index('CurrentCases')]
+                    historyCaseData[rows[headers.index('Zip')]]['PriorCases'] = rows[headers.index('PriorCases')]
+                    historyCaseData[rows[headers.index('Zip')]]['NewCases'] = rows[headers.index('NewCases')]
+                    historyCaseData[rows[headers.index('Zip')]]['HospitalCases'] = 0
+                    historyCaseData[rows[headers.index('Zip')]]['State'] = rows[headers.index('State')]
+        except Exception as e:
+            print("History values error. Please confirm the history case file exists and is correctly specified")
+            if ParameterSet.logginglevel == "debug":
+                print(traceback.format_exc())
+            exit()       	
+
+        
+        if os.path.exists(os.path.join('data',Model,modelvals['currentHospitalFile'])):            
+            try: 
+                with open(os.path.join('data',Model,modelvals['currentHospitalFile']),mode='r') as infile:
+                    reader = csv.reader(infile)      
+                    for rows in reader:
+                        currentHospitalData.append(int(rows[1]))
+                print(sum(currentHospitalData))
+                ComHosAdj = pd.read_csv(os.path.join("data",Model,modelvals['HospitalMatrixFile']), index_col=0)
+                
+                for chd in range(0,len(currentHospitalData)):
+                    curVal = currentHospitalData[chd]
+                    hospperlist = ComHosAdj[ComHosAdj.columns[chd]].tolist()
+                    while curVal > 0:
+                        j = Utils.Multinomial(hospperlist)
+                        if str(list(ComHosAdj.index.values)[j]) in historyCaseData:
+                            historyCaseData[str(list(ComHosAdj.index.values)[j])]['HospitalCases'] += 1
+                        curVal -= 1
+                                        
+            except Exception as e:
+                print("History hospital values error. Please confirm the hospital history data file exists and is correctly specified")
+                if ParameterSet.logginglevel == "debug":
+                    print(traceback.format_exc())
+                exit()       	
+           
     # This sets the interventions
     interventions = ParameterInput.InterventionsParameters(Model,modelvals['intfile'],startdate)
     if len(interventions) == 0:
         print("Interventions input error. Please confirm the intervention file exists and is correctly specified")
         exit()
     
+    # get list of saved regiuons if using that value
+    saveregionsfolderlist = []
+    if ParameterSet.UseSavedRegion:
+        if not os.path.exists(os.path.join("data",Model,ParameterSet.SavedRegionContainer)):
+            print("Saved Container not found. Please check that this folder exists.")
+            exit()
+            
+        saveregionsfolderlist = os.listdir(os.path.join("data",Model,ParameterSet.SavedRegionContainer))
+        if len(saveregionsfolderlist) == 0:
+            print("Saved Container has no saved regions. Please check that this folder has data.")
+            exit()
+        print(saveregionsfolderlist)
+        
     ## alter values related to transmission in Utils file
     dateTimeObj = datetime.now()
     overallResultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
@@ -222,7 +264,6 @@ def main(argv):
         
         #for intnum in range(0,len(interventionnames)):
         inton = Utils.Multinomial(totruns)
-        
         key = list(interventions.keys())[inton]
     
         print("Running:",key," Remaining:",sum(totruns),totruns)
@@ -234,54 +275,7 @@ def main(argv):
         endTime = (enddate - startdate).days
         DiseaseParameters['startdate'] = startdate
             
-        if len(ParamsTest) > 0:  
-            x = random.randint(0,len(ParamsTest)-1)
-            altStartDate = Utils.dateparser(ParamsTest[x]['startDate'])
-            startdate = altStartDate
-            DiseaseParameters['startdate'] = startdate
-            endTime = (enddate - startdate).days
-            intdatevals = ['InterventionDate','SchoolCloseDate','SchoolOpenDate','InterventionStartReductionDate',
-                    'InterventionStartReductionDateCalcDays','InterventionStartEndLift','InterventionStartEndLiftCalcDays'
-                    ,'QuarantineStartDate','TestingAvailabilityDateHosp','TestingAvailabilityDateComm','finaldate']
-            for idv in intdatevals:
-                if idv+'_orig' in interventions[key]:
-                    print(interventions[key][idv],interventions[key][idv+'_orig'])
-                    interventions[key][idv] = (interventions[key][idv+'_orig'] - startdate).days
-            
-            PopulationParameters['householdcontactRate'] = float(ParamsTest[x]['householdcontactRate'])
-            
-            
-            DiseaseParameters['AGHospRate'] = [float(ParamsTest[x]['AG04HospRate']),float(ParamsTest[x]['AG517HospRate']),float(ParamsTest[x]['AG1849HospRate']),float(ParamsTest[x]['AG5064HospRate']),float(ParamsTest[x]['AG65HospRate'])]
-            DiseaseParameters['AGAsymptomaticRate'] = [float(ParamsTest[x]['AG04AsymptomaticRate']),float(ParamsTest[x]['AG517AsymptomaticRate']),float(ParamsTest[x]['AG1849AsymptomaticRate']),float(ParamsTest[x]['AG5064AsymptomaticRate']),float(ParamsTest[x]['AG65AsymptomaticRate'])]
-            DiseaseParameters['AGMortalityRate'] = [float(ParamsTest[x]['AG04MortalityRate']),float(ParamsTest[x]['AG517MortalityRate']),float(ParamsTest[x]['AG1849MortalityRate']),float(ParamsTest[x]['AG5064MortalityRate']),float(ParamsTest[x]['AG65MortalityRate'])]
-          
-            # Disease Progression Parameters
-            DiseaseParameters['IncubationTime'] = float(ParamsTest[x]['IncubationTime'])
-            
-            # gamma1
-            DiseaseParameters['mildContagiousTime'] = float(ParamsTest[x]['mildContagiousTime'])
-            DiseaseParameters['AsymptomaticReducationTrans'] = float(ParamsTest[x]['AsymptomaticReducationTrans'])
-            
-            # gamma2
-            DiseaseParameters['preContagiousTime'] = float(ParamsTest[x]['preContagiousTime'])
-            DiseaseParameters['symptomaticTime'] = float(ParamsTest[x]['symptomaticTime'])
-            DiseaseParameters['postContagiousTime'] = float(ParamsTest[x]['postContagiousTime'])
-            DiseaseParameters['symptomaticContactRateReduction'] = float(ParamsTest[x]['symptomaticContactRateReduction'])
-            
-            DiseaseParameters['preHospTime'] = float(ParamsTest[x]['preHospTime'])
-            DiseaseParameters['hospitalSymptomaticTime'] = float(ParamsTest[x]['hospitalSymptomaticTime'])
-            DiseaseParameters['ICURate'] = float(ParamsTest[x]['ICURate'])
-            DiseaseParameters['ICUtime'] = float(ParamsTest[x]['ICUtime'])
-            DiseaseParameters['PostICUTime'] = float(ParamsTest[x]['PostICUTime'])
-            DiseaseParameters['hospitalSymptomaticContactRateReduction'] = float(ParamsTest[x]['hospitalSymptomaticContactRateReduction'])
-            
-            DiseaseParameters['EDVisit'] = float(ParamsTest[x]['EDVisit'])
-            
-            DiseaseParameters['ProbabilityOfTransmissionPerContact'] = float(ParamsTest[x]['ProbabilityOfTransmissionPerContact'])
-           
-            
-        
-        DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates)
+        DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates,historyData=historyCaseData)
         
         resultsNameP = key + "_" + resultsName
                     
@@ -290,16 +284,74 @@ def main(argv):
         else:
             StartInfected = -1
             
-        fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,StartInfected=StartInfected)
+        if ParameterSet.UseSavedRegion:
+            reg = random.randint(0,len(saveregionsfolderlist)-1)
+            SavedRegionFolder = saveregionsfolderlist[reg]
+            regionfiles = []
+            for (dirpath, dirnames, filenames) in os.walk(os.path.join("data",Model,ParameterSet.SavedRegionContainer,SavedRegionFolder)):
+                regionfiles.extend(filenames)
+                break
+                
+            regionfiles.remove('DiseaseParameters.pickle')
+            regionfiles.remove('PopulationParameters.pickle')
+            numregions = len(regionfiles)
+                
+            DiseaseParametersCur = copy.deepcopy(DiseaseParameters)
+            DiseaseParameters = Utils.PickleFileRead(os.path.join("data",Model,ParameterSet.SavedRegionContainer,SavedRegionFolder,"DiseaseParameters.pickle"))
+            PopulationParameters = Utils.PickleFileRead(os.path.join("data",Model,ParameterSet.SavedRegionContainer,SavedRegionFolder,"PopulationParameters.pickle"))
+            startdate = DiseaseParameters['startdate']
+            endTime = (enddate - startdate).days
+            
+            ## Should be updated to take account of any differences 
+            DiseaseParameters['TransProb'] = copy.deepcopy(DiseaseParametersCur['TransProb'])
+            DiseaseParameters['TransProbLow'] = copy.deepcopy(DiseaseParametersCur['TransProbLow'])
+            DiseaseParameters['TransProbSchool'] = copy.deepcopy(DiseaseParametersCur['TransProbSchool'])
+            DiseaseParameters['InterventionMobilityEffect'] = copy.deepcopy(DiseaseParametersCur['InterventionMobilityEffect'])
+            DiseaseParameters['InterventionDate'] = interventions[key]['InterventionStartReductionDate']
+            DiseaseParameters['QuarantineType'] = interventions[key]['QuarantineType']
+            if interventions[key]['QuarantineStartDate'] != '':
+                DiseaseParameters['QuarantineStartDate'] = interventions[key]['finaldate']    
+            else:
+                DiseaseParameters['QuarantineStartDate'] = interventions[key]['QuarantineStartDate']    
+            DiseaseParameters['TestingAvailabilityDateHosp'] = interventions[key]['TestingAvailabilityDateHosp']
+            DiseaseParameters['TestingAvailabilityDateComm'] = interventions[key]['TestingAvailabilityDateComm']
+            DiseaseParameters['PerFollowQuarantine'] = float(interventions[key]['PerFollowQuarantine'])
+            DiseaseParameters['testExtra'] = int(interventions[key]['testExtra'])
+            DiseaseParameters['ContactTracing'] = int(interventions[key]['ContactTracing'])
+                
+            ParameterSet.OldAgeRestriction = False
+            ParameterSet.OldAgeReduction = 0
+            if 'OldAgeRestriction' in interventions[key]:     
+                if interventions[key]['OldAgeRestriction'] == '1':
+                    ParameterSet.OldAgeRestriction = True
+                    ParameterSet.OldAgeReduction = float(interventions[key]['OldAgeReduction'])
+                    
+            if 'TimeToFindContactsLow' in interventions[key] and Utils.RepresentsInt(interventions[key]['TimeToFindContactsLow']) and \
+                'TimeToFindContactsHigh' in interventions[key] and Utils.RepresentsInt(interventions[key]['TimeToFindContactsHigh']):
+                DiseaseParameters['TimeToFindContactsLow'] = int(interventions[key]['TimeToFindContactsLow'])
+                DiseaseParameters['TimeToFindContactsHigh'] = int(interventions[key]['TimeToFindContactsHigh'])
+            
+            fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunSavedRegionModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer,SavedRegionFolder),numregions=numregions)
+                
+        elif ParameterSet.LoadHistory:
+            fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunHistoryModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,historyData=historyCaseData)
+        else:
+            fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,StartInfected=StartInfected)
         
         if fitted:
             #PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData,MC=True,PopulationParameters=PopulationParameters, DiseaseParameters=DiseaseParameters,maxstepsize=.05)
             totruns[inton]-=1
         else:
-            PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
-            if len(ParamsTest) > 0:
-                x = random.randint(0,len(ParamsTest)-1)
-                
+            if SLSH+SLSD+SLSC == 0:
+                nummissmax += 1
+            if nummissmax > 25:                            
+                PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
+                nummissmax = 0
+            else:
+                if avgperdiffhosp > 1:
+                    PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData)
+                else:
+                    PopulationParameters, DiseaseParameters = ParameterInput.SampleRunParameters(ParametersInputData,MC=True,PopulationParameters=PopulationParameters, DiseaseParameters=DiseaseParameters,maxstepsize=1)
             
     if generatePresentationVals == 1:
         interventionnames = []

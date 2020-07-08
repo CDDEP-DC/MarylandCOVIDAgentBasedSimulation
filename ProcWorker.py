@@ -74,7 +74,7 @@ class ProcWorker:
 
     def __init__(self, name, startup_event, shutdown_event, event_q,reply_q,PopulationParameters,
                     DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,
-                    RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues, *args):
+                    RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args):
         self.name = name
         #self.log = functools.partial(_logger, f'{self.name} Worker')
         self.startup_event = startup_event
@@ -90,11 +90,19 @@ class ProcWorker:
         self.AgeStatsList = {}
         self.CurrentHospOccList = {}
         self.RegionStats = {}
+        self.historyData = historyData
         
         self.RegionReconciliationEvents = []
         
-        self.ProcRegion = Region.Region(RegionalLocations, RegionInteractionMatrixList, name, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,endTime)
-  
+        if ParameterSet.UseSavedRegion:
+            self.ProcRegion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle"))
+            
+            print("Loaded: Region"+str(self.name))
+            ##### need to update here based on new version
+            print(self.RegionStats)
+        else:
+            self.ProcRegion = Region.Region(RegionalLocations, RegionInteractionMatrixList, name, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,endTime)
+            
         random.seed(mprandomseed+int(self.name))
         np.random.seed(seed=mprandomseed+int(self.name))
         
@@ -112,6 +120,23 @@ class ProcWorker:
         signal_object = init_signals(self.shutdown_event, self.int_handler, self.term_handler)
         return signal_object
 
+    def saveRegion(self,FolderContainer):
+        try:
+            if os.path.exists(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer)):
+                Utils.PickleFileWrite(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer,"Region"+str(self.name)+".pickle"), self.ProcRegion)
+                RegionSaveStats = {}
+                RegionSaveStats['R0StatsList'] = copy.deepcopy(self.R0StatsList)
+                RegionSaveStats['AgeStatsList'] = copy.deepcopy(self.AgeStatsList)
+                RegionSaveStats['CurrentHospOccList'] = copy.deepcopy(self.CurrentHospOccList)
+                RegionSaveStats['RegionStats'] = copy.deepcopy(self.RegionStats)
+                Utils.PickleFileWrite(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer,"RegionStats"+str(self.name)+".pickle"), RegionSaveStats)
+            self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedsave", 0))
+        except Exception as e:
+            print("Error in ProcWorker.saveRegion.")
+            if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
+                print(traceback.format_exc())
+            exit()    
+        
     def main_loop(self):
         self.log(logging.DEBUG, str(self.name)+"Entering main_loop")
         while not self.shutdown_event.is_set():
@@ -123,6 +148,10 @@ class ProcWorker:
                     break
                 elif item.msg_type == "offPopQueueEvent":
                     self.RegionReconciliationEvents.append(item.msg)
+                elif item.msg_type == "history":
+                    self.initHistory(item.msg)
+                elif item.msg_type == "saveregion":
+                    self.saveRegion(item.msg)
                 else:
                     self.main_func(item.msg)
                     
@@ -137,6 +166,19 @@ class ProcWorker:
         self.event_q.safe_close()
         pass
 
+    def initHistory(self, procdict):
+        try:
+            if len(self.historyData) > 0:
+                offPopQueueEvents, numpriorcases, numnewcases = self.ProcRegion.initializeHistory(self.historyData)
+                if ParameterSet.logginglevel == 'debug':
+                    print(str(self.name)+" setup "+str(numpriorcases)+" prior cases "+str(numnewcases)+" new cases")
+            self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedhistoryinit", numpriorcases))
+        except Exception as e:
+            print("Error in ProcWorker.initHistory.")
+            if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
+                print(traceback.format_exc())
+            exit()
+        
     def main_func(self, procdict):
         try:
             tend = int(procdict['tend'])
@@ -252,6 +294,6 @@ class ProcWorker:
         finally:
             self.shutdown()
 
-def proc_worker_wrapper(name, startup_evt, shutdown_evt, event_q, reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed, *args):
-    proc_worker = ProcWorker(name, startup_evt, shutdown_evt, event_q,reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed, *args)
+def proc_worker_wrapper(name, startup_evt, shutdown_evt, event_q, reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args):
+    proc_worker = ProcWorker(name, startup_evt, shutdown_evt, event_q,reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args)
     return proc_worker.run()    
