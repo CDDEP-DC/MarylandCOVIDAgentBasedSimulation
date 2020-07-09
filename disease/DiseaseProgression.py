@@ -111,13 +111,19 @@ def getDiseaseTimeline(ageCohort,DiseaseParameters):
 def getInfectionQueueEvents(timeNow,InfectionsDict,contactRate,StartTime,Length,DiseaseParameters,LocalInteractionMatrixList, RegionListGuide,
                              LocalPopulationId, ageCohort,diseasetimeline,HouseholdId, PersonId,uselowintreduction=False, Hospital=False,Symptomatic=False,Asymptomatic=False):
     
-    TransProbx = DiseaseParameters['TransProb'][math.floor(StartTime):(math.floor(StartTime)+math.ceil(Length))]
+    st = math.floor(StartTime)
+    en = (math.floor(StartTime)+math.ceil(Length))
+    if st < 0:
+        st = 0
+        en = math.ceil(Length)
+    TransProbx = DiseaseParameters['TransProb'][st:en]
+
     if ageCohort <= 1:
-        TransProbx = DiseaseParameters['TransProbSchool'][math.floor(StartTime):(math.floor(StartTime)+math.ceil(Length))]
+        TransProbx = DiseaseParameters['TransProbSchool'][st:en]
     elif uselowintreduction:
-        TransProbx = DiseaseParameters['TransProbLow'][math.floor(StartTime):(math.floor(StartTime)+math.ceil(Length))]
+        TransProbx = DiseaseParameters['TransProbLow'][st:en]
     
-    IntMobilityVals = DiseaseParameters['InterventionMobilityEffect'][math.floor(StartTime):(math.floor(StartTime)+math.ceil(Length))]
+    IntMobilityVals = DiseaseParameters['InterventionMobilityEffect'][st:en]
     try: 
         if len(IntMobilityVals) > 1:
             meanMobilityVal = mean(IntMobilityVals)
@@ -153,7 +159,7 @@ def getInfectionQueueEvents(timeNow,InfectionsDict,contactRate,StartTime,Length,
     return numRandInfReg, IERegs, InfectionsDict
     
     
-def SetupTransmissableContactEvents(timeNow,tend,DiseaseParameters, LocalInteractionMatrixList, RegionListGuide,
+def SetupTransmissableContactEvents(timeNow,DiseaseParameters, LocalInteractionMatrixList, RegionListGuide,
                                     HouseholdId, PersonId, LocalPopulationId,
                                     contactRate, householdcontactRate,
                                     ageCohort,numHouseholdMembersSusceptible,
@@ -177,8 +183,7 @@ def SetupTransmissableContactEvents(timeNow,tend,DiseaseParameters, LocalInterac
         queueEvents = []
         
         diseasetimeline = getDiseaseTimeline(ageCohort,DiseaseParameters)
-               
-                    
+                 
         ### Add event for when the patient becomes contagious pre symptoms
         queueEvents.append(SimEvent.PersonStatusUpdate(timeNow+diseasetimeline['incubationTime'], HouseholdId, PersonId, ParameterSet.Contagious))
         

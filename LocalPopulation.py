@@ -23,7 +23,7 @@ import random
 import time
 import math
 import numpy as np
-
+import traceback
 from statistics import mean
 import ParameterSet
 import events.SimulationEvent as SimEvent
@@ -47,7 +47,7 @@ class LocalPopulation:
 
         """
         self.LocalPopulationId = LocalPopulationId
-        self.LocalIdentification = LocalIdentification
+        self.LocalIdentification = str(LocalIdentification)
         self.RegionalIdentification = RegionalIdentification
         self.timeNow = 0
         self.RegionId = RegionId
@@ -235,7 +235,7 @@ class LocalPopulation:
                         infectingAgent['LPID'] = self.LocalPopulationId
                         infectingAgent['RegionId'] = self.RegionId
                     
-                    op = self.infectRandomAgent(tend,SE.ageCohort,infectingAgent)
+                    op = self.infectRandomAgent(self.timeNow,SE.ageCohort,infectingAgent)
                     
                     # add Events to non local pop queue
                     offPopQueueEvents.extend(op)    
@@ -386,7 +386,7 @@ class LocalPopulation:
                     #print("house")
                     HHID = SE.HouseholdId
                     agentId = SE.PersonId
-                    op = self.infectAgent(tend,HHID,agentId=agentId)
+                    op = self.infectAgent(self.timeNow,HHID,agentId=agentId)
                         
                 elif isinstance(SE,SimEvent.ContactTraceEvent):
                     #1. get the number of infections by this person
@@ -497,7 +497,7 @@ class LocalPopulation:
         return offPopQueueEvents, numevents 
 
         
-    def infectRandomAgent(self,tend,ageCohort=-1,infectingAgent={}):
+    def infectRandomAgent(self,infectionTime,ageCohort=-1,infectingAgent={}):
         #first determine if we are infecting someone already defined or creating new household
         infectperson = random.randint(0,self.npersons-1)
         if infectperson < (self.DefinedAgents+self.EphermeralAgents):
@@ -509,13 +509,13 @@ class LocalPopulation:
         else:
             HHID = self.BuildSingleHousehold()
 
-        offPopQueueEvents = self.infectAgent(tend,HHID,ageCohort=ageCohort,infectingAgent=infectingAgent)
+        offPopQueueEvents = self.infectAgent(infectionTime,HHID,ageCohort=ageCohort,infectingAgent=infectingAgent)
                           
         return offPopQueueEvents
 
-    def infectAgent(self,tend, HHID, agentId=-1,ageCohort=-1,infectingAgent={}):
+    def infectAgent(self,infectionTime, HHID, agentId=-1,ageCohort=-1,infectingAgent={}):
         #print("Before infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
-        queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(self.timeNow,tend,self.LocalInteractionMatrixList,
+        queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(infectionTime,self.LocalInteractionMatrixList,
                                                                 self.RegionListGuide,self.LocalPopulationId,
                                                                 self.HospitalTransitionMatrixList,self.TransProb,self.TransProbLow,
                                                                 agentId,ageCohort,infectingAgent,self.ProportionLowIntReduction)
@@ -649,4 +649,49 @@ class LocalPopulation:
         for i in range(0, len(delkeys)):
             del self.eventQueue[delkeys[i]]
         self.InfectiousEventsCleared += len(delkeys)
+        
+    def initializeHistory(self,PriorCases):
+        
+        numinfected = int(float(PriorCases) / .25)
+        while numinfected > 0:
+            person = random.randint(0,self.npersons-1)
+            if person < (self.DefinedAgents+self.EphermeralAgents):
+                if person < self.DefinedAgents:
+                    HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
+                else:
+                    HHID = -1
+                    # the household is all recovered so don't care
+            else:
+                HHID = self.BuildSingleHousehold()
+                
+            pid = self.hhset[HHID].getRandomAgent()
+            
+            if random.random() < .005:
+                self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
+                self.numDead += 1
+            else:
+                self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Recovered)
+                self.numRecovered += 1
+            if random.random() < .5:
+                pid = self.hhset[HHID].getRandomAgent()            
+                if random.random() < .005:
+                    self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
+                    self.numDead += 1
+                else:
+                    self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Recovered)
+                    self.numRecovered += 1
+                    
+            self.numSusceptible -= 1
+            numinfected -= 1
+
+        self.confirmedcases += int(PriorCases)
+    
+    def setCurrentCases(self,CurrentCases):
+        try:
+            for i in range(0,int(int(CurrentCases))):
+                op = self.infectRandomAgent(random.randint(-30,-7))
+                
+        except Exception as e:
+            print("InitializeHistoryError")
+            print(traceback.format_exc())
         
