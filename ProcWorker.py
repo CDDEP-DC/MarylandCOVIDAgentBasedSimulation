@@ -97,6 +97,9 @@ class ProcWorker:
         if ParameterSet.UseSavedRegion:
             self.ProcRegion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle"))
             
+            self.ProcRegion.resetParameters(RegionalLocations, RegionInteractionMatrixList,
+                 name, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,endTime)
+            
             print("Loaded: Region"+str(self.name))
             ##### need to update here based on new version
             print(self.RegionStats)

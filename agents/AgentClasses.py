@@ -29,7 +29,7 @@ import disease.DiseaseProgression
 
 
 class Household:
-    def __init__(self, HouseholdId, HHSize, HHSizeAgeDist,PopulationParameters,DiseaseParameters,Facility=False,FacilitySize=100):
+    def __init__(self, HouseholdId, HHSize, HHSizeAgeDist,PopulationParameters,Facility=False,FacilitySize=100):
         """
         Initialize household class representing a single family/household in
         a location and stores household-specific information
@@ -50,7 +50,7 @@ class Household:
                 numRandomContacts = math.floor(random.gammavariate(
                         PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort]))
                 numHouseholdContacts = numRandomContacts
-                person = Person(DiseaseParameters,x, HouseholdId, ageCohort, ParameterSet.Susceptible,
+                person = Person(x, HouseholdId, ageCohort, ParameterSet.Susceptible,
                                                     numHouseholdContacts,
                                                     numRandomContacts)
                 self.persons[x] = person
@@ -62,7 +62,7 @@ class Household:
                 numRandomContacts = math.floor(random.gammavariate(
                         PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort]))
                 numHouseholdContacts = PopulationParameters['householdcontactRate']
-                person = Person(DiseaseParameters,x, HouseholdId, ageCohort, ParameterSet.Susceptible,
+                person = Person(x, HouseholdId, ageCohort, ParameterSet.Susceptible,
                                                     numHouseholdContacts,
                                                     numRandomContacts)
                 
@@ -98,7 +98,7 @@ class Household:
         for key in self.persons.keys():
             self.persons[key].reset()
         
-    def infectHousehouldMember(self, timeNow, LocalInteractionMatrixList,
+    def infectHousehouldMember(self, timeNow, DiseaseParameters, LocalInteractionMatrixList,
                     RegionListGuide, LocalPopulationId,HospitalTransitionMatrixList,TransProb,TransProbLow,
                                currentAgentId=-1, ageCohort=-1,infectingAgent={},ProportionLowIntReduction=0):
         
@@ -122,7 +122,7 @@ class Household:
                 else:
                     p = self.getRandomAgent(ageCohort)
                     
-            outcome, queueEvents, ac = self.persons[p].infect(timeNow, LocalInteractionMatrixList,
+            outcome, queueEvents, ac = self.persons[p].infect(timeNow, DiseaseParameters, LocalInteractionMatrixList,
                                                  RegionListGuide, LocalPopulationId,self.numHouseholdMembersSusceptible(),
                                                  HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow)
         return queueEvents, ac, outcome, p
@@ -185,7 +185,7 @@ class Household:
         return -1
         
 class Person:
-    def __init__(self,DiseaseParameters,personID, HouseholdId, ageCohort, status, householdContactRate = 1,
+    def __init__(self,personID, HouseholdId, ageCohort, status, householdContactRate = 1,
                     randomContactRate=1):
         """
         Initialize person class represent persons in the model block and stores
@@ -202,7 +202,7 @@ class Person:
         self.HouseholdId = HouseholdId
         self.hospitalized = 0
         self.hospital = -1
-        self.DiseaseParameters = DiseaseParameters
+        #self.DiseaseParameters = DiseaseParameters
         self.QuarantineStart = -1
         self.QuarantineEnd = -1
         self.LocalInfections = 0
@@ -221,7 +221,7 @@ class Person:
             self.QuarantineStart = timeNow
             self.QuarantineEnd = timeNow + QuarantineTime
         
-    def infect(self, timeNow, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow):
+    def infect(self, timeNow, DiseaseParameters, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow):
         queueEvents = []
         infectNow = True
         outcome = ''
@@ -243,7 +243,7 @@ class Person:
             outcome = 'infection'
             self.status = ParameterSet.Incubating
             queueEvents, InfectionsDict = disease.DiseaseProgression.\
-                SetupTransmissableContactEvents(timeNow,self.DiseaseParameters, LocalInteractionMatrixList,
+                SetupTransmissableContactEvents(timeNow,DiseaseParameters, LocalInteractionMatrixList,
                                                 RegionListGuide,
                                                 self.HouseholdId,
                                                 self.personID,

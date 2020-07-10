@@ -309,10 +309,13 @@ def main(argv):
             DiseaseParameters['InterventionMobilityEffect'] = copy.deepcopy(DiseaseParametersCur['InterventionMobilityEffect'])
             DiseaseParameters['InterventionDate'] = interventions[key]['InterventionStartReductionDate']
             DiseaseParameters['QuarantineType'] = interventions[key]['QuarantineType']
-            if interventions[key]['QuarantineStartDate'] != '':
+            
+            if interventions[key]['QuarantineStartDate'] == '':
                 DiseaseParameters['QuarantineStartDate'] = interventions[key]['finaldate']    
+                
             else:
                 DiseaseParameters['QuarantineStartDate'] = interventions[key]['QuarantineStartDate']    
+                
             DiseaseParameters['TestingAvailabilityDateHosp'] = interventions[key]['TestingAvailabilityDateHosp']
             DiseaseParameters['TestingAvailabilityDateComm'] = interventions[key]['TestingAvailabilityDateComm']
             DiseaseParameters['PerFollowQuarantine'] = float(interventions[key]['PerFollowQuarantine'])

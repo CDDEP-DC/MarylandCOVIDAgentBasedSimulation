@@ -29,6 +29,7 @@ import ParameterSet
 import events.SimulationEvent as SimEvent
 import Utils
 import agents.AgentClasses
+import copy
 
 class LocalPopulation:
     def __init__(self, LocalPopulationId, npersons, HHSizeDist, HHSizeAgeDist,
@@ -142,7 +143,7 @@ class LocalPopulation:
                     break
 
         # Now create household
-        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, self.HHSizeAgeDist,self.PopulationParameters,self.DiseaseParameters,Facility=addNF)
+        HH = agents.AgentClasses.Household(self.currHouseholdIDNum, HHSize, self.HHSizeAgeDist,self.PopulationParameters,Facility=addNF)
         self.hhset[self.currHouseholdIDNum] = HH
         self.currHouseholdIDNum += 1
         self.UndefinedAgents -= (HHSize + 1)
@@ -515,7 +516,7 @@ class LocalPopulation:
 
     def infectAgent(self,infectionTime, HHID, agentId=-1,ageCohort=-1,infectingAgent={}):
         #print("Before infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
-        queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(infectionTime,self.LocalInteractionMatrixList,
+        queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(infectionTime,self.DiseaseParameters,self.LocalInteractionMatrixList,
                                                                 self.RegionListGuide,self.LocalPopulationId,
                                                                 self.HospitalTransitionMatrixList,self.TransProb,self.TransProbLow,
                                                                 agentId,ageCohort,infectingAgent,self.ProportionLowIntReduction)
@@ -694,4 +695,14 @@ class LocalPopulation:
         except Exception as e:
             print("InitializeHistoryError")
             print(traceback.format_exc())
+    
+    def resetParameters(self,PopulationParameters,DiseaseParameters,SimEndDate,ProportionLowIntReduction,TransProb,TransProbLow):
+                                
+        self.PopulationParameters = copy.deepcopy(PopulationParameters)
+        self.DiseaseParameters = copy.deepcopy(DiseaseParameters)
+        self.TransProb = copy.deepcopy(TransProb)
+        self.TransProbLow = copy.deepcopy(TransProbLow)
+        self.SimEndDate = SimEndDate
         
+        
+                                
