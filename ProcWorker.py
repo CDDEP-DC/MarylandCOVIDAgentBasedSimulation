@@ -100,9 +100,10 @@ class ProcWorker:
             self.ProcRegion.resetParameters(RegionalLocations, RegionInteractionMatrixList,
                  name, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,endTime)
             
-            print("Loaded: Region"+str(self.name))
+            #print("Loaded: Region"+str(self.name))
             ##### need to update here based on new version
-            print(self.RegionStats)
+            #print(self.RegionStats)
+            
         else:
             self.ProcRegion = Region.Region(RegionalLocations, RegionInteractionMatrixList, name, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,endTime)
             
@@ -231,8 +232,8 @@ class ProcWorker:
                 self.CurrentHospOccList[tend] = copy.deepcopy(self.ProcRegion.getHospitalOccupancy())
       
             # Save the R0 stats
-            #R0Stats = self.ProcRegion.getR0Stats()
-            #self.R0StatsList[self.name] = R0Stats
+            R0Stats = self.ProcRegion.getR0Stats()
+            self.R0StatsList[self.name] = R0Stats
             
             # Save the age stats
             #LPAgeStats = self.ProcRegion.getAgeStats()
@@ -275,7 +276,7 @@ class ProcWorker:
             if ParameterSet.SaveHospitalData:
                 Utils.PickleFileWrite(os.path.join(ParameterSet.PopDataFolder,str(self.modelPopNames)+str(self.name)+"HOSPLIST.pickle"), self.CurrentHospOccList)
             
-            #Utils.PickleFileWrite(os.path.join(ParameterSet.PopDataFolder,str(self.modelPopNames)+str(self.name)+"R0Stats.pickle"), self.R0StatsList)
+            Utils.PickleFileWrite(os.path.join(ParameterSet.PopDataFolder,str(self.modelPopNames)+str(self.name)+"R0Stats.pickle"), self.R0StatsList)
             #Utils.PickleFileWrite(os.path.join(ParameterSet.PopDataFolder,str(self.modelPopNames)+str(self.name)+"AgeStats.pickle"), self.AgeStatsList)
             self.event_q.drain()
             self.event_q.safe_close()

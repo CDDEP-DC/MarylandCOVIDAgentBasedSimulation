@@ -147,9 +147,9 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],h
             else:
                 DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolOpenReductionAmt']))        
             DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
-        intredval+=openinc
-        intredvalLow+=openincLow
-        mobeffectval += mobinc
+        intredval+=openinc/10
+        intredvalLow+=openincLow/10
+        mobeffectval += mobinc/10
         
         
     DiseaseParameters['InterventionDate'] = interventions[intname]['InterventionStartReductionDate']

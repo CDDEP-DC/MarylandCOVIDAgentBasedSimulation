@@ -62,6 +62,8 @@ SeasonalityReduction2 = .95
 ProbStartDateHistory = -31
 OldAgeRestriction = False
 OldAgeReduction = 0
+GatheringRestriction = False
+GatheringMax = 10
                 
 #PersonStatus:
 Susceptible = 0

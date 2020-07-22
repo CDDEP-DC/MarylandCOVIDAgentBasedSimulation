@@ -329,6 +329,14 @@ def main(argv):
                     ParameterSet.OldAgeRestriction = True
                     ParameterSet.OldAgeReduction = float(interventions[key]['OldAgeReduction'])
                     
+            ParameterSet.GatheringRestriction = False
+            ParameterSet.GatheringMax = 10000
+            if 'GatheringRestriction' in interventions[key]:     
+                if interventions[key]['GatheringRestriction'] == '1':
+                    ParameterSet.GatheringRestriction = True
+                    ParameterSet.GatheringMax = float(interventions[key]['GatheringMax'])
+                    
+            
             if 'TimeToFindContactsLow' in interventions[key] and Utils.RepresentsInt(interventions[key]['TimeToFindContactsLow']) and \
                 'TimeToFindContactsHigh' in interventions[key] and Utils.RepresentsInt(interventions[key]['TimeToFindContactsHigh']):
                 DiseaseParameters['TimeToFindContactsLow'] = int(interventions[key]['TimeToFindContactsLow'])

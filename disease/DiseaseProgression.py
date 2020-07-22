@@ -123,6 +123,12 @@ def getInfectionQueueEvents(timeNow,InfectionsDict,contactRate,StartTime,Length,
     elif uselowintreduction:
         TransProbx = DiseaseParameters['TransProbLow'][st:en]
     
+    if ParameterSet.OldAgeRestriction and ageCohort == 4:
+        #print("before:",TransProbx)
+        for x in range(0,len(TransProbx)):
+            TransProbx[x] = TransProbx[x] * ParameterSet.OldAgeReduction
+        #print("after:",TransProbx)
+        
     IntMobilityVals = DiseaseParameters['InterventionMobilityEffect'][st:en]
     try: 
         if len(IntMobilityVals) > 1:
@@ -141,6 +147,9 @@ def getInfectionQueueEvents(timeNow,InfectionsDict,contactRate,StartTime,Length,
         ratemodifier = DiseaseParameters['AsymptomaticReducationTrans']
       
     try:
+        if ParameterSet.GatheringRestriction and ageCohort > 1:
+            if contactRate > ParameterSet.GatheringMax:
+                contactRate = ParameterSet.GatheringMax
         numRandInfReg = np.random.poisson(ratemodifier *
                     contactRate * sum(TransProbx), 1)[0]  ### this isn't good to be switching between numpy and random
     except:
@@ -165,9 +174,8 @@ def SetupTransmissableContactEvents(timeNow,DiseaseParameters, LocalInteractionM
                                     ageCohort,numHouseholdMembersSusceptible,
                                     HospitalTransitionMatrixList, ProportionLowIntReduction,TransProb,TransProbLow):
                                             
-
-        DiseaseParameters['TransProb'] = TransProb
-        DiseaseParameters['TransProbLow'] = TransProbLow
+        DiseaseParameters['TransProb'] = TransProb.copy()
+        DiseaseParameters['TransProbLow'] = TransProbLow.copy()
         
         InfectionsDict = {}
         InfectionsDict['NonLocalInfections']=0

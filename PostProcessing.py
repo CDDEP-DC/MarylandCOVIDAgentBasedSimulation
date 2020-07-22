@@ -214,3 +214,23 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
         except IOError:
             print("I/O error")
     
+    ############
+    csvFileR0 = writefolder+"/R0_"+model+"_"+resultsName+".csv"
+    R0Stats = [0]*101   
+    for i in range(0,len(RegionalList)):
+        if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle"):
+            R0StatsList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "R0Stats.pickle")
+            for key in R0StatsList.keys():
+                R0Stat = R0StatsList[key]
+                for rkey in R0Stat.keys():
+                    rvals = R0Stat[rkey]
+                    for r in range(0,len(rvals)):
+                        R0Stats[r] += rvals[r]
+    rnum = 0
+    rdenom = 0
+    for i in range(0,len(R0Stats)):
+        rdenom += R0Stats[i]
+        rnum += R0Stats[i]*i     
+        
+    np.savetxt(csvFileR0,R0Stats,delimiter=",", fmt='%5s')
+    
