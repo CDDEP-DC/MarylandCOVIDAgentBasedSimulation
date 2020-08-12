@@ -208,19 +208,12 @@ class Region:
                 maxTime = LPtime
         return maxTime
         
-    def resetParameters(self,RegionalLocations, RegionalInteractionMatrixList,
-                 RegionId, RegionListGuide,HospitalTransitionMatrixList,PopulationParameters,DiseaseParameters,SimEndDate):
+    def resetParameters(self,GlobalLocations,PopulationParameters,DiseaseParameters,SimEndDate):
                  
-        for i in range(0, len(RegionalLocations)):
-            GLP = RegionalLocations[i]
-            HTM = []
-            if len(HospitalTransitionMatrixList) > 0:
-                HTM = HospitalTransitionMatrixList[i]
-                    
-            if(GLP.globalId==ParameterSet.WuhanMktLocalPopId):
-                self.IsWhuhanMktRegion = 1
-            
-            LP = self.Locations[GLP.globalId]
+         for LPKey in self.Locations.keys():
+            LP = self.Locations[LPKey]
+            LPID = LP.LocalPopulationId
+            GLP = GlobalLocations[LPID]    
                     
             LP.resetParameters(PopulationParameters,DiseaseParameters,SimEndDate,
                                 GLP.ProportionLowIntReduction,GLP.TransProb,GLP.TransProbLow)

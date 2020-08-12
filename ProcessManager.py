@@ -144,14 +144,20 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
     try:
     
         MAX_PROCESS_WAIT_SECS = 600.0
+        
+        
+        
+        
         num_regions = mp.cpu_count() * 2
         
         if numregions > 0:
             num_regions = numregions
             
+        
         if num_regions > len(GlobalLocations):
             num_regions = len(GlobalLocations)
-            
+        
+                
         # define the shutdown event
         shutdown_event = mp.Event()
         
@@ -199,7 +205,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             proc = Proc(i, shutdown_event,eventqueues[i], responseq, PopulationParameters,
                         DiseaseParameters,endTime,RegionalLocations[i],RegionInteractionMatrixList[i],
                         RegionListGuide,modelPopNames,HospitalTransitionMatrix[i],mprandomseed,eventqueues,
-                        historyData,SavedRegionFolder)
+                        historyData,SavedRegionFolder,GlobalLocations)
             procs.append(proc)
                     
         if len(historyData) > 0:
@@ -465,6 +471,9 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                         fitted = True
                         print(avgperdiffhosp," Run fit!")
                     else:
+                        print(avgperdiffhosp," Run did not fit!")
+                        print(numFitHospitalizations)
+                        print(fitper)
                         fitted = False
                             
                     if fitted and saveRun:

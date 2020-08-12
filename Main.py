@@ -32,7 +32,7 @@ import string
 import pandas as pd
 import traceback
 import copy
-
+import re
 
 import PostProcessing
 import ParameterSet
@@ -291,24 +291,33 @@ def main(argv):
             for (dirpath, dirnames, filenames) in os.walk(os.path.join("data",Model,ParameterSet.SavedRegionContainer,SavedRegionFolder)):
                 regionfiles.extend(filenames)
                 break
-                
-            regionfiles.remove('DiseaseParameters.pickle')
-            regionfiles.remove('PopulationParameters.pickle')
-            numregions = len(regionfiles)
+            print(SavedRegionFolder)
+            print(regionfiles)
+            
+            #regionfiles.remove('DiseaseParameters.pickle')
+            #regionfiles.remove('PopulationParameters.pickle')
+            numregions = 0
+            for rfname in regionfiles:
+                if re.search('Region.+', rfname):
+                    if not re.search('RegionStats.+', rfname): 
+                        numregions += 1    
+
+            
                 
             DiseaseParametersCur = copy.deepcopy(DiseaseParameters)
             DiseaseParameters = Utils.PickleFileRead(os.path.join("data",Model,ParameterSet.SavedRegionContainer,SavedRegionFolder,"DiseaseParameters.pickle"))
+            
             PopulationParameters = Utils.PickleFileRead(os.path.join("data",Model,ParameterSet.SavedRegionContainer,SavedRegionFolder,"PopulationParameters.pickle"))
             startdate = DiseaseParameters['startdate']
             endTime = (enddate - startdate).days
             
             ## Should be updated to take account of any differences 
-            DiseaseParameters['TransProb'] = copy.deepcopy(DiseaseParametersCur['TransProb'])
-            DiseaseParameters['TransProbLow'] = copy.deepcopy(DiseaseParametersCur['TransProbLow'])
-            DiseaseParameters['TransProbSchool'] = copy.deepcopy(DiseaseParametersCur['TransProbSchool'])
-            DiseaseParameters['InterventionMobilityEffect'] = copy.deepcopy(DiseaseParametersCur['InterventionMobilityEffect'])
-            DiseaseParameters['InterventionDate'] = interventions[key]['InterventionStartReductionDate']
-            DiseaseParameters['QuarantineType'] = interventions[key]['QuarantineType']
+            #DiseaseParameters['TransProb'] = copy.deepcopy(DiseaseParametersCur['TransProb'])
+            #DiseaseParameters['TransProbLow'] = copy.deepcopy(DiseaseParametersCur['TransProbLow'])
+            #DiseaseParameters['TransProbSchool'] = copy.deepcopy(DiseaseParametersCur['TransProbSchool'])
+            #DiseaseParameters['InterventionMobilityEffect'] = copy.deepcopy(DiseaseParametersCur['InterventionMobilityEffect'])
+            #DiseaseParameters['InterventionDate'] = interventions[key]['InterventionStartReductionDate']
+            #DiseaseParameters['QuarantineType'] = interventions[key]['QuarantineType']
             
             if interventions[key]['QuarantineStartDate'] == '':
                 DiseaseParameters['QuarantineStartDate'] = interventions[key]['finaldate']    
@@ -316,11 +325,11 @@ def main(argv):
             else:
                 DiseaseParameters['QuarantineStartDate'] = interventions[key]['QuarantineStartDate']    
                 
-            DiseaseParameters['TestingAvailabilityDateHosp'] = interventions[key]['TestingAvailabilityDateHosp']
-            DiseaseParameters['TestingAvailabilityDateComm'] = interventions[key]['TestingAvailabilityDateComm']
-            DiseaseParameters['PerFollowQuarantine'] = float(interventions[key]['PerFollowQuarantine'])
-            DiseaseParameters['testExtra'] = int(interventions[key]['testExtra'])
-            DiseaseParameters['ContactTracing'] = int(interventions[key]['ContactTracing'])
+            #DiseaseParameters['TestingAvailabilityDateHosp'] = interventions[key]['TestingAvailabilityDateHosp']
+            #DiseaseParameters['TestingAvailabilityDateComm'] = interventions[key]['TestingAvailabilityDateComm']
+            #DiseaseParameters['PerFollowQuarantine'] = float(interventions[key]['PerFollowQuarantine'])
+            #DiseaseParameters['testExtra'] = int(interventions[key]['testExtra'])
+            #DiseaseParameters['ContactTracing'] = int(interventions[key]['ContactTracing'])
                 
             ParameterSet.OldAgeRestriction = False
             ParameterSet.OldAgeReduction = 0

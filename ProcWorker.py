@@ -74,7 +74,7 @@ class ProcWorker:
 
     def __init__(self, name, startup_event, shutdown_event, event_q,reply_q,PopulationParameters,
                     DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,
-                    RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args):
+                    RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder,GlobalLocations, *args):
         self.name = name
         #self.log = functools.partial(_logger, f'{self.name} Worker')
         self.startup_event = startup_event
@@ -95,12 +95,12 @@ class ProcWorker:
         self.RegionReconciliationEvents = []
         
         if ParameterSet.UseSavedRegion:
-            self.ProcRegion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle"))
-            
-            self.ProcRegion.resetParameters(RegionalLocations, RegionInteractionMatrixList,
-                 name, RegionListGuide,HospitalTransitionMatrix,PopulationParameters,DiseaseParameters,endTime)
-            
-            #print("Loaded: Region"+str(self.name))
+            if os.path.exists(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle")):
+                self.ProcRegion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle"))
+                print("Region"+str(self.name)+".pickle")
+                self.ProcRegion.resetParameters(GlobalLocations,PopulationParameters,DiseaseParameters,endTime)
+            else:            
+                print("Prior data for Region"+str(self.name)+" is missing")
             ##### need to update here based on new version
             #print(self.RegionStats)
             
@@ -133,7 +133,7 @@ class ProcWorker:
                 RegionSaveStats['AgeStatsList'] = copy.deepcopy(self.AgeStatsList)
                 RegionSaveStats['CurrentHospOccList'] = copy.deepcopy(self.CurrentHospOccList)
                 RegionSaveStats['RegionStats'] = copy.deepcopy(self.RegionStats)
-                Utils.PickleFileWrite(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer,"RegionStats"+str(self.name)+".pickle"), RegionSaveStats)
+                #Utils.PickleFileWrite(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer,"RegionStats"+str(self.name)+".pickle"), RegionSaveStats)
             self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedsave", 0))
         except Exception as e:
             print("Error in ProcWorker.saveRegion.")
@@ -298,6 +298,6 @@ class ProcWorker:
         finally:
             self.shutdown()
 
-def proc_worker_wrapper(name, startup_evt, shutdown_evt, event_q, reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args):
-    proc_worker = ProcWorker(name, startup_evt, shutdown_evt, event_q,reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, *args)
+def proc_worker_wrapper(name, startup_evt, shutdown_evt, event_q, reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder,GlobalLocations, *args):
+    proc_worker = ProcWorker(name, startup_evt, shutdown_evt, event_q,reply_q,PopulationParameters,DiseaseParameters,endTime,RegionalLocations,RegionInteractionMatrixList,RegionListGuide,modelPopNames,HospitalTransitionMatrix,mprandomseed,eventqueues,historyData,SavedRegionFolder, GlobalLocations,*args)
     return proc_worker.run()    

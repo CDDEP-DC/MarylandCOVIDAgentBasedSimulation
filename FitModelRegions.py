@@ -303,12 +303,13 @@ def main(argv):
             print("Interventions input error. Please confirm the intervention file exists and is correctly specified")
             exit() 
         
-        print(interventions)    
+        
         interventions['baseline']['InterventionReductionPerMin'] = float(ParameterVals[foundrow]['InterventionRate'])
         interventions['baseline']['InterventionReductionPerMax'] = float(ParameterVals[foundrow]['InterventionRate'])
         interventions['baseline']['InterventionReductionPerLowMin'] = float(ParameterVals[foundrow]['InterventionRateLow'])
         interventions['baseline']['InterventionReductionPerLowMax'] = float(ParameterVals[foundrow]['InterventionRateLow'])
-                    
+        interventions['baseline']['InterventionEndPerIncrease'] = float(ParameterVals[foundrow]['InterventionPerIncrease'])
+        print(interventions)                
         stepLength = 1
         dateTimeObj = datetime.now()
         resultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \

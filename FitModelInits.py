@@ -137,6 +137,9 @@ def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
     InterventionMobilityEffectUL = 90
     InterventionMobilityEffectLL = 70
     
+    InterventionPerIncreaseUL = 50
+    InterventionPerIncreaseLL = 10
+    
     AsymptomaticReducationTransUL = float(ParametersInputData['AsymptomaticReducationTrans']['max'])
     AsymptomaticReducationTransLL = float(ParametersInputData['AsymptomaticReducationTrans']['min'])
     
@@ -187,6 +190,8 @@ def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
         InterventionRate = random.randint(InterventionRateLL,InterventionRateUL)/100
         InterventionRateLow = random.randint(InterventionRateLowLL,InterventionRateLowUL)/100
         
+        InterventionPerIncrease = random.randint(InterventionPerIncreaseLL,InterventionPerIncreaseUL)/100
+        
         InterventionMobilityEffect = random.randint(InterventionMobilityEffectLL,InterventionMobilityEffectUL)/100
                 
         AsymptomaticReducationTrans = random.random()*(AsymptomaticReducationTransUL - AsymptomaticReducationTransLL) + AsymptomaticReducationTransLL
@@ -232,6 +237,7 @@ def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
             'InterventionRateLow':InterventionRateLow,
             'InterventionMobilityEffect':InterventionMobilityEffect,
             'AsymptomaticReducationTrans':AsymptomaticReducationTrans,
+            'InterventionPerIncrease':InterventionPerIncrease,
             'locked':0
         }
     
