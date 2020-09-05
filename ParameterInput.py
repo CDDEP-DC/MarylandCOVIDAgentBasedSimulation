@@ -45,8 +45,8 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],h
     DiseaseParameters['InterventionEndPerIncrease'] = interventions[intname]['InterventionEndPerIncrease']
 
     startingprobdate = 0
-    if len(historyData) > 0:
-        startingprobdate = ParameterSet.ProbStartDateHistory
+    #if len(historyData) > 0:
+    #    startingprobdate = ParameterSet.ProbStartDateHistory
         
     if 'Seasonality' in interventions[intname]:
         DiseaseParameters['Seasonality'] = interventions[intname]['Seasonality']

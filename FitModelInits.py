@@ -23,8 +23,30 @@ import GlobalModel
 
 
 def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
-    
+    ParameterVals = getFitModelParameters(Model,NumberMeanRuns)
+    csvFile = os.path.join('data',Model,ParametersRunFileName)
+    try:
+        with open(csvFile, 'w') as f:
+            f.write("key,")
+            lpvals = ParameterVals[0]
+            for key2 in lpvals.keys():
+                f.write(key2+",")
+            f.write("\n")
+            for key in ParameterVals.keys():
+                f.write(str(key)+",")
+                lpvals = ParameterVals[key]
+                for key2 in lpvals.keys():
+                    f.write(str(lpvals[key2])+",")
+                f.write("\n")
 
+    except Exception as e:
+        print("I/O Error writing CurrentFittingParams.")
+        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
+            print(traceback.format_exc())
+        exit()    
+        
+        
+def getFitModelParameters(Model,NumberMeanRuns = 5000):
     # Load the parameters
     input_df = None
     try:
@@ -44,11 +66,7 @@ def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
             print(traceback.format_exc())
         exit() 
         
-    dateTimeObj = datetime.now()
-    resultstimeName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
-                  str(dateTimeObj.day) + str(dateTimeObj.hour) + \
-                  str(dateTimeObj.minute) + str(dateTimeObj.second) + \
-                  str(dateTimeObj.microsecond)
+    
 
     ### Range for Start Date
                             
@@ -240,25 +258,7 @@ def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
             'InterventionPerIncrease':InterventionPerIncrease,
             'locked':0
         }
+        
+    return ParameterVals
     
-    
-    csvFile = os.path.join('data',Model,ParametersRunFileName)
-    try:
-        with open(csvFile, 'w') as f:
-            f.write("key,")
-            lpvals = ParameterVals[0]
-            for key2 in lpvals.keys():
-                f.write(key2+",")
-            f.write("\n")
-            for key in ParameterVals.keys():
-                f.write(str(key)+",")
-                lpvals = ParameterVals[key]
-                for key2 in lpvals.keys():
-                    f.write(str(lpvals[key2])+",")
-                f.write("\n")
 
-    except Exception as e:
-        print("I/O Error writing CurrentFittingParams.")
-        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
-            print(traceback.format_exc())
-        exit()

@@ -314,7 +314,7 @@ class LocalPopulation:
                     checkval2 = self.numSusceptible+self.numIncubating+self.numContagious+self.numInfected+self.numRecovered+self.numDead
                     if checkval != checkval2:
                         print(xbefore)
-                        print("After S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
+                        print(self.timeNow,"After S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
                         exit()
                     
                 elif isinstance(SE,SimEvent.PersonHospEvent): 
@@ -458,7 +458,7 @@ class LocalPopulation:
             # This is deprecated for now
             if self.timeNow > self.DiseaseParameters['QuarantineStartDate'] and self.DiseaseParameters['testExtra'] == 1:
                 if testExtra:                            
-                    numShowingUpforTesting+=350
+                    numShowingUpforTesting+=int(self.npersons*qshow)
             x = []
             for i in range(0,int(max(self.DefinedAgents-1,numShowingUpforTesting))):
                 x.append(i)        
@@ -651,47 +651,64 @@ class LocalPopulation:
             del self.eventQueue[delkeys[i]]
         self.InfectiousEventsCleared += len(delkeys)
         
-    def initializeHistory(self,PriorCases):
+    def initializeHistory(self,LPHistory):
+        if self.LocalIdentification == '21208':
+            #print(LPHistory)
+            for reportdate in LPHistory.keys():
+                if reportdate != 'currentHospitalData':
+                    print(LPHistory[reportdate]['timeval'],LPHistory[reportdate]['ReportedNewCases'],LPHistory[reportdate]['EstimatedMildCases'])
+        confirmedcases = 0
+        offPopQueueEvents = []
+        numpriorcases = 0
+        numnewcases = 0
+        for reportdate in LPHistory.keys():
+            if reportdate == 'currentHospitalData':
+                pass            
+            else:
+                numinfected = int(LPHistory[reportdate]['ReportedNewCases'])+int(LPHistory[reportdate]['EstimatedMildCases'])
+                if LPHistory[reportdate]['timeval'] < -4:            
+                    numpriorcases += numinfected
+                    confirmedcases += int(LPHistory[reportdate]['ReportedNewCases'])
+                    while numinfected > 0:
+                        HHID = -1
+                        while HHID < 0:
+                            person = random.randint(0,self.npersons-1)
+                            if person < (self.DefinedAgents+self.EphermeralAgents):
+                                if person < self.DefinedAgents:
+                                    HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
+                            else:
+                                HHID = self.BuildSingleHousehold()
+                            pid = self.hhset[HHID].getRandomAgent()
+                            if self.hhset[HHID].getHouseholdPersonStatus(pid) != ParameterSet.Susceptible:
+                                HHID=-1
+                        
+                        
+                        if random.random() < .005:
+                            self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
+                            self.numDead += 1
+                        else:
+                            self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Recovered)
+                            self.numRecovered += 1
+                        
+                        self.numSusceptible -= 1
+                        numinfected -= 1
+                else:
+                    numnewcases += numinfected
+                    op = self.setCurrentCases(numinfected,LPHistory[reportdate]['timeval'])
+                    offPopQueueEvents.extend(op)       
+                
+        self.confirmedcases += confirmedcases
+        return numpriorcases,numnewcases,offPopQueueEvents
         
-        numinfected = int(float(PriorCases) / .25)
-        while numinfected > 0:
-            person = random.randint(0,self.npersons-1)
-            if person < (self.DefinedAgents+self.EphermeralAgents):
-                if person < self.DefinedAgents:
-                    HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
-                else:
-                    HHID = -1
-                    # the household is all recovered so don't care
-            else:
-                HHID = self.BuildSingleHousehold()
-                
-            pid = self.hhset[HHID].getRandomAgent()
-            
-            if random.random() < .005:
-                self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
-                self.numDead += 1
-            else:
-                self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Recovered)
-                self.numRecovered += 1
-            if random.random() < .5:
-                pid = self.hhset[HHID].getRandomAgent()            
-                if random.random() < .005:
-                    self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
-                    self.numDead += 1
-                else:
-                    self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Recovered)
-                    self.numRecovered += 1
-                    
-            self.numSusceptible -= 1
-            numinfected -= 1
-
-        self.confirmedcases += int(PriorCases)
-    
-    def setCurrentCases(self,CurrentCases):
+    def setCurrentCases(self,CurrentCases,timeval):
         try:
-            for i in range(0,int(int(CurrentCases))):
-                op = self.infectRandomAgent(random.randint(-30,-7))
+            offPopQueueEvents = []
+            for i in range(0,CurrentCases):
+                op = self.infectRandomAgent(timeval)
+                offPopQueueEvents.extend(op)    
                 
+            return offPopQueueEvents
+            
         except Exception as e:
             print("InitializeHistoryError")
             print(traceback.format_exc())

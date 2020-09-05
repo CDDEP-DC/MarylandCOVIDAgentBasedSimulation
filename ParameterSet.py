@@ -30,6 +30,7 @@ logginglevel = 'error'
 ## QueueProcessing
 UseQueuesForQueues = False
 FitModel = False
+FitModelRuns = 5000
 FitValue = 'hospitalizations'
 FitMD = False #for just fitting maryland in MDDCVAregion model ... 
 SaveHospitalData = True
@@ -42,7 +43,7 @@ PopDataFolder = 'pops'
 QueueFolder = 'Queues'
 ResultsFolder = 'results'
 OutputFolder = 'Output'
-SaveRegionFolder = 'SavedRegions'
+SavedRegionFolder = 'SavedRegions'
 
 
 MAXIntVal = 9999999999999
@@ -59,11 +60,12 @@ InterventionMobilityEffect = .5
 SeasonalityStart = 60
 SeasonalityReduction = .98
 SeasonalityReduction2 = .95
-ProbStartDateHistory = -31
+StartDateHistory = -31
 OldAgeRestriction = False
 OldAgeReduction = 0
 GatheringRestriction = False
 GatheringMax = 10
+GatheringPer = .9
                 
 #PersonStatus:
 Susceptible = 0

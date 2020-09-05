@@ -27,6 +27,7 @@ import ParameterSet
 from datetime import datetime
 import sys, getopt
 import traceback
+import datetime as dt
 
 def Multinomial(listvals):
     return multinomial(listvals,sum(listvals)) 
@@ -103,10 +104,13 @@ def deleteAllFilesInFolder(folder):
             print('Failed to delete %s. Reason: %s' % (file_path, e))
     
 def dateparser(dateval):
+    if isinstance(dateval,dt.date):
+        return dateval
+        
     # if in yyyy-mm-dd format
     if "-" in dateval:
         datelist = dateval.split("-")
-        if int(datelist[0]) < 2020 or int(datelist[0]) > 2022:
+        if int(datelist[0]) < 1900 or int(datelist[0]) > 2051:
             print(dateval,"year is greater than 2022 or less than 2020 or not in yyyy-mm-dd format correctly")
             raise Exception("Date Error")
         if int(datelist[1]) < 1 or int(datelist[1]) > 12:
@@ -170,7 +174,7 @@ def ModelFolderStructureSetup(argv,paramsfile=False):
                       str(dateTimeObj.minute) + str(dateTimeObj.second) + \
                       str(dateTimeObj.microsecond)
         try:
-            opts, args = getopt.getopt(argv,"j:n:m:dgqfhr:p:",["job=","nruns=","model="])
+            opts, args = getopt.getopt(argv,"j:n:m:dgqf:hr:p:",["job=","nruns=","model="])
         except getopt.GetoptError as e:
             print('Error:',e)
             sys.exit(2)
@@ -201,6 +205,9 @@ def ModelFolderStructureSetup(argv,paramsfile=False):
                     
             if opt == '-f':
                 ParameterSet.FitModel = True
+                fval = arg
+                if RepresentsInt(fval):
+                    ParameterSet.FitModelRuns = int(fval)
                 
             if opt == '-h':
                 ParameterSet.LoadHistory = True
@@ -225,7 +232,7 @@ def ModelFolderStructureSetup(argv,paramsfile=False):
         ParameterSet.QueueFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.QueueFolder)
         ParameterSet.ResultsFolder = os.path.join(ParameterSet.OperationsFolder,FolderContainer,ParameterSet.ResultsFolder)
         OutputResultsFolder = os.path.join(ParameterSet.OutputFolder,FolderContainer)
-        SaveRegionFolder = os.path.join(ParameterSet.SaveRegionFolder,FolderContainer)
+        SavedRegionFolder = os.path.join(ParameterSet.SavedRegionFolder,FolderContainer)
         
         if os.path.exists(os.path.join(ParameterSet.OperationsFolder,FolderContainer)):
             if os.path.exists(ParameterSet.PopDataFolder):
@@ -250,8 +257,8 @@ def ModelFolderStructureSetup(argv,paramsfile=False):
         if not os.path.exists(OutputResultsFolder):
             os.makedirs(OutputResultsFolder)    
         
-        if not os.path.exists(SaveRegionFolder):
-            os.makedirs(SaveRegionFolder)            
+        if not os.path.exists(SavedRegionFolder):
+            os.makedirs(SavedRegionFolder)            
             
         if generatePresentationVals:
             OutputRunsFolder = os.path.join(ParameterSet.OutputFolder,FolderContainer,"runs")

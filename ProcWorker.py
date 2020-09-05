@@ -94,10 +94,11 @@ class ProcWorker:
         
         self.RegionReconciliationEvents = []
         
+        
         if ParameterSet.UseSavedRegion:
             if os.path.exists(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle")):
                 self.ProcRegion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle"))
-                print("Region"+str(self.name)+".pickle")
+                print("Getting Region"+str(self.name)+".pickle")
                 self.ProcRegion.resetParameters(GlobalLocations,PopulationParameters,DiseaseParameters,endTime)
             else:            
                 print("Prior data for Region"+str(self.name)+" is missing")
@@ -124,16 +125,17 @@ class ProcWorker:
         signal_object = init_signals(self.shutdown_event, self.int_handler, self.term_handler)
         return signal_object
 
-    def saveRegion(self,FolderContainer):
+    def saveRegion(self,Folder):
         try:
-            if os.path.exists(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer)):
-                Utils.PickleFileWrite(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer,"Region"+str(self.name)+".pickle"), self.ProcRegion)
+            
+            if os.path.exists(Folder):
+                Utils.PickleFileWrite(os.path.join(Folder,"Region"+str(self.name)+".pickle"), self.ProcRegion)
                 RegionSaveStats = {}
                 RegionSaveStats['R0StatsList'] = copy.deepcopy(self.R0StatsList)
                 RegionSaveStats['AgeStatsList'] = copy.deepcopy(self.AgeStatsList)
                 RegionSaveStats['CurrentHospOccList'] = copy.deepcopy(self.CurrentHospOccList)
                 RegionSaveStats['RegionStats'] = copy.deepcopy(self.RegionStats)
-                #Utils.PickleFileWrite(os.path.join(ParameterSet.SaveRegionFolder,FolderContainer,"RegionStats"+str(self.name)+".pickle"), RegionSaveStats)
+                #Utils.PickleFileWrite(os.path.join(ParameterSet.SavedRegionFolder,FolderContainer,"RegionStats"+str(self.name)+".pickle"), RegionSaveStats)
             self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedsave", 0))
         except Exception as e:
             print("Error in ProcWorker.saveRegion.")
@@ -211,7 +213,7 @@ class ProcWorker:
             ## First run the preliminary infections   
             infop = []
             if infectNumAgents > 0:
-                infop = self.ProcRegion.infectRandomAgents(tend,infectNumAgents,LPIDinfect)
+                infop = self.ProcRegion.infectRandomAgents(tend,infectNumAgents,LPID=LPIDinfect)
                 
             ## Main work done here in running forward one step    
             regionStats, offPopQueueEvents, numEvents, fitval = self.ProcRegion.runTimePeriod(tend)

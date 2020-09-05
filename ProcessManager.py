@@ -112,28 +112,29 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                 deaths=[],cases=[],fitper=.3,burnin=False,StartInfected=-1,
                 historyData={},FolderContainer='',saveRun=False,SavedRegionFolder=''):
 
-    print("Starting Run")
-    
-
     fitted = True
     RegionalList = []
     # set the time of the simulation
     timeNow = 0
     fithistoryhospitalizations = -1
-    if len(historyData) > 0:
-        timeNow += ParameterSet.ProbStartDateHistory #this is a negative number so add
-        fithistoryhospitalizations = 0
-        for hd in historyData.keys():
-            if ParameterSet.FitMD:
-                if historyData[hd]['State'] =='MD':
-                    fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
-            else:
-                fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
+    
+    
+    #if len(historyData) > 0:
+    #    timeNow += ParameterSet.StartDateHistory #this is a negative number so add
+    
+    #    fithistoryhospitalizations = 0
+    #    for hd in historyData.keys():
+    #        if ParameterSet.FitMD:
+    #            if historyData[hd]['State'] =='MD':
+    #                fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
+    #        else:
+    #            fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
 
     timeRange = []
     
     if ParameterSet.UseSavedRegion:
-        testregion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region1.pickle"))
+        
+        testregion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,FolderContainer,"Region1.pickle"))
         timeNow = testregion.getLastTime()
         testregion = None
     
@@ -174,16 +175,22 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
     
         RegionListGuide = []
         HospitalTransitionMatrix = []
+        lpids = []
+        lplocalids = []
         i = 0
         for R in range(0,num_regions):
             popinR = 0
             tempR = []
             tempL = []
             tempH = []
+            ztemp = []
+            ztemp2 = []
             while popinR < math.ceil(poptotal/num_regions) and i <= (len(GlobalLocations)-1):
                 popinR += GlobalLocations[i].populationAmt
                 tempR.append(GlobalInteractionMatrix[i,:])
                 tempL.append(GlobalLocations[i])
+                ztemp.append(GlobalLocations[i].LocalIdentification)
+                ztemp2.append(GlobalLocations[i].globalId)
                 if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
                     tempH.append(HospitalTransitionRate[i,:])   
                 RegionListGuide.append(R)
@@ -191,9 +198,12 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             RegionalList.append(R)
             RegionInteractionMatrixList.append(tempR)
             RegionalLocations.append(tempL)
+            lplocalids.extend(ztemp)
+            lpids.extend(ztemp2)
             if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
                 HospitalTransitionMatrix.append(tempH) 
         
+              
         # set up the procs for each region
         procs = []
         eventqueues = []
@@ -205,58 +215,58 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             proc = Proc(i, shutdown_event,eventqueues[i], responseq, PopulationParameters,
                         DiseaseParameters,endTime,RegionalLocations[i],RegionInteractionMatrixList[i],
                         RegionListGuide,modelPopNames,HospitalTransitionMatrix[i],mprandomseed,eventqueues,
-                        historyData,SavedRegionFolder,GlobalLocations)
+                        historyData,os.path.join(SavedRegionFolder,FolderContainer),GlobalLocations)
             procs.append(proc)
                     
-        if len(historyData) > 0:
-            try:
-                for i in range(0,len(RegionalList)):
-                    eventqueues[i].safe_put(GBQueue.EventMessage("history", "history", 'history'))
-                allprocsdone = False
-                doneprocs = [0]*len(RegionalList)
-                
-                MAX_PROCESS_WAIT_SECS = 600.0
-                tstart = time.time()
-                while not allprocsdone:
-                    item = responseq.safe_get()
-                    if not item:
-                        t2 = time.time()
-                        if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
-                            endRun(procs, eventqueues)
-                            exit()
-                        continue
-                    else:
-                        #print(f"MainWorker.main_loop received '{item}' message")
-                        if item.msg_type == "finishedhistoryinit":
-                            doneprocs[item.msg_src] = 1
-                            
-                        if item.msg_type == "offPopQueueEvent":
-                            offPopQueueEvents.append(item.msg)        
-                        
-                        if item.msg_type == "FATAL":
-                            endRun(procs, eventqueues)
-                            for i in range(0,1000):
-                                item = responseq.safe_get()
-                            responseq.drain()
-                            responseq.safe_close()
-                            time.sleep(2) ## add here to let all the procs exit
-                            exit()
-                                                    
-                        if sum(doneprocs) == len(RegionalList):
-                            allprocsdone = True
-                            break
-            except BaseException as exc:
-                # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
-                #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
-                print("Model history init error:")
-                print(traceback.format_exc())
-                print(f"Run Exception Shutdown: {exc}")
-                responseq.drain()
-                responseq.safe_close()
-                if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
-                    raise Exception("Known error while initizaling history")
-                else:
-                    raise Exception("UNKNOWN error while initizaling history")    
+        #if len(historyData) > 0:
+        #    try:
+        #        for i in range(0,len(RegionalList)):
+        #            eventqueues[i].safe_put(GBQueue.EventMessage("history", "history", 'history'))
+        #        allprocsdone = False
+        #        doneprocs = [0]*len(RegionalList)
+        #        
+        #        MAX_PROCESS_WAIT_SECS = 600.0
+        #        tstart = time.time()
+        #        while not allprocsdone:
+        #            item = responseq.safe_get()
+        #            if not item:
+        #                t2 = time.time()
+        #                if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
+        #                    endRun(procs, eventqueues)
+        #                    exit()
+        #                continue
+        #            else:
+        #                #print(f"MainWorker.main_loop received '{item}' message")
+        #                if item.msg_type == "finishedhistoryinit":
+        #                    doneprocs[item.msg_src] = 1
+        #                    
+        #                if item.msg_type == "offPopQueueEvent":
+        #                    offPopQueueEvents.append(item.msg)        
+        #                
+        #                if item.msg_type == "FATAL":
+        #                    endRun(procs, eventqueues)
+        #                    for i in range(0,1000):
+        #                        item = responseq.safe_get()
+        #                    responseq.drain()
+        #                    responseq.safe_close()
+        #                    time.sleep(2) ## add here to let all the procs exit
+        #                    exit()
+        #                                            
+        #                if sum(doneprocs) == len(RegionalList):
+        #                    allprocsdone = True
+        #                    break
+        #    except BaseException as exc:
+        #        # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
+        #        #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
+        #        print("Model history init error:")
+        #        print(traceback.format_exc())
+        #        print(f"Run Exception Shutdown: {exc}")
+        #        responseq.drain()
+        #        responseq.safe_close()
+        #        if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
+        #            raise Exception("Known error while initizaling history")
+        #        else:
+        #            raise Exception("UNKNOWN error while initizaling history")    
               
         results = {}
         numInfList = {}
@@ -273,22 +283,57 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
         
             infect = [0]*len(RegionalList)
             LPIDinfect = -1
-            if tend == 1 and StartInfected > 0:
-                for inf in range(0,StartInfected):                
-                    if len(LocationImportationRisk) > 0:
-                        LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
-                        rnum = RegionListGuide[LPIDinfect]
-                    else:
-                        rnum = random.choice(RegionalList)
-                    infect[rnum] += 1
-            else:
-                if len(LocationImportationRisk) > 0:
-                    LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
-                    rnum = RegionListGuide[LPIDinfect]
-                else:
-                    rnum = random.choice(RegionalList)
-                infect[rnum] = DiseaseParameters['ImportationRate']
             
+            #if tend == 1 and StartInfected > 0:
+            #    for inf in range(0,StartInfected):                
+            #        if len(LocationImportationRisk) > 0:
+            #            LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
+            #            rnum = RegionListGuide[LPIDinfect]
+            #        else:
+            #            rnum = random.choice(RegionalList)
+            #        infect[rnum] += 1
+            #else:
+            #    if tend >= 0:
+            #        if len(LocationImportationRisk) > 0:
+            #            LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
+            #            rnum = RegionListGuide[LPIDinfect]
+            #        else:
+            #            rnum = random.choice(RegionalList)
+            #        infect[rnum] = DiseaseParameters['ImportationRate']
+            
+            
+            if len(LocationImportationRisk) > 0:
+                LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
+                rnum = RegionListGuide[LPIDinfect]
+            else:
+                rnum = random.choice(RegionalList)
+                
+            if len(historyData) >= 0:
+                for reportdate in historyData.keys():
+                    #print(historyData[reportdate])
+                    if 'timeval' in historyData[reportdate]:                        
+                        if historyData[reportdate]['timeval'] == tend:
+                            zipnames = []
+                            zipvals = []
+                            for zips in historyData[reportdate].keys():
+                                if zips != 'ReportDateVal' and zips != 'timeval':
+                                    if int(historyData[reportdate][zips]['ReportedNewCases']) > 0 and Utils.RepresentsInt(zips):
+                                        if int(zips) in lplocalids:
+                                            zipnames.append(zips)
+                                            zipvals.append(int(historyData[reportdate][zips]['ReportedNewCases']))
+                            x = Utils.multinomial(zipvals,sum(zipvals))
+                            
+                            if int(zipnames[x]) in lplocalids:
+                                rnum = RegionListGuide[lplocalids.index(int(zipnames[x]))]
+                                LPIDinfect = lpids[lplocalids.index(int(zipnames[x]))]
+                                #print("found!",zipnames[x])
+                            else:
+                                print("zip not found!")
+                        
+                    
+                                    
+            infect[rnum] = DiseaseParameters['ImportationRate']
+                
             offPopQueueEvents = []
             fithospitalizations = 0
             fitdeaths = 0
@@ -479,7 +524,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     if fitted and saveRun:
                         try:
                             for i in range(0,len(RegionalList)):
-                                eventqueues[i].safe_put(GBQueue.EventMessage("Main", "saveregion", FolderContainer))
+                                eventqueues[i].safe_put(GBQueue.EventMessage("Main", "saveregion", os.path.join(SavedRegionFolder,FolderContainer)))
                             allprocsdone = False
                             doneprocs = [0]*len(RegionalList)
                             

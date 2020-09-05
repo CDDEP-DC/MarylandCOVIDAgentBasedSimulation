@@ -158,17 +158,27 @@ class Region:
     def initializeHistory(self,historyData):
         numpriorcases = 0
         numnewcases = 0 
-        for zipcode in historyData.keys():
-            for LPKey in self.Locations.keys():
+        offPopQueueEvents = []
+        for LPKey in self.Locations.keys():
+            LP = self.Locations[LPKey]
+            LPHistory = {}
+            for reportdate in historyData.keys():
+                if LP.LocalIdentification in historyData[reportdate].keys():
+                    LPHistory[reportdate] = {}
+                    if reportdate == 'currentHospitalData':
+                        LPHistory[reportdate]['currentHospitalData'] = historyData[reportdate][LP.LocalIdentification]
+                    else:
+                        LPHistory[reportdate]['timeval'] = historyData[reportdate]['timeval']
+                        LPHistory[reportdate]['ReportedNewCases'] = historyData[reportdate][LP.LocalIdentification]['ReportedNewCases']
+                        LPHistory[reportdate]['EstimatedMildCases'] = historyData[reportdate][LP.LocalIdentification]['EstimatedMildCases']
                 
-                LP = self.Locations[LPKey]
-                if LP.LocalIdentification == zipcode:
-                    LP.initializeHistory(historyData[zipcode]['PriorCases'])
-                    numpriorcases += int(historyData[zipcode]['PriorCases'])
-                    op = LP.setCurrentCases(historyData[zipcode]['NewCases'])
-                    numnewcases += int(historyData[zipcode]['NewCases'])
-                    offPopQueueEvents.extend(op)
-                    break
+            numpriorcases,numnewcases,op = LP.initializeHistory(LPHistory)
+            #numpriorcases += int(historyData[zipcode]['PriorCases'])
+            #op = LP.setCurrentCases(historyData[zipcode]['NewCases'])
+            #op = LP.setCurrentCases(0)
+            #numnewcases += int(historyData[zipcode]['NewCases'])
+            offPopQueueEvents.extend(op)
+            #break
         return offPopQueueEvents, numpriorcases, numnewcases
                     
     def getRegionStats(self):

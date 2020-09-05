@@ -149,7 +149,9 @@ def getInfectionQueueEvents(timeNow,InfectionsDict,contactRate,StartTime,Length,
     try:
         if ParameterSet.GatheringRestriction and ageCohort > 1:
             if contactRate > ParameterSet.GatheringMax:
-                contactRate = ParameterSet.GatheringMax
+                if random() < ParameterSet.GatheringPer:
+                    contactRate = ParameterSet.GatheringMax
+                    
         numRandInfReg = np.random.poisson(ratemodifier *
                     contactRate * sum(TransProbx), 1)[0]  ### this isn't good to be switching between numpy and random
     except:
