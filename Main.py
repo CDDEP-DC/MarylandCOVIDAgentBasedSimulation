@@ -150,19 +150,24 @@ def main(argv):
                 headers = next(reader,None)
                 for rows in reader:
                     dateval = rows[headers.index('ReportDate')]
-                    testdate = Utils.dateparser(dateval)
-                    if testdate < mindate:
-                        mindate = testdate
-                    if testdate > maxdate:
-                        maxdate = testdate
-                        maxdatestr = dateval
-                    if dateval not in historyCaseData.keys():
-                        historyCaseData[dateval] = {}
-                    historyCaseData[dateval]['ReportDateVal'] = testdate
-                    historyCaseData[dateval][rows[headers.index('ZipCode')]] = {}
-                    historyCaseData[dateval][rows[headers.index('ZipCode')]]['ReportedNewCases'] = rows[headers.index('ReportedNewCases')]
-                    historyCaseData[dateval][rows[headers.index('ZipCode')]]['EstimatedMildCases'] = rows[headers.index('EstimatedMildCases')]
-
+                    addrow = False
+                    try:
+                        testdate = Utils.dateparser(dateval)
+                        addrow = True
+                    except:
+                        pass
+                    if addrow:
+                        if testdate < mindate:
+                            mindate = testdate
+                        if testdate > maxdate:
+                            maxdate = testdate
+                            maxdatestr = dateval
+                        if dateval not in historyCaseData.keys():
+                            historyCaseData[dateval] = {}
+                        historyCaseData[dateval]['ReportDateVal'] = testdate
+                        historyCaseData[dateval][rows[headers.index('ZipCode')]] = {}
+                        historyCaseData[dateval][rows[headers.index('ZipCode')]]['ReportedNewCases'] = rows[headers.index('ReportedNewCases')]
+                        historyCaseData[dateval][rows[headers.index('ZipCode')]]['EstimatedMildCases'] = rows[headers.index('EstimatedMildCases')]
         except Exception as e:
             print("History values error. Please confirm the history case file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
