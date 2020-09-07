@@ -1,5 +1,5 @@
 Model,PopulationFile,GeographicScale,LocalPopName,RegionalPopName,UseHospital,HospitalMatrixFile,HospitalNamesFile,startdate,enddate,FitPer,ImportationRate,intfile,StartInfected,FitValFile,historyCaseFile,currentHospFile,FitInterventionFile
-MDDCVAregion,MDDCVAregionCentroid.csv,ZIP_CODE,ZIP_CODE,STATE,1,EDCommunityMatrix.csv,FacilityList.csv,2/15/2020,6/30/2021,0.2,8,interventionsMD20200904.csv,,FitVals20200904.csv,ZipcodeCases_20200902.csv,HospForStart_20200902.csv,interventionsMDFitting.csv
+MDDCVAregion,MDDCVAregionCentroid.csv,ZIP_CODE,ZIP_CODE,STATE,1,EDCommunityMatrix.csv,FacilityList.csv,2/15/2020,6/30/2021,0.2,8,interventionsMD20200904.csv,,FitVals20200906.csv,ZipcodeCases_20200906.csv,HospForStart_20200902.csv,interventionsMDFitting.csv
 Test,TestRegionCentroid.csv,ZIP_CODE,ZIP_CODE,STATE,0,,,2/1/2020,6/30/2020,0.3,5,interventions.csv,,FitVals.csv,,,
 UScounty,USCountyCentroidPopulation_15May2020.csv,STCOUNTYFP,ctyname,stname,0,,,1/15/2020,5/15/2020,0.3,7,interventions20200520.csv,,FitVals.csv,,,
 MMODS,MMODSCentroid.csv,ZIP_CODE,ZIP_CODE,STATE,0,,,3/1/2020,11/15/2020,0.3,5,interventionMMODSElicitation1.csv,,FitVals.csv,,,
