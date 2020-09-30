@@ -124,7 +124,7 @@ def main(argv):
     
     # if the parameter file is passed in then we don't need to create     
     if len(ParametersRunFileName) == 0:
-        print(ParametersRunFileName)
+        #print(ParametersRunFileName)
         ParametersFileName = "CurrentFittingParams.csv"
         
         FitModelInits.createParametersFile(Model,ParametersFileName,NumberMeanRuns = runs)
@@ -297,7 +297,7 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
         
     try:
         fitper = float(modelvals['FitPer'])
-        print(modelvals['FitValFile'])
+        #print(modelvals['FitValFile'])
         FitModelVals = os.path.join('data',Model,modelvals['FitValFile'])
         with open(FitModelVals, mode='r') as infile:
             reader = csv.reader(infile)
@@ -330,7 +330,7 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
         if ParameterSet.logginglevel == "debug":
             print(traceback.format_exc())
         exit()        
-    print(hospitalizations)
+    #print(hospitalizations)
     for fitdate in fitdatesorig:
         fitdates.append((fitdate - startdate).days)
      
@@ -412,7 +412,7 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
     interventions['baseline']['InterventionReductionPerLowMin'] = float(PVals['InterventionRateLow'])
     interventions['baseline']['InterventionReductionPerLowMax'] = float(PVals['InterventionRateLow'])
     interventions['baseline']['InterventionEndPerIncrease'] = float(PVals['InterventionPerIncrease'])
-    print(interventions)                
+    #print(interventions)                
     stepLength = 1
     
     
@@ -437,7 +437,8 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
         for reportdate in historyCaseData.keys():
             if reportdate != 'currentHospitalData':
                 historyCaseData[reportdate]['timeval'] = (historyCaseData[reportdate]['ReportDateVal'] - startdate).days
-                
+
+                    
     fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunBurnin(Model,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,FolderContainer=os.path.join(FolderContainer,resultsName),saveRun=True,historyData=historyCaseData,SavedRegionFolder=SavedRegionFolder)
             
     return fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases

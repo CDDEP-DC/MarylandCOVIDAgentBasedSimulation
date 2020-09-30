@@ -44,7 +44,26 @@ def CompileResults(resultsName,modelPopNames,RegionalList,timeRange):
         
     return results
     
+def WriteFitvals(resultsName,model,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder=''):
 
+    if writefolder == '':
+        writefolder = ParameterSet.ResultsFolder
+ 
+    
+    csvFile = writefolder+"/FittedResults_"+model+"_"+resultsName+".csv"
+    
+    try:
+        fileexistsalready = False
+        if os.path.exists(csvFile):
+            fileexistsalready = True
+        with open(csvFile, 'a+') as f:
+            if not fileexistsalready:
+                f.write("SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases\n")    
+            f.write("%s,%s,%s,%s,%s,%s\n" % (SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases))
+
+    except IOError:
+        print("I/O error")
+        
 def WriteParameterVals(resultsName,model,ParameterVals,writefolder=''):
 
     if writefolder == '':

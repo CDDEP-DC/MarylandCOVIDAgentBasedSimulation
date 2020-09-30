@@ -351,7 +351,7 @@ def InterventionsParameters(Model,intfilename,startdate,submodel=''):
     intdatevals = ['InterventionDate','SchoolCloseDate','SchoolOpenDate','InterventionStartReductionDate',
                     'InterventionStartReductionDateCalcDays','InterventionStartEndLift','InterventionStartEndLiftCalcDays'
                     ,'QuarantineStartDate','TestingAvailabilityDateHosp','TestingAvailabilityDateComm','finaldate']
-    
+
     interventions = {}
     try:
         InterventionVals = os.path.join('data',Model,intfilename)

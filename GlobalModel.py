@@ -295,6 +295,7 @@ def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,Population
     RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,stepLength=1,numregions=-1,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=False,StartInfected=StartInfected,historyData=historyData)
     
     if fitted:
+        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
         PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
         results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
         PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
@@ -315,6 +316,7 @@ def RunSavedRegionModelType(ModelType,modelvals,modelPopNames,resultsName,Popula
     RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,SavedRegionFolder=SavedRegionFolder,numregions=numregions,FolderContainer=FolderContainer)
     
     if fitted:
+        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
         PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
         results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
         PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
@@ -337,6 +339,7 @@ def RunHistoryModelType(ModelType,modelvals,modelPopNames,resultsName,Population
     RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,historyData=historyData)
     
     if fitted:
+        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
         PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
         results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
         PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
@@ -363,6 +366,7 @@ def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters
     RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=True,FolderContainer=FolderContainer,saveRun=saveRun,historyData=historyData,SavedRegionFolder=SavedRegionFolder)
     
     if saveRun and fitted:
+        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
         Utils.PickleFileWrite(os.path.join(SavedRegionFolder,FolderContainer,"PopulationParameters.pickle"), PopulationParameters)
         Utils.PickleFileWrite(os.path.join(SavedRegionFolder,FolderContainer,"DiseaseParameters.pickle"), DiseaseParameters)
     else:

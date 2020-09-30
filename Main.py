@@ -57,7 +57,7 @@ def main(argv):
         if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
-                
+    
     # check that the model exists
     try:
         ModelFileInfo = os.path.join('data','Models.csv')
@@ -235,6 +235,7 @@ def main(argv):
             while not fitted:
                 print(ParameterVals[i])
                 fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = FitModelRegions.runRegionFit(FolderContainer,OutputRunsFolder,overallResultsName,Model,modelvals,enddate,ParameterVals[i],historyCaseData=historyCaseData,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer))
+                
                 i += 1
                 if i > len(ParameterVals):
                     print("Model never hit a fit! Try a larger number of runs!")
