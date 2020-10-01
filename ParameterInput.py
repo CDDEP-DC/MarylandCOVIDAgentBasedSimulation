@@ -112,6 +112,8 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],h
             DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
     
     opendays = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(interventions[intname]['InterventionStartEndLift'])
+    if opendays < 1:
+        opendays = 1
     openinc = ((1-intred)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
     openincLow = ((1-intredLow)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
     mobinc = ((1-mobeffect)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
@@ -133,6 +135,8 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],h
         mobeffectval += mobinc
 
     opendays = (int(interventions[intname]['finaldate']) - int(interventions[intname]['InterventionStartEndLiftCalcDays']))
+    if opendays < 1:
+        opendays = 1
     openinc = (1-intredval)/opendays
     openincLow = (1-intredvalLow)/opendays    
     mobinc = (1-mobeffectval)/opendays

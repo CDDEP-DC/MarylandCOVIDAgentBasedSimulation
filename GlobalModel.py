@@ -364,7 +364,7 @@ def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
     RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=True,FolderContainer=FolderContainer,saveRun=saveRun,historyData=historyData,SavedRegionFolder=SavedRegionFolder)
-    
+
     if saveRun and fitted:
         PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
         Utils.PickleFileWrite(os.path.join(SavedRegionFolder,FolderContainer,"PopulationParameters.pickle"), PopulationParameters)
