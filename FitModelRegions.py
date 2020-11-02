@@ -28,45 +28,41 @@ import FitModelInits
 
 def main(argv):
     
+    import time
+
+    starttimer = time.time()
+    
     ## Setup the folder structure and the settings   
     try:
-        runs, OutputResultsFolder, FolderContainer, generatePresentationVals, OutputRunsFolder, Model, ParametersRunFileName = Utils.ModelFolderStructureSetup(argv,paramsfile=True)
+        runs, OutputResultsFolder, FolderContainer, generatePresentationVals, OutputRunsFolder, Model = Utils.ModelFolderStructureSetup(argv)
     except:
         print("Setup error. There was an error setting up the folders for output. Please ensure that you have permission to create files and directories on this system.")
         if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
             print(traceback.format_exc())
         exit()
     
-        
-    # check that the model exists in the Models file
+    # check that the model exists
     try:
         ModelFileInfo = os.path.join('data','Models.csv')
         modelfound = False
         with open(ModelFileInfo, mode='r') as infile:
             reader = csv.reader(infile)
+            headers = next(reader)            
             ModelFileData = {}
             for rows in reader:
-                modelname = rows[0]
+                modelname = rows[headers.index('Model')]
                 if modelname == Model:
                     modelvals = {}
-                    modelvals['PopulationFile'] = rows[1]
-                    modelvals['GeographicScale'] = rows[2]
-                    modelvals['LocalPopName'] = rows[3]
-                    modelvals['RegionalPopName'] = rows[4]
-                    modelvals['UseHospital'] = rows[5]
+                    for i in range(0,len(headers)):
+                        if headers[i] == 'startdate':
+                            startdate = Utils.dateparser(rows[i])
+                        elif headers[i] == 'enddate':
+                            enddate = Utils.dateparser(rows[i])
+                        else:
+                            modelvals[headers[i]] = rows[i]
+                            
                     if int(modelvals['UseHospital']) == 0:
                         ParameterSet.SaveHospitalData = False
-                    modelvals['HospitalMatrixFile'] = rows[6]
-                    modelvals['HospitalNamesFile'] = rows[7]
-                    startdate = Utils.dateparser(rows[8])
-                    enddate = Utils.dateparser(rows[9])
-                    modelvals['FitPer'] = rows[10]
-                    modelvals['ImportationRate'] = rows[11]
-                    modelvals['intfile'] = rows[12]
-                    modelvals['StartInfected'] = rows[13]
-                    modelvals['FitValFile'] = rows[14]
-                    modelvals['historyCaseFile'] = rows[15]
-                    modelvals['currentHospitalFile'] = rows[16]
                     if startdate > enddate:
                         print("Parameter input error. Start date is greater than end date. Please correct in the parameters file.")
                         raise Exception("Parameter Error")
@@ -80,7 +76,102 @@ def main(argv):
             print(traceback.format_exc())
         exit()
     
-
+    # load the humidity data
+    humiditydata = {}
+    if os.path.exists(os.path.join('data',Model,modelvals['humiditydatafile'])):
+        try: 
+            mindate = Utils.dateparser('2030-12-31')
+            maxdate = Utils.dateparser('1976-05-31')
+            maxdatestr = ''
+            with open(os.path.join('data',Model,modelvals['humiditydatafile']),mode='r') as infile:
+                reader = csv.reader(infile)      
+                headers = next(reader,None)
+                for rows in reader:
+                    dateval = rows[headers.index('Date')]
+                    addrow = False
+                    try:
+                        testdate = Utils.dateparser(dateval)
+                        addrow = True
+                    except:
+                        pass
+                    if addrow:
+                        if testdate < mindate:
+                            mindate = testdate
+                        if testdate > maxdate:
+                            maxdate = testdate
+                            maxdatestr = dateval
+                        if dateval not in humiditydata.keys():
+                            humiditydata[dateval] = {}
+                        humiditydata[dateval]['ReportDateVal'] = testdate
+                        humiditydata[dateval]['mean'] = rows[headers.index('absolutehumidityaverage')]
+                        humiditydata[dateval]['min'] = rows[headers.index('Min')]
+                        humiditydata[dateval]['max'] = rows[headers.index('Max')]
+        except Exception as e:
+            print("Humidity values error. Please confirm the Encounters file exists and is correctly specified")
+            if ParameterSet.logginglevel == "debug":
+                print(traceback.format_exc())
+            exit()    
+    
+        
+    # load the essentialvisit file
+    encountersdata = {}
+    if os.path.exists(os.path.join('data',Model,modelvals['encountersfile'])):
+        try: 
+            mindate = Utils.dateparser('2030-12-31')
+            maxdate = Utils.dateparser('1976-05-31')
+            maxdatestr = ''
+            with open(os.path.join('data',Model,modelvals['encountersfile']),mode='r') as infile:
+                reader = csv.reader(infile)      
+                headers = next(reader,None)
+                for rows in reader:
+                    dateval = rows[headers.index('Date')]
+                    addrow = False
+                    try:
+                        testdate = Utils.dateparser(dateval)
+                        addrow = True
+                    except:
+                        pass
+                    if addrow:
+                        if testdate < mindate:
+                            mindate = testdate
+                        if testdate > maxdate:
+                            maxdate = testdate
+                            maxdatestr = dateval
+                        if dateval not in encountersdata.keys():
+                            encountersdata[dateval] = {}
+                        encountersdata[dateval]['Date'] = testdate
+                        encountersdata[dateval]['VisitEnc'] = rows[headers.index('VisitEnc')]
+                            
+        except Exception as e:
+            print("Encounters values error. Please confirm the Encounters file exists and is correctly specified")
+            if ParameterSet.logginglevel == "debug":
+                print(traceback.format_exc())
+            exit()    
+    
+    # Load the parameters
+    input_df = None
+    try:
+        ParametersFileName = os.path.join('data','Parameters.csv')
+        with open(ParametersFileName, mode='r') as infile:
+            reader = csv.reader(infile)
+            ParametersInputData = {}
+            for rows in reader:
+                minmaxvals = {}                    
+                minmaxvals['min'] = rows[1]
+                minmaxvals['max'] = rows[2]
+                ParametersInputData[rows[0]] = minmaxvals
+                
+    except Exception as e:
+        print("Parameter input error. Please confirm the parameter file exists and is correctly specified")
+        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
+            print(traceback.format_exc())
+        exit()
+    
+    ##### Do not delete
+    modelPopNames = 'ZipCodes' # variable for namic files, is not important what it is - this left here for compatibility - deprecated
+    ######
+    
+    
     #### For loading history data to start at
     historyCaseData = {}
     currentHospitalData = []
@@ -98,187 +189,132 @@ def main(argv):
                 headers = next(reader,None)
                 for rows in reader:
                     dateval = rows[headers.index('ReportDate')]
-                    testdate = Utils.dateparser(dateval)
-                    if testdate < mindate:
-                        mindate = testdate
-                    if testdate > maxdate:
-                        maxdate = testdate
-                        maxdatestr = dateval
-                    if dateval not in historyCaseData.keys():
-                        historyCaseData[dateval] = {}
-                    historyCaseData[dateval]['ReportDateVal'] = testdate
-                    historyCaseData[dateval][rows[headers.index('ZipCode')]] = {}
-                    historyCaseData[dateval][rows[headers.index('ZipCode')]]['ReportedNewCases'] = rows[headers.index('ReportedNewCases')]
-                    historyCaseData[dateval][rows[headers.index('ZipCode')]]['EstimatedMildCases'] = rows[headers.index('EstimatedMildCases')]
-
+                    addrow = False
+                    try:
+                        testdate = Utils.dateparser(dateval)
+                        addrow = True
+                    except:
+                        pass
+                    if addrow:
+                        if testdate < mindate:
+                            mindate = testdate
+                        if testdate > maxdate:
+                            maxdate = testdate
+                            maxdatestr = dateval
+                        if dateval not in historyCaseData.keys():
+                            historyCaseData[dateval] = {}
+                        historyCaseData[dateval]['ReportDateVal'] = testdate
+                        historyCaseData[dateval][rows[headers.index('ZipCode')]] = {}
+                        historyCaseData[dateval][rows[headers.index('ZipCode')]]['ReportedNewCases'] = rows[headers.index('ReportedNewCases')]
+                        historyCaseData[dateval][rows[headers.index('ZipCode')]]['EstimatedMildCases'] = rows[headers.index('EstimatedMildCases')]
         except Exception as e:
             print("History values error. Please confirm the history case file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
                 print(traceback.format_exc())
             exit()       	
 
+        if os.path.exists(os.path.join('data',Model,modelvals['currentHospitalFile'])):            
+            try: 
+                currentHospitalData = {}
+                with open(os.path.join('data',Model,modelvals['currentHospitalFile']),mode='r') as infile:
+                    reader = csv.reader(infile)   
+                    headers = next(reader,None)   
+                    for rows in reader:
+                        currentHospitalData[rows[headers.index('ProviderNames')]] = int(rows[headers.index('Pats')])
+                
+                
+                historyCaseData['currentHospitalData'] = {}
+                
+                ComHosAdj = pd.read_csv(os.path.join("data",Model,modelvals['HospitalMatrixFile']), index_col=0)
+                
+                
+                for hosp in currentHospitalData.keys():
+                    curVal = currentHospitalData[hosp]
+                    hospperlist = ComHosAdj[hosp].tolist()
+                    while curVal > 0:
+                        j = Utils.Multinomial(hospperlist)
+                        if str(list(ComHosAdj.index.values)[j]) in historyCaseData['currentHospitalData']:
+                            historyCaseData['currentHospitalData'][str(list(ComHosAdj.index.values)[j])] += 1
+                        else:
+                            historyCaseData['currentHospitalData'][str(list(ComHosAdj.index.values)[j])] = 1
+                        curVal -= 1
+                                               
+            except Exception as e:
+                print("History hospital values error. Please confirm the hospital history data file exists and is correctly specified")
+                if ParameterSet.logginglevel == "debug":
+                    print(traceback.format_exc())
+                exit()       	
+                
+    
+    
+    ## alter values related to transmission in Utils file
+    dateTimeObj = datetime.now()
+    overallResultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
+                  str(dateTimeObj.day) + str(dateTimeObj.hour) + \
+                  str(dateTimeObj.minute)
     
     if not os.path.exists(os.path.join('data',Model,modelvals['FitValFile'])) or modelvals['FitValFile'] == '':
         print("Error! Invalid fit file. Cannot find: '" + modelvals['FitValFile'] + "'. Please check that file exists and try running again!")
         exit()
     
-    # if the parameter file is passed in then we don't need to create     
-    if len(ParametersRunFileName) == 0:
-        #print(ParametersRunFileName)
-        ParametersFileName = "CurrentFittingParams.csv"
-        
-        FitModelInits.createParametersFile(Model,ParametersFileName,NumberMeanRuns = runs)
+    ParameterVals = FitModelInits.getFitModelParameters(Model,ParameterSet.FitModelRuns,append=True)
     
-    ## Lock parameter file
-    lockname = random.randint(1000000,9999999)
-    continuerunning = True
-    while continuerunning:
+    if len(ParameterVals) < 1:
+        print("Error creating parametervals for fitting")
+        exit()           
+    ######################################
+    dateTimeObj = datetime.now()
+    resultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
+                  str(dateTimeObj.day) + str(dateTimeObj.hour) + \
+                  str(dateTimeObj.minute) + str(dateTimeObj.second) + \
+                  str(dateTimeObj.microsecond)
+    for i in range(0,len(ParameterVals)):
         
-        waittime = 0
-        while os.path.exists(os.path.join("data",Model,"CurrentFittingParams.lock")):
-            time.sleep(1)
-            waittime+=1
-            print("waiting for lockfile")
-            if waittime > 100:
-                break
-                
-        try:            
-            try:
-                with open(os.path.join("data",Model,"CurrentFittingParams.lock"), 'w') as f:
-                    f.write(str(lockname))
-                    f.write("\n")
-            except IOError:
-                print("I/O error")        
-                
-            ParameterVals = {}                
-            xrows = 0
-            foundrow = -1
-            csvFile = os.path.join('data',Model,ParametersFileName)
-            foundfreerow = False
-            with open(csvFile, mode='r') as infile:
-                reader = csv.reader(infile)
-                headers = next(reader, None)
-                num = 0
-                for rows in reader:
-                    ParameterVals[num] = {}
-                    hnum = 0
-                    for h in headers:
-                        if h == "locked":
-                            if foundfreerow:
-                                ParameterVals[num][h] = rows[hnum]
-                                if rows[hnum] == "0":
-                                    xrows+=1
-                            else:
-                                if rows[hnum] == "0":
-                                    foundfreerow = True
-                                    ParameterVals[num][h] = lockname
-                                    foundrow = num
-                                else:
-                                    ParameterVals[num][h] = rows[hnum]
-                        else:
-                            ParameterVals[num][h] = rows[hnum]
-                        hnum += 1
-                    num+=1  
-                      
-            if foundfreerow:
-                print("Still running ... found free parameter row. Still ",xrows," left")
-                try:
-                    with open(csvFile, 'w') as f:
-                        lpvals = ParameterVals[0]
-                        for key2 in lpvals.keys():
-                            f.write(key2+",")
-                        f.write("\n")
-                        for key in ParameterVals.keys():
-                            lpvals = ParameterVals[key]
-                            for key2 in lpvals.keys():
-                                f.write(str(lpvals[key2])+",")
-                            f.write("\n")
-            
-                except Exception as e:
-                    print("I/O Error writing CurrentFittingParams.")
-                    if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
-                        print(traceback.format_exc())
-                    exit()        
-            else:
-                continuerunning = False
-                print("Finished running ... no more free parameter rows ... exiting")
-                if os.path.exists(os.path.join("data",Model,"CurrentFittingParams.lock")):
-                    os.remove(os.path.join("data",Model,"CurrentFittingParams.lock"))    
-                exit()
-                    
-            if os.path.exists(os.path.join("data",Model,"CurrentFittingParams.lock")):
-                os.remove(os.path.join("data",Model,"CurrentFittingParams.lock"))
-                
-        except:
-            print("Error in getting Parameters")
-            if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
-                print(traceback.format_exc())
-            if os.path.exists(os.path.join("data",Model,"CurrentFittingParams.lock")):
-                os.remove(os.path.join("data",Model,"CurrentFittingParams.lock"))    
-            exit()   
-        
-        ######################################
-        dateTimeObj = datetime.now()
-        resultsName = str(dateTimeObj.year) + str(dateTimeObj.month) + \
-                      str(dateTimeObj.day) + str(dateTimeObj.hour) + \
-                      str(dateTimeObj.minute) + str(dateTimeObj.second) + \
-                      str(dateTimeObj.microsecond)
-        fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,ParameterVals[foundrow],historyCaseData=historyCaseData)
-        
-        ######################################
-                
-        waittime = 0
-        while os.path.exists(os.path.join("data",Model,"CurrentRunningParams.lock")):
-            time.sleep(1)
-            waittime+=1
-            print("waiting for lockfile")
-            if waittime > 100:
-                break
-                
+        fitinfo, fitdates = runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,ParameterVals[i],historyCaseData=historyCaseData,saveRun=False,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer),encountersdata=encountersdata,humiditydata=humiditydata,burnin=False)
+    
         try:
-            try:
-                with open(os.path.join("data",Model,"CurrentRunningParams.lock"), 'w') as f:
-                    f.write(str(lockname))
-                    f.write("\n")
-            except IOError:
-                print("I/O error")        
-        
+            addHeader = False
+            if not os.path.exists(os.path.join(OutputResultsFolder,"ParameterVals"+resultsName+".csv")):
+                addHeader = True
             
-            try:
-                addHeader = False
-                if not os.path.exists(os.path.join("data",Model,"CurrentRunningParams.csv")):
-                    addHeader = True
+            with open(os.path.join(OutputResultsFolder,"ParameterVals"+resultsName+".csv"), 'a+') as f:
                 
-                with open(os.path.join("data",Model,"CurrentRunningParams.csv"), 'a+') as f:
-                    lpvals = ParameterVals[foundrow]
-                    if addHeader:
-                        for key2 in lpvals.keys():
-                            f.write(key2+",")
-                        f.write("fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases")
-                        f.write("\n")
-                    for key in lpvals.keys():
-                        f.write(str(lpvals[key])+",")
-                    if fitted:
-                        f.write(str(fitted) + "," + str(SLSH) + "," + str(SLSD) + "," + str(SLSC) + "," + str(avgperdiffhosp) + "," + str(avgperdiffdeaths) + "," + str(avgperdiffcases))
-                    else:
-                        f.write(str(fitted) + "," + str(99999999) + "," + str(99999999) + "," + str(99999999) + "," + str(99999999) + "," + str(99999999) + "," + str(99999999))
+                lpvals = ParameterVals[i]
+                if addHeader:
+                    for key2 in lpvals.keys():
+                        f.write(key2+",")
+                    if len(fitinfo['numFitHospitalizations']) > 0:
+                        for x in range(min(fitdates),max(fitdates)):
+                            f.write("HospDay"+str(x)+",")
+                    if len(fitinfo['numFitDeaths']) > 0:
+                        for x in range(min(fitdates),max(fitdates)):
+                            f.write("DeathDay"+str(x)+",")
+                    if len(fitinfo['numFitCases']) > 0:
+                        for x in range(min(fitdates),max(fitdates)):
+                            f.write("CaseDay"+str(x)+",")        
                     f.write("\n")
-        
-            except IOError:
-                print("I/O error")
-                if os.path.exists(os.path.join("data",Model,"CurrentRunningParams.lock")):
-                    os.remove(os.path.join("data",Model,"CurrentRunningParams.lock"))  
+                for key in lpvals.keys():
+                    f.write(str(lpvals[key])+",")
+                if len(fitinfo['numFitHospitalizations']) > 0:
+                    for x in range(min(fitdates),max(fitdates)):
+                        f.write(str(fitinfo['numFitHospitalizations'][x])+",")
+                if len(fitinfo['numFitDeaths']) > 0:
+                    for x in range(min(fitdates),max(fitdates)):
+                        f.write(str(fitinfo['numFitDeaths'][x])+",")
+                if len(fitinfo['numFitCases']) > 0:
+                    for x in range(min(fitdates),max(fitdates)):
+                        f.write(str(fitinfo['numFitCases'][x])+",")        
+                f.write("\n")
+    
         except:
             if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
                 print(traceback.format_exc())
-            if os.path.exists(os.path.join("data",Model,"CurrentRunningParams.lock")):
-                os.remove(os.path.join("data",Model,"CurrentRunningParams.lock"))      
                 
-        if os.path.exists(os.path.join("data",Model,"CurrentRunningParams.lock")):
-            os.remove(os.path.join("data",Model,"CurrentRunningParams.lock"))                  
+        PERIOD_OF_TIME = 39600 # 11 hours
+    
+        if time.time() > starttimer + PERIOD_OF_TIME : exit()         
             
-            
-def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,PVals,historyCaseData={},SavedRegionFolder=ParameterSet.SavedRegionFolder):
+def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,PVals,historyCaseData={},saveRun=True,SavedRegionFolder=ParameterSet.SavedRegionFolder,encountersdata={},humiditydata={},burnin=True):
     #### Now get all the parameters to fit the model    
     startdate = Utils.dateparser(PVals['startDate'])
        
@@ -330,10 +366,9 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
         if ParameterSet.logginglevel == "debug":
             print(traceback.format_exc())
         exit()        
-    #print(hospitalizations)
     for fitdate in fitdatesorig:
         fitdates.append((fitdate - startdate).days)
-     
+    
     #agecohort 0 -- 0-4
     AG04GammaScale = 6
     AG04GammaShape = 2.1
@@ -399,6 +434,7 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
     DiseaseParameters['ProbabilityOfTransmissionPerContact'] = float(PVals['ProbabilityOfTransmissionPerContact'])
     
     DiseaseParameters['CommunityTestingRate'] = 0.05    
+    DiseaseParameters['humidityversion'] = -1
            
     # This sets the interventions
     interventions = ParameterInput.InterventionsParameters(Model,modelvals['FitInterventionFile'],startdate)
@@ -411,7 +447,8 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
     interventions['baseline']['InterventionReductionPerMax'] = float(PVals['InterventionRate'])
     interventions['baseline']['InterventionReductionPerLowMin'] = float(PVals['InterventionRateLow'])
     interventions['baseline']['InterventionReductionPerLowMax'] = float(PVals['InterventionRateLow'])
-    interventions['baseline']['InterventionEndPerIncrease'] = float(PVals['InterventionPerIncrease'])
+    interventions['baseline']['InterventionEndPerIncrease'] = float(PVals['InterventionEndPerIncrease'])
+    #interventions['baseline']['InterventionEndPerIncrease'] = float(PVals['InterventionPerIncrease'])
     #print(interventions)                
     stepLength = 1
     
@@ -423,10 +460,11 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
     np.random.seed(seed=mprandomseed)
     endTime = (enddate - startdate).days
     DiseaseParameters['startdate'] = startdate
+    DiseaseParameters['enddate'] = enddate
         
     key = 'baseline'
-    DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates)
-                
+    DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates,encountersdata=encountersdata,humiditydata=humiditydata)
+    
     StartInfected = -1
         
     ##### Do not delete
@@ -439,9 +477,9 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
                 historyCaseData[reportdate]['timeval'] = (historyCaseData[reportdate]['ReportDateVal'] - startdate).days
 
                     
-    fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = GlobalModel.RunBurnin(Model,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,FolderContainer=os.path.join(FolderContainer,resultsName),saveRun=True,historyData=historyCaseData,SavedRegionFolder=SavedRegionFolder)
+    fitinfo = GlobalModel.RunBurnin(Model,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,FolderContainer=os.path.join(FolderContainer,resultsName),saveRun=saveRun,historyData=historyCaseData,SavedRegionFolder=SavedRegionFolder,burnin=burnin)
             
-    return fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases
+    return fitinfo, fitdates
     
 if __name__ == "__main__":
     # execute only if run as a script    

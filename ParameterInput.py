@@ -26,13 +26,12 @@ import random
 import traceback
 import os
 import csv
-
+import math
 
 import ParameterSet
 import Utils
 
-def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],historyData={}):
-
+def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],historyData={},encountersdata={},humiditydata={}):
     DiseaseParameters['TransProb'] = []
     DiseaseParameters['TransProbLow'] = []
     DiseaseParameters['TransProbSchool'] = []
@@ -45,122 +44,244 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],h
     DiseaseParameters['InterventionEndPerIncrease'] = interventions[intname]['InterventionEndPerIncrease']
 
     startingprobdate = 0
-    #if len(historyData) > 0:
-    #    startingprobdate = ParameterSet.ProbStartDateHistory
-        
-    if 'Seasonality' in interventions[intname]:
-        DiseaseParameters['Seasonality'] = interventions[intname]['Seasonality']
-    else:
-        DiseaseParameters['Seasonality'] = 0    
     
     # get values of intervention amounts
     interventions[intname]['SchoolInterventionDate'] = interventions[intname]['SchoolCloseDate']
     intred = random.random()*(float(interventions[intname]['InterventionReductionPerMax'])-float(interventions[intname]['InterventionReductionPerMin']))+float(interventions[intname]['InterventionReductionPerMin'])
     intredLow = random.random()*(float(interventions[intname]['InterventionReductionPerLowMax'])-float(interventions[intname]['InterventionReductionPerLowMin']))+float(interventions[intname]['InterventionReductionPerLowMin'])
-    mobeffect = float(interventions[intname]['InterventionMobilityEffect'])
-    
-    
-    # set amount for beginning phase reduction in social distancing
     intdays = int(interventions[intname]['InterventionStartReductionDateCalcDays'])-int(interventions[intname]['InterventionStartReductionDate'])
-    intredred = (1-intred)/intdays
-    intredLowred = (1-intredLow)/intdays
-    intredval = 1 - intredred
-    intredvalLow = 1 - intredLowred
+    mobeffect = float(interventions[intname]['InterventionMobilityEffect'])
     mobeffectred = (1-mobeffect)/intdays
     mobeffectval = 1 - mobeffectred
     
+    # set amount for beginning phase reduction in social distancing
+    ahvals = []
+    encvals = []
+    intnumval = []
+    
+    numdays = 90
+    intinc = float(DiseaseParameters['InterventionEndPerIncrease'])
+    addvalint = intinc / numdays
+    minmaxmean = random.random()
+    randval = random.randint(1, 22)
+    ahdateval = 'Rand'+str(randval)
+        
+    for ahdate in humiditydata.keys():
+        if humiditydata[ahdate]['ReportDateVal'] >= DiseaseParameters['startdate'] and humiditydata[ahdate]['ReportDateVal'] <= DiseaseParameters['enddate']:
+            ahvals.append(humiditydata[ahdate][ahdateval])
+            
+    addingval = 1
+    
+    for encdate in encountersdata.keys():
+        if encountersdata[encdate]['Date'] >= DiseaseParameters['startdate'] and encountersdata[encdate]['Date'] <= DiseaseParameters['enddate']:
+            encvals.append(encountersdata[encdate]['VisitEnc'])
+            if (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['InterventionStartEndLiftCalcDays']:
+                addingval += addvalint
+                if addingval > (1+intinc):
+                    addingval = 1+intinc
+                intnumval.append(addingval)
+            elif (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['InterventionStartEndLift']:
+                addingval += 1.5/82
+                if addingval > 1.5:
+                    addingval = 1+intinc
+                intnumval.append(addingval)
+            else:
+                intnumval.append(1)
+                    
+    probtrans = DiseaseParameters['ProbabilityOfTransmissionPerContact']	
+    probtransscale = probtrans/(1/float(ahvals[0]))
+    #if DiseaseParameters['humidityversion'] < 0:
+    #    version = 0
+    #    if random.random() < .5:
+    #        version = 1
+    #    DiseaseParameters['humidityversion'] = version
+    #else:
+    #    version = int(DiseaseParameters['humidityversion'])
+    DiseaseParameters['humidityversion'] = 1
+    version = 1    
+    print(DiseaseParameters['humidityversion'], version)
+    for i in range(0,len(ahvals)):
+        if version == 0:
+            transprobval = 1/float(ahvals[i])*probtransscale*(1+float(encvals[i])*intnumval[i])
+        else:
+            transprobval = (1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale*(1+float(encvals[i])*intnumval[i])
+            
+        if transprobval < .001:
+            transprobval = .001
+        DiseaseParameters['TransProb'].append(transprobval)
+        DiseaseParameters['TransProbLow'].append(transprobval)
+        DiseaseParameters['TransProbSchool'].append(transprobval)
     
     for i in range(0,interventions[intname]['InterventionStartReductionDate']):
         if i >= startingprobdate:
-            DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
-            DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
             DiseaseParameters['InterventionMobilityEffect'].append(1)    
-
-    for i in range(0,interventions[intname]['SchoolCloseDate']):
-        if i >= startingprobdate:
-            DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
-    
-    if interventions[intname]['SchoolCloseDate'] < interventions[intname]['InterventionStartReductionDate']:
-        for i in range(interventions[intname]['SchoolCloseDate'],interventions[intname]['InterventionStartReductionDate']):
-            if i >= startingprobdate:
-                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
     
     for i in range(int(interventions[intname]['InterventionStartReductionDate']),int(interventions[intname]['InterventionStartReductionDateCalcDays'])):
         if i >= startingprobdate:
-            DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
-            DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
-            if i >= interventions[intname]['SchoolCloseDate']:
-                if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
-                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
-                else:
-                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
             DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
-        intredval -= intredred
-        intredvalLow -= intredLowred
         mobeffectval -= mobeffectred
-
     
     # constant lower level till end of intervention    
     for i in range(int(interventions[intname]['InterventionStartReductionDateCalcDays']),int(interventions[intname]['InterventionStartEndLift'])):
         if i >= startingprobdate:
-            DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
-            DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
-            if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
-                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
-            else:
-                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
             DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
     
     opendays = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(interventions[intname]['InterventionStartEndLift'])
     if opendays < 1:
         opendays = 1
-    openinc = ((1-intred)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
-    openincLow = ((1-intredLow)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
     mobinc = ((1-mobeffect)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
     
     for i in range(int(interventions[intname]['InterventionStartEndLift']),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
         if i >= startingprobdate:
-            DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
-            DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
-            if i < (interventions[intname]['SchoolOpenDate']):
-                if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
-                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
-                else:
-                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
-            else:
-                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolOpenReductionAmt']))
             DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
-        intredval+=openinc
-        intredvalLow+=openincLow
         mobeffectval += mobinc
 
     opendays = (int(interventions[intname]['finaldate']) - int(interventions[intname]['InterventionStartEndLiftCalcDays']))
     if opendays < 1:
         opendays = 1
-    openinc = (1-intredval)/opendays
-    openincLow = (1-intredvalLow)/opendays    
     mobinc = (1-mobeffectval)/opendays
-    
-    
+        
     for i in range(int(interventions[intname]['InterventionStartEndLiftCalcDays']),int(interventions[intname]['finaldate'])):
         if i >= startingprobdate:
-            DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
-            DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
-            if i < (interventions[intname]['SchoolOpenDate']):
-                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
-            else:
-                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolOpenReductionAmt']))        
             DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
-        intredval+=openinc/10
-        intredvalLow+=openincLow/10
         mobeffectval += mobinc/10
         
         
-    DiseaseParameters['InterventionDate'] = interventions[intname]['InterventionStartReductionDate']
-    
+    DiseaseParameters['InterventionDate'] = interventions[intname]['InterventionStartReductionDate']    
     DiseaseParameters['InterventionReductionPer'] = intred
     DiseaseParameters['InterventionReductionPerLow'] = intredLow
     
+    return DiseaseParameters
+
+def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],historyData={},encountersdata={},humiditydata={}):
+    if len(encountersdata) > 0 and len(humiditydata) > 0:
+        DiseaseParameters = setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],historyData={},encountersdata=encountersdata,humiditydata=humiditydata)
+    else:
+        DiseaseParameters['TransProb'] = []
+        DiseaseParameters['TransProbLow'] = []
+        DiseaseParameters['TransProbSchool'] = []
+        DiseaseParameters['InterventionMobilityEffect'] = []
+        DiseaseParameters['InterventionStartReductionDateCalcDays'] = int(interventions[intname]['InterventionStartReductionDateCalcDays'])
+        DiseaseParameters['InterventionStartReductionDate'] = int(interventions[intname]['InterventionStartReductionDate'])
+        DiseaseParameters['InterventionStartEndLift'] = int(interventions[intname]['InterventionStartEndLift'])
+        DiseaseParameters['InterventionStartEndLiftCalcDays'] = int(interventions[intname]['InterventionStartEndLiftCalcDays'])
+        DiseaseParameters['finaldate'] = int(interventions[intname]['finaldate'])
+        DiseaseParameters['InterventionEndPerIncrease'] = interventions[intname]['InterventionEndPerIncrease']
+    
+        startingprobdate = 0
+        
+        # get values of intervention amounts
+        interventions[intname]['SchoolInterventionDate'] = interventions[intname]['SchoolCloseDate']
+        intred = random.random()*(float(interventions[intname]['InterventionReductionPerMax'])-float(interventions[intname]['InterventionReductionPerMin']))+float(interventions[intname]['InterventionReductionPerMin'])
+        intredLow = random.random()*(float(interventions[intname]['InterventionReductionPerLowMax'])-float(interventions[intname]['InterventionReductionPerLowMin']))+float(interventions[intname]['InterventionReductionPerLowMin'])
+        mobeffect = float(interventions[intname]['InterventionMobilityEffect'])
+        
+        
+        # set amount for beginning phase reduction in social distancing
+        intdays = int(interventions[intname]['InterventionStartReductionDateCalcDays'])-int(interventions[intname]['InterventionStartReductionDate'])
+        intredred = (1-intred)/intdays
+        intredLowred = (1-intredLow)/intdays
+        intredval = 1 - intredred
+        intredvalLow = 1 - intredLowred
+        mobeffectred = (1-mobeffect)/intdays
+        mobeffectval = 1 - mobeffectred
+        
+        
+        for i in range(0,interventions[intname]['InterventionStartReductionDate']):
+            if i >= startingprobdate:
+                DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
+                DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
+                DiseaseParameters['InterventionMobilityEffect'].append(1)    
+    
+        for i in range(0,interventions[intname]['SchoolCloseDate']):
+            if i >= startingprobdate:
+                DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact'])
+        
+        if interventions[intname]['SchoolCloseDate'] < interventions[intname]['InterventionStartReductionDate']:
+            for i in range(interventions[intname]['SchoolCloseDate'],interventions[intname]['InterventionStartReductionDate']):
+                if i >= startingprobdate:
+                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+        
+        for i in range(int(interventions[intname]['InterventionStartReductionDate']),int(interventions[intname]['InterventionStartReductionDateCalcDays'])):
+            if i >= startingprobdate:
+                DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+                DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
+                if i >= interventions[intname]['SchoolCloseDate']:
+                    if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
+                        DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
+                    else:
+                        DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+                DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
+            intredval -= intredred
+            intredvalLow -= intredLowred
+            mobeffectval -= mobeffectred
+    
+        
+        # constant lower level till end of intervention    
+        for i in range(int(interventions[intname]['InterventionStartReductionDateCalcDays']),int(interventions[intname]['InterventionStartEndLift'])):
+            if i >= startingprobdate:
+                DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+                DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
+                if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
+                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
+                else:
+                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+                DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
+        
+        opendays = int(interventions[intname]['InterventionStartEndLiftCalcDays']) - int(interventions[intname]['InterventionStartEndLift'])
+        if opendays < 1:
+            opendays = 1
+        openinc = ((1-intred)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+        openincLow = ((1-intredLow)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+        mobinc = ((1-mobeffect)*float(interventions[intname]['InterventionEndPerIncrease']))/opendays
+        
+        for i in range(int(interventions[intname]['InterventionStartEndLift']),int(interventions[intname]['InterventionStartEndLiftCalcDays'])):
+            if i >= startingprobdate:
+                DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+                DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
+                if i < (interventions[intname]['SchoolOpenDate']):
+                    if intredval < float(interventions[intname]['SchoolCloseReductionPer']):
+                        DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)
+                    else:
+                        DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+                else:
+                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolOpenReductionAmt']))
+                DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
+            intredval+=openinc
+            intredvalLow+=openincLow
+            mobeffectval += mobinc
+    
+        opendays = (int(interventions[intname]['finaldate']) - int(interventions[intname]['InterventionStartEndLiftCalcDays']))
+        if opendays < 1:
+            opendays = 1
+        openinc = (1-intredval)/opendays
+        openincLow = (1-intredvalLow)/opendays    
+        mobinc = (1-mobeffectval)/opendays
+        
+        
+        for i in range(int(interventions[intname]['InterventionStartEndLiftCalcDays']),int(interventions[intname]['finaldate'])):
+            if i >= startingprobdate:
+                DiseaseParameters['TransProb'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredval)    
+                DiseaseParameters['TransProbLow'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*intredvalLow)
+                if i < (interventions[intname]['SchoolOpenDate']):
+                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolCloseReductionPer']))
+                else:
+                    DiseaseParameters['TransProbSchool'].append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*float(interventions[intname]['SchoolOpenReductionAmt']))        
+                DiseaseParameters['InterventionMobilityEffect'].append(mobeffectval)
+            intredval+=openinc/10
+            intredvalLow+=openincLow/10
+            mobeffectval += mobinc/10
+            
+            
+        DiseaseParameters['InterventionDate'] = interventions[intname]['InterventionStartReductionDate']
+        
+        DiseaseParameters['InterventionReductionPer'] = intred
+        DiseaseParameters['InterventionReductionPerLow'] = intredLow
+        
+    if 'Seasonality' in interventions[intname]:
+        DiseaseParameters['Seasonality'] = interventions[intname]['Seasonality']
+    else:
+        DiseaseParameters['Seasonality'] = 0
     DiseaseParameters['QuarantineType'] = interventions[intname]['QuarantineType']
     if interventions[intname]['QuarantineStartDate'] == '':
         DiseaseParameters['QuarantineStartDate'] = interventions[intname]['finaldate']    
@@ -203,8 +324,8 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],h
     else:
         DiseaseParameters['TestIncrease'] = 0
         DiseaseParameters['TestIncreaseDate'] = 1000
-    
-    #print(DiseaseParameters['TransProb'])
+        
+        #print(DiseaseParameters['TransProb'])
     
     return DiseaseParameters
 

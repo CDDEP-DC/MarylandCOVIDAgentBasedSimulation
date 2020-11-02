@@ -44,6 +44,9 @@ class Region:
         self.Locations = {}
         self.IsWhuhanMktRegion = 0
         
+        self.savedStats = {}
+        self.savedOcc = {}
+        
         # create local population for each point in the local block
         for i in range(0, len(RegionalLocations)):
             GLP = RegionalLocations[i]
@@ -110,34 +113,24 @@ class Region:
             infEvents.extend(agentEvents)
         print(infEvents)
         
-    def infectRandomAgents(self,tend,numInfect,OneLocalOnly=True,LPID =-1):
+    def infectRandomAgents(self,tend,LPIDs={}):
         # Create off popqueue
         offPopQueueEvents = []
         # If we are only infecting on region
-        if OneLocalOnly:
-            if LPID < 0:
-                if ParameterSet.WuhanMktLocalPopId >= 0:
-                    LPID = ParameterSet.WuhanMktLocalPopId
-                else:
-                    LPID = random.choice(list(self.Locations.keys()))
-                
+        if -1 in LPIDs.keys():
+            numInfect = LPIDs[-1]
+            LPIDs.pop(-1)
+            for i in range(0,numInfect):
+                LPID = random.choice(list(self.Locations.keys()))
+                LPIDs[LPID] = 1
+            
+        for LPID in LPIDs:
             LP = self.Locations[LPID]
-            for i in range(0,numInfect):
+            numInfect = LPIDs[LPID]
+            while numInfect > 0:
                 op = LP.infectRandomAgent(tend)
                 offPopQueueEvents.extend(op)
-            
-        else:
-            LPIDs = []
-            for i in range(0,numInfect):
-                LPIDs.append(random.choice(list(self.Locations.keys())))
-            
-            LPIDs.sort()
-            LPID = -1
-            for i in range(0,len(LPIDs)):
-                LPID = LPIDs[i]
-                LP = self.Locations[LPID]
-                op = LP.infectRandomAgent(tend)
-                offPopQueueEvents.extend(op)
+                numInfect -= 1
                     
         return offPopQueueEvents
 
@@ -227,4 +220,6 @@ class Region:
                     
             LP.resetParameters(PopulationParameters,DiseaseParameters,SimEndDate,
                                 GLP.ProportionLowIntReduction,GLP.TransProb,GLP.TransProbLow)
+                                
+    
              

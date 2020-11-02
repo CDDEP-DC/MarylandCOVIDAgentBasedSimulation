@@ -26,7 +26,7 @@ def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
     ParameterVals = getFitModelParameters(Model,NumberMeanRuns)
     csvFile = os.path.join('data',Model,ParametersRunFileName)
     try:
-        with open(csvFile, 'w') as f:
+        with open(csvFile, 'a+') as f:
             f.write("key,")
             lpvals = ParameterVals[0]
             for key2 in lpvals.keys():
@@ -46,7 +46,10 @@ def createParametersFile(Model,ParametersRunFileName,NumberMeanRuns = 5000):
         exit()    
         
         
-def getFitModelParameters(Model,NumberMeanRuns = 5000):
+def getFitModelParameters(Model,NumberMeanRuns = 5000, append=False):
+    
+    
+
     # Load the parameters
     input_df = None
     try:
@@ -167,7 +170,69 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000):
     
     #Initialize Parameters
     ParameterVals = {}
-    for nrun in range(0,NumberMeanRuns):
+    startnum = 0
+    if append:
+        csvFile = os.path.join('data',Model,"CurrentFittingParams.csv")
+        csvFile2 = os.path.join('data',Model,"CurrentFittingParamsShuffle.csv")
+        if os.path.exists(csvFile):
+            with open(csvFile,'r') as ip:
+                data=ip.readlines()
+            header, rest=data[0], data[1:]
+            random.shuffle(rest)
+            with open(csvFile2,'w') as out:
+                out.write(''.join([header]+rest))
+     
+            file1 = open(csvFile2, 'r') 
+            csv_reader = csv.reader(file1)
+            headers = next(csv_reader)
+            
+            for row in csv_reader:
+                ParameterVals[startnum] = { 'startDate':row[headers.index('startdate')], 
+                    'AG04AsymptomaticRate':row[headers.index('AG04AsymptomaticRate')],
+                    'AG04HospRate':row[headers.index('AG04HospRate')],
+                    'AG04MortalityRate':row[headers.index('AG04MortalityRate')],
+                    'AG517AsymptomaticRate':row[headers.index('AG517AsymptomaticRate')],
+                    'AG517HospRate':row[headers.index('AG517HospRate')],
+                    'AG517MortalityRate':row[headers.index('AG517MortalityRate')],
+                    'AG1849AsymptomaticRate':row[headers.index('AG1849AsymptomaticRate')],
+                    'AG1849HospRate':row[headers.index('AG1849HospRate')],
+                    'AG1849MortalityRate':row[headers.index('AG1849MortalityRate')],
+                    'AG5064AsymptomaticRate':row[headers.index('AG5064AsymptomaticRate')],
+                    'AG5064HospRate':row[headers.index('AG5064HospRate')],
+                    'AG5064MortalityRate':row[headers.index('AG5064MortalityRate')],
+                    'AG65AsymptomaticRate':row[headers.index('AG65AsymptomaticRate')],
+                    'AG65HospRate':row[headers.index('AG65HospRate')],
+                    'AG65MortalityRate':row[headers.index('AG65MortalityRate')],
+                    'IncubationTime':row[headers.index('IncubationTime')],
+                    'mildContagiousTime':row[headers.index('mildContagiousTime')],
+                    'symptomaticTime':row[headers.index('symptomaticTime')],
+                    'hospitalSymptomaticTime':row[headers.index('hospitalSymptomaticTime')],
+                    'ICURate':row[headers.index('ICURate')],
+                    'ICUtime':row[headers.index('ICUtime')],
+                    'PostICUTime':row[headers.index('PostICUTime')],
+                    'preHospTime':row[headers.index('preHospTime')],
+                    'EDVisit':row[headers.index('EDVisit')],
+                    'preContagiousTime':row[headers.index('preContagiousTime')],
+                    'postContagiousTime':row[headers.index('postContagiousTime')],
+                    'NumInfStart':row[headers.index('NumInfStart')],
+                    'householdcontactRate':row[headers.index('householdcontactRate')],
+                    'ProbabilityOfTransmissionPerContact':row[headers.index('ProbabilityOfTransmissionPerContact')],
+                    'symptomaticContactRateReduction':row[headers.index('symptomaticContactRateReduction')],
+                    'hospitalSymptomaticContactRateReduction':row[headers.index('hospitalSymptomaticContactRateReduction')],
+                    'ImportationRate':row[headers.index('ImportationRate')],
+                    'InterventionRate':row[headers.index('InterventionRate')],
+                    'InterventionRateLow':row[headers.index('InterventionRateLow')],
+                    'InterventionMobilityEffect':row[headers.index('InterventionMobilityEffect')],
+                    'AsymptomaticReducationTrans':row[headers.index('AsymptomaticReducationTrans')],
+                    'InterventionPerIncrease':row[headers.index('InterventionPerIncrease')],
+                    'locked':0,
+                    'InterventionEndPerIncrease':row[headers.index('InterventionEndPerIncrease')]
+                }
+                startnum += 1
+                
+        print(len(ParameterVals))
+    
+    for nrun in range(startnum,startnum+NumberMeanRuns):
         startDate = date(2020,2,random.randint(startDateLL,startDateUL))
         AG04AsymptomaticRate = random.random()*(AG04AsymptomaticRateUL - AG04AsymptomaticRateLL) + AG04AsymptomaticRateLL
         AG04HospRate = random.random()*(AG04HospRateUL - AG04HospRateLL) + AG04HospRateLL
@@ -214,6 +279,8 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000):
                 
         AsymptomaticReducationTrans = random.random()*(AsymptomaticReducationTransUL - AsymptomaticReducationTransLL) + AsymptomaticReducationTransLL
         
+        InterventionEndPerIncrease = random.random()*(1 - .1) + .1
+        
         ProbabilityOfTransmissionPerContact = random.random()*(ProbabilityOfTransmissionPerContactUL - ProbabilityOfTransmissionPerContactLL) + ProbabilityOfTransmissionPerContactLL
         symptomaticContactRateReduction = random.random()*(symptomaticContactRateReductionUL - symptomaticContactRateReductionLL) + symptomaticContactRateReductionLL
         hospitalSymptomaticContactRateReduction = random.random()*(hospitalSymptomaticContactRateReductionUL - hospitalSymptomaticContactRateReductionLL) + hospitalSymptomaticContactRateReductionLL
@@ -256,9 +323,10 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000):
             'InterventionMobilityEffect':InterventionMobilityEffect,
             'AsymptomaticReducationTrans':AsymptomaticReducationTrans,
             'InterventionPerIncrease':InterventionPerIncrease,
-            'locked':0
+            'locked':0,
+            'InterventionEndPerIncrease':InterventionEndPerIncrease
         }
-        
+    print(len(ParameterVals))    
     return ParameterVals
     
 

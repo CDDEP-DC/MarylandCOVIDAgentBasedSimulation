@@ -42,8 +42,8 @@ import ProcWorker
 
     
 class Proc:
-    STARTUP_WAIT_SECS = 3.0
-    SHUTDOWN_WAIT_SECS = 3.0
+    STARTUP_WAIT_SECS = 30.0
+    SHUTDOWN_WAIT_SECS = 30.0
     
     def __init__(self, name, shutdown_event, event_q, reply_q,
                     PopulationParameters,DiseaseParameters,endTime,RegionalLocations,
@@ -119,28 +119,24 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
     fithistoryhospitalizations = -1
     
     
-    #if len(historyData) > 0:
-    #    timeNow += ParameterSet.StartDateHistory #this is a negative number so add
-    
-    #    fithistoryhospitalizations = 0
-    #    for hd in historyData.keys():
-    #        if ParameterSet.FitMD:
-    #            if historyData[hd]['State'] =='MD':
-    #                fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
-    #        else:
-    #            fithistoryhospitalizations += int(historyData[hd]['HospitalCases'])
-
     timeRange = []
+    timeRangeFull = []
     
     if ParameterSet.UseSavedRegion:
         
         testregion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,FolderContainer,"Region1.pickle"))
         timeNow = testregion.getLastTime()
         testregion = None
+        tN = 0
+        while tN < timeNow:
+            tN += stepLength
+            timeRangeFull.append(tN)
+                    
     
     while timeNow < endTime:
-        timeNow = timeNow + stepLength
+        timeNow += stepLength
         timeRange.append(timeNow)
+        timeRangeFull.append(timeNow)
         
     try:
     
@@ -218,55 +214,6 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                         historyData,os.path.join(SavedRegionFolder,FolderContainer),GlobalLocations)
             procs.append(proc)
                     
-        #if len(historyData) > 0:
-        #    try:
-        #        for i in range(0,len(RegionalList)):
-        #            eventqueues[i].safe_put(GBQueue.EventMessage("history", "history", 'history'))
-        #        allprocsdone = False
-        #        doneprocs = [0]*len(RegionalList)
-        #        
-        #        MAX_PROCESS_WAIT_SECS = 600.0
-        #        tstart = time.time()
-        #        while not allprocsdone:
-        #            item = responseq.safe_get()
-        #            if not item:
-        #                t2 = time.time()
-        #                if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
-        #                    endRun(procs, eventqueues)
-        #                    exit()
-        #                continue
-        #            else:
-        #                #print(f"MainWorker.main_loop received '{item}' message")
-        #                if item.msg_type == "finishedhistoryinit":
-        #                    doneprocs[item.msg_src] = 1
-        #                    
-        #                if item.msg_type == "offPopQueueEvent":
-        #                    offPopQueueEvents.append(item.msg)        
-        #                
-        #                if item.msg_type == "FATAL":
-        #                    endRun(procs, eventqueues)
-        #                    for i in range(0,1000):
-        #                        item = responseq.safe_get()
-        #                    responseq.drain()
-        #                    responseq.safe_close()
-        #                    time.sleep(2) ## add here to let all the procs exit
-        #                    exit()
-        #                                            
-        #                if sum(doneprocs) == len(RegionalList):
-        #                    allprocsdone = True
-        #                    break
-        #    except BaseException as exc:
-        #        # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
-        #        #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
-        #        print("Model history init error:")
-        #        print(traceback.format_exc())
-        #        print(f"Run Exception Shutdown: {exc}")
-        #        responseq.drain()
-        #        responseq.safe_close()
-        #        if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
-        #            raise Exception("Known error while initizaling history")
-        #        else:
-        #            raise Exception("UNKNOWN error while initizaling history")    
               
         results = {}
         numInfList = {}
@@ -281,33 +228,9 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
         numFitCases = []
         for tend in timeRange:
         
-            infect = [0]*len(RegionalList)
-            LPIDinfect = -1
-            
-            #if tend == 1 and StartInfected > 0:
-            #    for inf in range(0,StartInfected):                
-            #        if len(LocationImportationRisk) > 0:
-            #            LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
-            #            rnum = RegionListGuide[LPIDinfect]
-            #        else:
-            #            rnum = random.choice(RegionalList)
-            #        infect[rnum] += 1
-            #else:
-            #    if tend >= 0:
-            #        if len(LocationImportationRisk) > 0:
-            #            LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
-            #            rnum = RegionListGuide[LPIDinfect]
-            #        else:
-            #            rnum = random.choice(RegionalList)
-            #        infect[rnum] = DiseaseParameters['ImportationRate']
-            
-            
-            if len(LocationImportationRisk) > 0:
-                LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
-                rnum = RegionListGuide[LPIDinfect]
-            else:
-                rnum = random.choice(RegionalList)
-                
+            initinfect = {} #[0]*len(RegionalList)
+              
+            rnumfilled = False      
             if len(historyData) >= 0:
                 for reportdate in historyData.keys():
                     #print(historyData[reportdate])
@@ -321,29 +244,50 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                                         if int(zips) in lplocalids:
                                             zipnames.append(zips)
                                             zipvals.append(int(historyData[reportdate][zips]['ReportedNewCases']))
-                            x = Utils.multinomial(zipvals,sum(zipvals))
-                            
-                            if int(zipnames[x]) in lplocalids:
-                                rnum = RegionListGuide[lplocalids.index(int(zipnames[x]))]
-                                LPIDinfect = lpids[lplocalids.index(int(zipnames[x]))]
-                                #print("found!",zipnames[x])
-                            else:
-                                print("zip not found!")
-                        
-                    
-                                    
-            infect[rnum] = DiseaseParameters['ImportationRate']
+                            numfill = int(DiseaseParameters['ImportationRate'])                
+                            while numfill > 0:
+                                x = Utils.multinomial(zipvals,sum(zipvals))
+                                if int(zipnames[x]) in lplocalids:
+                                    rnum = RegionListGuide[lplocalids.index(int(zipnames[x]))]
+                                    LPIDinfect = lpids[lplocalids.index(int(zipnames[x]))]
+                                    if rnum in initinfect.keys():
+                                        if LPIDinfect in initinfect[rnum].keys():
+                                            initinfect[rnum][LPIDinfect] += 1
+                                        else:
+                                            initinfect[rnum][LPIDinfect] = 1
+                                    else:
+                                        initinfect[rnum] = {}
+                                        initinfect[rnum][LPIDinfect] = 1
+                                    numfill -= 1    
+                                    rnumfilled = True
+                                    #print("found!",zipnames[x])
+                                else:
+                                    print("zip not found!")
                 
+            if not rnumfilled:
+                if len(LocationImportationRisk) > 0: 
+                    LPIDinfect = Utils.multinomial(LocationImportationRisk,sum(LocationImportationRisk))
+                    rnum = RegionListGuide[LPIDinfect]
+                    initinfect[rnum] = {}
+                    initinfect[rnum][LPIDinfect] = int(DiseaseParameters['ImportationRate'])
+                else:
+                    rnum = random.choice(RegionalList)
+                    initinfect[rnum] = {}
+                    initinfect[rnum][-1] = int(DiseaseParameters['ImportationRate'])
+            
+            
             offPopQueueEvents = []
-            fithospitalizations = 0
-            fitdeaths = 0
-            fitcases = 0
+            curhospitalizations = 0
+            curdeaths = 0
+            curcases = 0
             try:
                 for i in range(0,len(RegionalList)):
                     procdict = {}
                     procdict['tend'] = tend
-                    procdict['infectNumAgents'] = infect[i]
-                    procdict['LPIDinfect'] = LPIDinfect
+                    if i in initinfect.keys():
+                        procdict['LPIDs'] = initinfect[i]
+                    else:
+                        procdict['LPIDs'] = {}        
                     eventqueues[i].safe_put(GBQueue.EventMessage("main", "startevent", procdict))
                 allprocsdone = False
                 doneprocs = [0]*len(RegionalList)
@@ -363,9 +307,9 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                         if item.msg_type == "finishedrun":
                             doneprocs[item.msg_src] = 1
                             fitval = item.msg
-                            fithospitalizations += fitval[0]
-                            fitdeaths += fitval[1]
-                            fitcases += fitval[2]
+                            curhospitalizations += fitval[0]
+                            curdeaths += fitval[1]
+                            curcases += fitval[2]
                             
                         if item.msg_type == "offPopQueueEvent":
                             offPopQueueEvents.append(item.msg)        
@@ -394,183 +338,102 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     raise Exception("Known error while running models")
                 else:
                     raise Exception("UNKNOWN error while running models")
-                
-            # This does the fitting process if fitting values are enabled and passed in
-            numFitDeaths.append(fitdeaths)
-            numFitHospitalizations.append(fithospitalizations)
-            numFitCases.append(fitcases)
-            SLSH = 0
-            SLSD = 0
-            SLSC = 0
-            avgperdiffhosp = 0
-            avgperdiffdeaths  = 0
-            avgperdiffcases = 0
-            if len(historyData) > 0 and fithistoryhospitalizations > 0:
-                if tend == 0:
-                    fithospval = numFitHospitalizations[len(numFitHospitalizations)-1]
-                    if fithospval > fithistoryhospitalizations*.8 and fithospval < fithistoryhospitalizations * 1.2:
-                        fitted = True
-                        print("Run fit hospitalizations!")
-                    else:
-                        print("Run DID NOT fit hospitalizations!")
-                        fitted = False
-                        break
             
-            #print(tend,fitval,max(fitvals))
-            if (len(hospitalizations) > 0 or len(deaths) > 0 or len(cases) > 0) and tend > min(fitdates) and tend < max(fitdates):
-                if len(hospitalizations) > 0:
-                    if fithospitalizations > max(hospitalizations)*3 and max(hospitalizations) > 50:
-                        print("Run did not fit max hospitalizations ... exiting")
-                        fitval = None
-                        fitted = False
-                        break
-                if len(deaths) > 0:
-                    if fitdeaths > max(deaths)*3 and max(deaths) > 50:
-                        print("Run did not fit max deaths ... exiting")
-                        fitval = None
-                        fitted = False
-                        break
-                if len(cases) > 0:
-                    if fitcases > max(cases)*3 and max(cases) > 50:
-                        print("Run did not fit max cases ... exiting")
-                        fitval = None
-                        fitted = False
-                        break
-                        
+            fitinfo = {}
+            
+            numFitDeaths.append(curdeaths)
+            numFitHospitalizations.append(curhospitalizations)
+            numFitCases.append(curcases)
+            if burnin:
+                fitinfo['SLSH'] = 0
+                fitinfo['SLSD'] = 0
+                fitinfo['SLSC'] = 0
+                fitinfo['avgperdiffhosp'] = 0
+                fitinfo['avgperdiffdeaths'] = 0
+                fitinfo['avgperdiffcases'] = 0
+                fitinfo['numFitDeaths'] = numFitDeaths
+                fitinfo['numFitHospitalizations'] = numFitHospitalizations
+                fitinfo['numFitCases'] = numFitCases
+                if (len(hospitalizations) > 0 or len(deaths) > 0 or len(cases) > 0) and tend > min(fitdates) and tend < max(fitdates):
+                    if len(hospitalizations) > 0:
+                        if curhospitalizations > max(hospitalizations)*3 and max(hospitalizations) > 50:
+                            print("Run did not fit max hospitalizations ... exiting")
+                            fitted = False
+                            fitinfo['fitted'] = fitted
+                            break
+                    if len(deaths) > 0:
+                        if curdeaths > max(deaths)*3 and max(deaths) > 50:
+                            print("Run did not fit max deaths ... exiting")
+                            fitted = False
+                            fitinfo['fitted'] = fitted
+                            break
+                    if len(cases) > 0:
+                        if curcases > max(cases)*3 and max(cases) > 50:
+                            print("Run did not fit max cases ... exiting")
+                            fitted = False
+                            fitinfo['fitted'] = fitted
+                            break
+            
             if (len(hospitalizations) > 0 or len(deaths) > 0 or len(cases) > 0) and tend == max(fitdates):
-                if len(hospitalizations) > 0 and tend == max(fitdates):
-                    fitpervals = 0
-                    f = 0
-                    for x in range(min(fitdates),max(fitdates)):
-                        #fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])*(f+1)
-                        if numFitHospitalizations[x] > 0:
-                            fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])
-                            SLSH += (numFitHospitalizations[x]/max(hospitalizations)-hospitalizations[f]/max(hospitalizations))**2
-                            if ParameterSet.logginglevel == 'debug':
-                                print(numFitHospitalizations[x],hospitalizations[f],abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x]))
-                        f += 1
-                    N=len(hospitalizations)
-                    #avgperdiff = fitpervals / (N+(N-1)*N/2)
-                    avgperdiffhosp = fitpervals / (N)
-                    if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
-                        print(fitpervals,len(hospitalizations),avgperdiffhosp)
-                    if not burnin:
-                        if avgperdiffhosp > fitper:
-                            print("Run did not fit hospitalizations ... exiting")
-                            fitted = False
-                            break
-                        else:
-                            print("Run fit Hospitalizations!")
-               
-                if len(deaths) > 0 and tend == max(fitdates):
-                    fitpervals = 0
-                    f = 0
-                    for x in range(min(fitdates),max(fitdates)):
-                        #fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
-                        if numFitDeaths[x] > 0:
-                            fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])
-                            SLSD += (numFitDeaths[x]/max(deaths)-deaths[f]/max(deaths))**2
-                            if ParameterSet.logginglevel == 'debug':
-                                print(numFitDeaths[x],deaths[f],abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x]))
-                        f += 1
-                    N=len(deaths)
-                    #avgperdiff = fitpervals / (N+(N-1)*N/2)
-                    avgperdiffdeaths = fitpervals / (N)
-                    if ParameterSet.logginglevel == 'debug':
-                        print(fitpervals,len(deaths),avgperdiffdeaths)
-                    if not burnin:
-                        if avgperdiffdeaths > fitper:
-                            print("Run did not fit deaths ... exiting")
-                            fitted = False
-                            break
-                        else:
-                            print("Run fit deaths!")            
+                SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases, fitted = fittingAnalysis(numFitDeaths,numFitHospitalizations,numFitCases,hospitalizations,deaths,cases,tend,fitdates,fitper)
+                fitinfo['SLSH'] = SLSH
+                fitinfo['SLSD'] = SLSD
+                fitinfo['SLSC'] = SLSC
+                fitinfo['avgperdiffhosp'] = avgperdiffhosp
+                fitinfo['avgperdiffdeaths'] = avgperdiffdeaths
+                fitinfo['avgperdiffcases'] = avgperdiffcases
+                fitinfo['fitted'] = fitted
+                fitinfo['numFitDeaths'] = numFitDeaths
+                fitinfo['numFitHospitalizations'] = numFitHospitalizations
+                fitinfo['numFitCases'] = numFitCases
                 
-                if len(cases) > 0 and tend == max(fitdates):
-                    fitpervalscases = 0
-                    f = 0
-                    for x in range(min(fitdates),max(fitdates)):
-                        #fitpervalscases += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
-                        if numFitCases[x] > 0:
-                            fitpervalscases += abs((numFitCases[x]-deaths[f])/numFitCases[x])
-                            SLSC += (numFitCases[x]/max(cases)-cases[f]/max(cases))**2
-                            if ParameterSet.logginglevel == 'debug':
-                                print(numFitCases[x],cases[f],abs((numFitCases[x]-cases[f])/numFitCases[x]))
-                        f += 1
-                    N=len(cases)
-                    #avgperdiff = fitpervalscases / (N+(N-1)*N/2)
-                    avgperdiffcases = fitpervalscases / (N)
-                    if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
-                        print(fitpervalscases,len(cases),avgperdiffcases)
-                    if not burnin:
-                        if avgperdiffcases > fitper:
-                            print("Run did not fit cases ... exiting")
-                            fitted = False
-                            break
-                        else:
-                            print("Run fit cases!")            
-                
-                if burnin:
-                    print("burn run ended")
-                    if avgperdiffhosp < fitper and avgperdiffhosp > 0:
-                        fitted = True
-                        print(avgperdiffhosp," Run fit!")
-                    else:
-                        print(avgperdiffhosp," Run did not fit!")
-                        print(numFitHospitalizations)
-                        print(fitper)
-                        fitted = False
-                            
-                    if fitted and saveRun:
-                        try:
-                            for i in range(0,len(RegionalList)):
-                                eventqueues[i].safe_put(GBQueue.EventMessage("Main", "saveregion", os.path.join(SavedRegionFolder,FolderContainer)))
-                            allprocsdone = False
-                            doneprocs = [0]*len(RegionalList)
-                            
-                            MAX_PROCESS_WAIT_SECS = 600.0
-                            tstart = time.time()
-                            while not allprocsdone:
-                                item = responseq.safe_get()
-                                if not item:
-                                    t2 = time.time()
-                                    if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
-                                        endRun(procs, eventqueues)
-                                        exit()
-                                    continue
-                                else:
-                                    #print(f"MainWorker.main_loop received '{item}' message")
-                                    if item.msg_type == "finishedsave":
-                                        doneprocs[item.msg_src] = 1
-                                                                           
-                                    if item.msg_type == "FATAL":
-                                        endRun(procs, eventqueues)
-                                        for i in range(0,1000):
-                                            item = responseq.safe_get()
-                                        responseq.drain()
-                                        responseq.safe_close()
-                                        time.sleep(2) ## add here to let all the procs exit
-                                        exit()
-                                                                
-                                    if sum(doneprocs) == len(RegionalList):
-                                        allprocsdone = True
-                                        break
-                        except BaseException as exc:
-                            # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
-                            #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
-                            print("Model save region error:")
-                            print(traceback.format_exc())
-                            print(f"Run Exception Shutdown: {exc}")
-                            responseq.drain()
-                            responseq.safe_close()
-                            if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
-                                raise Exception("Known error while saving regions")
-                            else:
-                                raise Exception("UNKNOWN error while  saving regions")    
-                          
+                if burnin and fitted and saveRun:
+                    try:
+                        for i in range(0,len(RegionalList)):
+                            eventqueues[i].safe_put(GBQueue.EventMessage("Main", "saveregion", os.path.join(SavedRegionFolder,FolderContainer)))
+                        allprocsdone = False
+                        doneprocs = [0]*len(RegionalList)
                         
-                    break
-            
+                        MAX_PROCESS_WAIT_SECS = 600.0
+                        tstart = time.time()
+                        while not allprocsdone:
+                            item = responseq.safe_get()
+                            if not item:
+                                t2 = time.time()
+                                if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
+                                    endRun(procs, eventqueues)
+                                    exit()
+                                continue
+                            else:
+                                #print(f"MainWorker.main_loop received '{item}' message")
+                                if item.msg_type == "finishedsave":
+                                    doneprocs[item.msg_src] = 1
+                                                                       
+                                if item.msg_type == "FATAL":
+                                    endRun(procs, eventqueues)
+                                    for i in range(0,1000):
+                                        item = responseq.safe_get()
+                                    responseq.drain()
+                                    responseq.safe_close()
+                                    time.sleep(2) ## add here to let all the procs exit
+                                    exit()
+                                                            
+                                if sum(doneprocs) == len(RegionalList):
+                                    allprocsdone = True
+                                    break
+                    except BaseException as exc:
+                        # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
+                        #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
+                        print("Model save region error:")
+                        print(traceback.format_exc())
+                        print(f"Run Exception Shutdown: {exc}")
+                        responseq.drain()
+                        responseq.safe_close()
+                        if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
+                            raise Exception("Known error while saving regions")
+                        else:
+                            raise Exception("UNKNOWN error while  saving regions")    
+                break
             
             ## Get all the Reconcilliation events
             try:
@@ -640,9 +503,101 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                 sys.exit(1)
             else:
                 sys.exit(2)
+    
+    if 'fitted' not in fitinfo:
+        fitinfo['fitted'] = True
+        fitinfo['SLSH'] = 0
+        fitinfo['SLSD'] = 0
+        fitinfo['SLSC'] = 0
+        fitinfo['avgperdiffhosp'] = 0
+        fitinfo['avgperdiffdeaths'] = 0
+        fitinfo['avgperdiffcases'] = 0
+        fitinfo['numFitDeaths'] = numFitDeaths
+        fitinfo['numFitHospitalizations'] = numFitHospitalizations
+        fitinfo['numFitCases'] = numFitCases  
+          
+    return RegionalList, timeRangeFull, fitinfo
         
-    return RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases
+
+    
+def fittingAnalysis(numFitDeaths,numFitHospitalizations,numFitCases,hospitalizations,deaths,cases,tend,fitdates,fitper):
+    # This does the fitting process if fitting values are enabled and passed in
+    
+    SLSH = 0
+    SLSD = 0
+    SLSC = 0
+    MSE = 0 
+    avgperdiffhosp = 0
+    avgperdiffdeaths  = 0
+    avgperdiffcases = 0
+    fitpervals = 0        
+                
+    if len(hospitalizations) > 0 and tend == max(fitdates):
+        fitpervals = 0
+        f = 0
+        for x in range(min(fitdates),max(fitdates)):
+            if numFitHospitalizations[x] > 0:
+                fitpervals += abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x])
+                MSE += ((hospitalizations[f] - numFitHospitalizations[x])**2*((f+1)**5) ) /10000000000
+                SLSH += (numFitHospitalizations[x]/max(hospitalizations)-hospitalizations[f]/max(hospitalizations))**2
+                if ParameterSet.logginglevel == 'debug':
+                    #print(numFitHospitalizations[x],hospitalizations[f],abs((numFitHospitalizations[x]-hospitalizations[f])/numFitHospitalizations[x]))
+                    print(MSE)
+            f += 1
+        N=len(hospitalizations)
+        #avgperdiff = fitpervals / (N+(N-1)*N/2)
+        avgperdiffhosp = fitpervals / (N)
+        if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
+            print(fitpervals,len(hospitalizations),avgperdiffhosp)
+     
+    if len(deaths) > 0 and tend == max(fitdates):
+        fitpervals = 0
+        f = 0
+        for x in range(min(fitdates),max(fitdates)):
+            #fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
+            if numFitDeaths[x] > 0:
+                fitpervals += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])
+                SLSD += (numFitDeaths[x]/max(deaths)-deaths[f]/max(deaths))**2
+                if ParameterSet.logginglevel == 'debug':
+                    print(numFitDeaths[x],deaths[f],abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x]))
+            f += 1
+        N=len(deaths)
+        #avgperdiff = fitpervals / (N+(N-1)*N/2)
+        avgperdiffdeaths = fitpervals / (N)
+        if ParameterSet.logginglevel == 'debug':
+            print(fitpervals,len(deaths),avgperdiffdeaths)   
+           
+    if len(cases) > 0 and tend == max(fitdates):
+        fitpervalscases = 0
+        f = 0
+        for x in range(min(fitdates),max(fitdates)):
+            #fitpervalscases += abs((numFitDeaths[x]-deaths[f])/numFitDeaths[x])*(f+1)
+            if numFitCases[x] > 0:
+                fitpervalscases += abs((numFitCases[x]-deaths[f])/numFitCases[x])
+                SLSC += (numFitCases[x]/max(cases)-cases[f]/max(cases))**2
+                if ParameterSet.logginglevel == 'debug':
+                    print(numFitCases[x],cases[f],abs((numFitCases[x]-cases[f])/numFitCases[x]))
+            f += 1
+        N=len(cases)
+        #avgperdiff = fitpervalscases / (N+(N-1)*N/2)
+        avgperdiffcases = fitpervalscases / (N)
+        if ParameterSet.logginglevel == 'debug' or ParameterSet.logginglevel == 'error':
+            print(fitpervalscases,len(cases),avgperdiffcases)
+
+    if avgperdiffhosp < fitper and avgperdiffhosp > 0:
+    #if MSE < 425:
+        fitted = True
+        print(MSE," " ,avgperdiffhosp," Run fit!")
+        return MSE, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases, fitted
+    else:
+        print(MSE," " ,avgperdiffhosp," Run did not fit!")
+        print(numFitHospitalizations)
+        print(fitper)
+        fitted = False
+        return MSE, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases, fitted
         
+
+            
 def printCurrentState(tend,RegionalList,modelPopNames,startDate,InfPrior,HosPrior):
 
     numInfList = {}

@@ -281,31 +281,29 @@ def modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters,substa
    
     return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk
 
-
+# This is called from main
 def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,StartInfected=-1,historyData={}):
     
-    
-
     cleanUp(modelPopNames)
     ParameterVals = PopulationParameters
     ParameterVals.update(DiseaseParameters)
     
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
-    RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,stepLength=1,numregions=-1,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=False,StartInfected=StartInfected,historyData=historyData)
+    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,stepLength=1,numregions=-1,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=False,StartInfected=StartInfected,historyData=historyData)
     
-    if fitted:
-        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
-        PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
-        results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
-        PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
+
+    PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
+    results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
+    PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
     
     cleanUp(modelPopNames,len(RegionalList))
     if os.path.exists(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle")):    
         os.remove(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"))
 
-    return fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases
+    return fitinfo
 
+# This is called from main
 def RunSavedRegionModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),SavedRegionFolder='',numregions=-1,FolderContainer=''):
     cleanUp(modelPopNames)
     ParameterVals = PopulationParameters
@@ -313,10 +311,10 @@ def RunSavedRegionModelType(ModelType,modelvals,modelPopNames,resultsName,Popula
     
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
-    RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,SavedRegionFolder=SavedRegionFolder,numregions=numregions,FolderContainer=FolderContainer)
+    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,SavedRegionFolder=SavedRegionFolder,numregions=numregions,FolderContainer=FolderContainer)
     
-    if fitted:
-        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
+    if fitinfo['fitted']:
+        PostProcessing.WriteFitvals(resultsName,ModelType,fitinfo['SLSH'], fitinfo['SLSD'], fitinfo['SLSC'], fitinfo['avgperdiffhosp'], fitinfo['avgperdiffdeaths'], fitinfo['avgperdiffcases'],writefolder)
         PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
         results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
         PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
@@ -325,48 +323,26 @@ def RunSavedRegionModelType(ModelType,modelvals,modelPopNames,resultsName,Popula
     if os.path.exists(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle")):    
         os.remove(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"))
 
-    return fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases
+    return fitinfo
     
-
-def RunHistoryModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),historyData={}):
-    
-    cleanUp(modelPopNames)
-    ParameterVals = PopulationParameters
-    ParameterVals.update(DiseaseParameters)
-    
-    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
-    
-    RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,historyData=historyData)
-    
-    if fitted:
-        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
-        PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
-        results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
-        PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
-    
-    cleanUp(modelPopNames,len(RegionalList))
-    if os.path.exists(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle")):    
-        os.remove(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"))
-
-    return fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases
-
         
-def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,FolderContainer='',saveRun=False,historyData={},SavedRegionFolder=ParameterSet.SavedRegionFolder):
+def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,FolderContainer='',saveRun=False,historyData={},SavedRegionFolder=ParameterSet.SavedRegionFolder,burnin=True):
     
     if saveRun:
         if not os.path.exists(os.path.join(SavedRegionFolder,FolderContainer)):
             os.makedirs(os.path.join(SavedRegionFolder,FolderContainer))
             
     cleanUp(modelPopNames)
+        
+    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
+    
     ParameterVals = PopulationParameters
     ParameterVals.update(DiseaseParameters)
     
-    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
-    
-    RegionalList, timeRange, fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=True,FolderContainer=FolderContainer,saveRun=saveRun,historyData=historyData,SavedRegionFolder=SavedRegionFolder)
+    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=burnin,FolderContainer=FolderContainer,saveRun=saveRun,historyData=historyData,SavedRegionFolder=SavedRegionFolder)
 
-    if saveRun and fitted:
-        PostProcessing.WriteFitvals(resultsName,ModelType,SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases,writefolder)
+    if saveRun and fitinfo['fitted']:
+        PostProcessing.WriteFitvals(resultsName,ModelType,fitinfo['SLSH'], fitinfo['SLSD'], fitinfo['SLSC'], fitinfo['avgperdiffhosp'], fitinfo['avgperdiffdeaths'], fitinfo['avgperdiffcases'],writefolder)
         Utils.PickleFileWrite(os.path.join(SavedRegionFolder,FolderContainer,"PopulationParameters.pickle"), PopulationParameters)
         Utils.PickleFileWrite(os.path.join(SavedRegionFolder,FolderContainer,"DiseaseParameters.pickle"), DiseaseParameters)
     else:
@@ -376,28 +352,8 @@ def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters
     if os.path.exists(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle")):    
         os.remove(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"))
 
-    return fitted, SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases
+    return fitinfo
 
-def RunUSStateForecastModel(ModelType,state,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],fitper=.3):
-    
-    cleanUp(modelPopNames)
-    ParameterVals = PopulationParameters
-    ParameterVals.update(DiseaseParameters)
-    
-    PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters,substate=state)
-    
-    RegionalList, timeRange, fitted = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper)
-    
-    if fitted:
-        PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
-        results = PostProcessing.CompileResults(resultsName,modelPopNames,RegionalList,timeRange)
-        PostProcessing.WriteAggregatedResults(results,ModelType,resultsName,modelPopNames,RegionalList,HospitalNames,endTime,writefolder)    
-    
-    cleanUp(modelPopNames,len(RegionalList))
-    if os.path.exists(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle")):    
-        os.remove(os.path.join(ParameterSet.ResultsFolder,"Results_"+resultsName+".pickle"))
-
-    return fitted
 
             
 def cleanUp(modelPopNames='',lengthnum=1000):

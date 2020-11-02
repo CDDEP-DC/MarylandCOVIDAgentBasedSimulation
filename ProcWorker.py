@@ -99,6 +99,8 @@ class ProcWorker:
             if os.path.exists(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle")):
                 self.ProcRegion = Utils.PickleFileRead(os.path.join(SavedRegionFolder,"Region"+str(self.name)+".pickle"))
                 print("Getting Region"+str(self.name)+".pickle")
+                self.RegionStats = copy.deepcopy(self.ProcRegion.savedStats)
+                self.CurrentHospOccList = copy.deepcopy(self.ProcRegion.savedOcc)
                 self.ProcRegion.resetParameters(GlobalLocations,PopulationParameters,DiseaseParameters,endTime)
             else:            
                 print("Prior data for Region"+str(self.name)+" is missing")
@@ -129,12 +131,10 @@ class ProcWorker:
         try:
             
             if os.path.exists(Folder):
+                self.ProcRegion.savedStats = copy.deepcopy(self.RegionStats)
+                self.ProcRegion.savedOcc = copy.deepcopy(self.CurrentHospOccList)
                 Utils.PickleFileWrite(os.path.join(Folder,"Region"+str(self.name)+".pickle"), self.ProcRegion)
-                RegionSaveStats = {}
-                RegionSaveStats['R0StatsList'] = copy.deepcopy(self.R0StatsList)
-                RegionSaveStats['AgeStatsList'] = copy.deepcopy(self.AgeStatsList)
-                RegionSaveStats['CurrentHospOccList'] = copy.deepcopy(self.CurrentHospOccList)
-                RegionSaveStats['RegionStats'] = copy.deepcopy(self.RegionStats)
+                
                 #Utils.PickleFileWrite(os.path.join(ParameterSet.SavedRegionFolder,FolderContainer,"RegionStats"+str(self.name)+".pickle"), RegionSaveStats)
             self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedsave", 0))
         except Exception as e:
@@ -188,8 +188,7 @@ class ProcWorker:
     def main_func(self, procdict):
         try:
             tend = int(procdict['tend'])
-            infectNumAgents = int(procdict['infectNumAgents'])
-            LPIDinfect = int(procdict['LPIDinfect'])
+            LPIDs = procdict['LPIDs']
             RegionReconciliationEvents = []
             
             ## Reconcile any off-region events
@@ -212,8 +211,8 @@ class ProcWorker:
             
             ## First run the preliminary infections   
             infop = []
-            if infectNumAgents > 0:
-                infop = self.ProcRegion.infectRandomAgents(tend,infectNumAgents,LPID=LPIDinfect)
+            if len(LPIDs) > 0:
+                infop = self.ProcRegion.infectRandomAgents(tend,LPIDs=LPIDs)
                 
             ## Main work done here in running forward one step    
             regionStats, offPopQueueEvents, numEvents, fitval = self.ProcRegion.runTimePeriod(tend)

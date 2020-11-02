@@ -33,7 +33,7 @@ def CompileResults(resultsName,modelPopNames,RegionalList,timeRange):
     results = {}
     for tend in timeRange:
         results[tend] = {}
-    
+
     for i in range(0,len(RegionalList)):
         regionVals = Utils.PickleFileRead(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"RegionStats.pickle"))
         for tend in timeRange:
