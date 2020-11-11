@@ -127,7 +127,8 @@ def main(argv):
                         for i in range(1,23):
                             nameval = 'Rand'+str(i)
                             humiditydata[dateval][nameval] = rows[headers.index(nameval)]
-
+            print("HumidityDataMaxDate:",maxdate)
+    
         except Exception as e:
             print("Humidity values error. Please confirm the Encounters file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
@@ -229,6 +230,7 @@ def main(argv):
                         historyCaseData[dateval][rows[headers.index('ZipCode')]] = {}
                         historyCaseData[dateval][rows[headers.index('ZipCode')]]['ReportedNewCases'] = rows[headers.index('ReportedNewCases')]
                         historyCaseData[dateval][rows[headers.index('ZipCode')]]['EstimatedMildCases'] = rows[headers.index('EstimatedMildCases')]
+            
         except Exception as e:
             print("History values error. Please confirm the history case file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
