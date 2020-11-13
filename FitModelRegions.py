@@ -103,14 +103,16 @@ def main(argv):
                         if dateval not in humiditydata.keys():
                             humiditydata[dateval] = {}
                         humiditydata[dateval]['ReportDateVal'] = testdate
-                        humiditydata[dateval]['mean'] = rows[headers.index('absolutehumidityaverage')]
-                        humiditydata[dateval]['min'] = rows[headers.index('Min')]
-                        humiditydata[dateval]['max'] = rows[headers.index('Max')]
+                        for i in range(1,23):
+                            nameval = 'Rand'+str(i)
+                            humiditydata[dateval][nameval] = rows[headers.index(nameval)]
+            print("HumidityDataMaxDate:",maxdate)
+    
         except Exception as e:
-            print("Humidity values error. Please confirm the Encounters file exists and is correctly specified")
+            print("Humidity values error. Please confirm the Humidity file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
                 print(traceback.format_exc())
-            exit()    
+            exit()  
     
         
     # load the essentialvisit file

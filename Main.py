@@ -130,7 +130,7 @@ def main(argv):
             print("HumidityDataMaxDate:",maxdate)
     
         except Exception as e:
-            print("Humidity values error. Please confirm the Encounters file exists and is correctly specified")
+            print("Humidity values error. Please confirm the Humidity file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
                 print(traceback.format_exc())
             exit()    
