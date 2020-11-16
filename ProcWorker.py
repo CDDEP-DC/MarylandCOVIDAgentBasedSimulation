@@ -158,8 +158,10 @@ class ProcWorker:
                     self.initHistory(item.msg)
                 elif item.msg_type == "saveregion":
                     self.saveRegion(item.msg)
-                else:
+                elif item.msg_type == "startevent":
                     self.main_func(item.msg)
+                elif item.msg_type == "reconciliation":
+                    self.reconciliation(item.msg,reply=True)    
                     
 
     def startup(self):
@@ -185,29 +187,30 @@ class ProcWorker:
                 print(traceback.format_exc())
             exit()
         
+    def reconciliation(self,msg,reply=False):
+        RegionReconciliationEvents = []
+        
+        ## Reconcile any off-region events        
+        try:
+            RegionReconciliationEvents = Utils.PickleFileRead(os.path.join(ParameterSet.QueueFolder,str(self.modelPopNames)+str(self.name)+"Queue.pickle"))
+        except:
+           RegionReconciliationEvents = [] 
+        try:
+            os.remove(os.path.join(ParameterSet.QueueFolder,str(self.modelPopNames)+str(self.name)+"Queue.pickle"))
+        except:
+            pass
+        if len(RegionReconciliationEvents) > 0:
+            self.ProcRegion.addEventsFromOtherLocalPopulations(RegionReconciliationEvents)
+            RegionReconciliationEvents.clear()
+        if reply:
+            self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedrec", "all done"))    
+            
     def main_func(self, procdict):
         try:
             tend = int(procdict['tend'])
             LPIDs = procdict['LPIDs']
-            RegionReconciliationEvents = []
             
-            ## Reconcile any off-region events
-            if ParameterSet.UseQueuesForQueues:
-                if len(self.RegionReconciliationEvents) > 0:
-                    self.ProcRegion.addEventsFromOtherLocalPopulations(self.RegionReconciliationEvents)
-                self.RegionReconciliationEvents.clear()
-            else:
-                try:
-                    RegionReconciliationEvents = Utils.PickleFileRead(os.path.join(ParameterSet.QueueFolder,str(self.modelPopNames)+str(self.name)+"Queue.pickle"))
-                except:
-                   RegionReconciliationEvents = [] 
-                try:
-                    os.remove(os.path.join(ParameterSet.QueueFolder,str(self.modelPopNames)+str(self.name)+"Queue.pickle"))
-                except:
-                    pass
-                if len(RegionReconciliationEvents) > 0:
-                    self.ProcRegion.addEventsFromOtherLocalPopulations(RegionReconciliationEvents)
-                    RegionReconciliationEvents.clear()
+            self.reconciliation(procdict,reply=False)
             
             ## First run the preliminary infections   
             infop = []
@@ -242,6 +245,7 @@ class ProcWorker:
             
             # Reconcile the current region events 
             offRegionEvents = []
+            RegionReconciliationEvents = []
             for QE in offPopQueueEvents:
                 if self.name == QE.RegionId:
                     RegionReconciliationEvents.append(QE) 

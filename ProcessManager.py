@@ -276,7 +276,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     initinfect[rnum][-1] = int(DiseaseParameters['ImportationRate'])
             
             
-            offPopQueueEvents = []
+            #offPopQueueEvents = [] // delete
             curhospitalizations = 0
             curdeaths = 0
             curcases = 0
@@ -289,43 +289,8 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     else:
                         procdict['LPIDs'] = {}        
                     eventqueues[i].safe_put(GBQueue.EventMessage("main", "startevent", procdict))
-                allprocsdone = False
-                doneprocs = [0]*len(RegionalList)
                 
-                MAX_PROCESS_WAIT_SECS = 600.0
-                tstart = time.time()
-                while not allprocsdone:
-                    item = responseq.safe_get()
-                    if not item:
-                        t2 = time.time()
-                        if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
-                            endRun(procs, eventqueues)
-                            exit()
-                        continue
-                    else:
-                        #print(f"MainWorker.main_loop received '{item}' message")
-                        if item.msg_type == "finishedrun":
-                            doneprocs[item.msg_src] = 1
-                            fitval = item.msg
-                            curhospitalizations += fitval[0]
-                            curdeaths += fitval[1]
-                            curcases += fitval[2]
-                            
-                        if item.msg_type == "offPopQueueEvent":
-                            offPopQueueEvents.append(item.msg)        
-                        
-                        if item.msg_type == "FATAL":
-                            endRun(procs, eventqueues)
-                            for i in range(0,1000):
-                                item = responseq.safe_get()
-                            responseq.drain()
-                            responseq.safe_close()
-                            time.sleep(2) ## add here to let all the procs exit
-                            exit()
-                                                    
-                        if sum(doneprocs) == len(RegionalList):
-                            allprocsdone = True
-                            break
+                curhospitalizations,curdeaths,curcases = RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases)
             except BaseException as exc:
                 # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
                 #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
@@ -338,6 +303,24 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     raise Exception("Known error while running models")
                 else:
                     raise Exception("UNKNOWN error while running models")
+                    
+            # Reconciliation ------------------------------------------------------------------------
+            try: 
+                ReconcileOffPopQueueEvents(RegionalList,modelPopNames)
+                for i in range(0,len(RegionalList)):
+                    eventqueues[i].safe_put(GBQueue.EventMessage("main", "reconciliation", "Reconcile Msg"))
+                curhospitalizations,curdeaths,curcases = RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases)
+                
+            except BaseException as exc:
+            # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
+                print(f"Reconcilining Exception Shutdown: {exc}")
+                responseq.drain()
+                responseq.safe_close()
+                if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
+                    raise Exception("Known error while reconciling queues")
+                else:
+                    raise Exception("UNKNOWN error while reconciling queues")
+            #-------------------------------------------------------------------------
             
             fitinfo = {}
             
@@ -391,36 +374,8 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     try:
                         for i in range(0,len(RegionalList)):
                             eventqueues[i].safe_put(GBQueue.EventMessage("Main", "saveregion", os.path.join(SavedRegionFolder,FolderContainer)))
-                        allprocsdone = False
-                        doneprocs = [0]*len(RegionalList)
+                        curhospitalizations,curdeaths,curcases = RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases)
                         
-                        MAX_PROCESS_WAIT_SECS = 600.0
-                        tstart = time.time()
-                        while not allprocsdone:
-                            item = responseq.safe_get()
-                            if not item:
-                                t2 = time.time()
-                                if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
-                                    endRun(procs, eventqueues)
-                                    exit()
-                                continue
-                            else:
-                                #print(f"MainWorker.main_loop received '{item}' message")
-                                if item.msg_type == "finishedsave":
-                                    doneprocs[item.msg_src] = 1
-                                                                       
-                                if item.msg_type == "FATAL":
-                                    endRun(procs, eventqueues)
-                                    for i in range(0,1000):
-                                        item = responseq.safe_get()
-                                    responseq.drain()
-                                    responseq.safe_close()
-                                    time.sleep(2) ## add here to let all the procs exit
-                                    exit()
-                                                            
-                                if sum(doneprocs) == len(RegionalList):
-                                    allprocsdone = True
-                                    break
                     except BaseException as exc:
                         # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
                         #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
@@ -435,57 +390,6 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                             raise Exception("UNKNOWN error while  saving regions")    
                 break
             
-            ## Get all the Reconcilliation events
-            try:
-                if ParameterSet.UseQueuesForQueues:
-                    for QE in offPopQueueEvents:
-                        Rid = QE.RegionId
-                        eventqueues[Rid].safe_put(EventMessage("main", "offPopQueueEvent", QE))
-                    offPopQueueEvents.clear()
-                    
-                else:
-                    RegionReconciliationEvents = {} 
-                    testRegionValues = {} 
-                    for i in range(0,len(RegionalList)):
-                        testRegionValues[i] = 0
-                        RegionReconciliationEvents[i] = []
-                        
-                    # Now get the off-pop queues
-                    for i in range(0,len(RegionalList)):
-                        testRegionValues[i] = 0
-                        RegionReconciliationEvents[i] = []
-                        try:
-                            OPQE = Utils.PickleFileRead(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"))
-                        except:
-                           OPQE = None 
-                        if OPQE:
-                            offPopQueueEvents.extend(OPQE)
-                        try:
-                            os.remove(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"))
-                        except:
-                            pass
-                
-                    for QE in offPopQueueEvents:
-                        Rid = QE.RegionId
-                        testRegionValues[Rid]+=1
-                        RegionReconciliationEvents[Rid].append(QE) 
-                    offPopQueueEvents.clear()    
-                    
-                    for i in range(0,len(RegionalList)):
-                        if testRegionValues[i] > 0:
-                            Utils.PickleFileWrite(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"), RegionReconciliationEvents[i])
-                            
-            except BaseException as exc:
-                # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
-                #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
-                print(f"Reconcilining Exception Shutdown: {exc}")
-                responseq.drain()
-                responseq.safe_close()
-                if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
-                    raise Exception("Known error while reconciling queues")
-                else:
-                    raise Exception("UNKNOWN error while reconciling queues")
-                
             
                 
             if ParameterSet.logginglevel == 'debug':
@@ -517,8 +421,83 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
         fitinfo['numFitCases'] = numFitCases  
           
     return RegionalList, timeRangeFull, fitinfo
+    
+def RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases):
+    
+    allprocsdone = False
+    doneprocs = [0]*len(RegionalList)
+    MAX_PROCESS_WAIT_SECS = 600.0
+    tstart = time.time()
+    while not allprocsdone:
+        item = responseq.safe_get()
+        if not item:
+            t2 = time.time()
+            if (t2 - tstart) > MAX_PROCESS_WAIT_SECS:
+                endRun(procs, eventqueues)
+                exit()
+            continue
+        else:
+            #print(f"MainWorker.main_loop received '{item}' message")
+            if item.msg_type == "finishedrun":
+                doneprocs[item.msg_src] = 1
+                fitval = item.msg
+                curhospitalizations += fitval[0]
+                curdeaths += fitval[1]
+                curcases += fitval[2]
+                
+            if item.msg_type == "finishedrec" or item.msg_type == "finishedsave":
+                doneprocs[item.msg_src] = 1
+            
+            if item.msg_type == "FATAL":
+                endRun(procs, eventqueues)
+                for i in range(0,1000):
+                    item = responseq.safe_get()
+                responseq.drain()
+                responseq.safe_close()
+                time.sleep(2) ## add here to let all the procs exit
+                exit()
+                                        
+            if sum(doneprocs) == len(RegionalList):
+                allprocsdone = True
+                break        
+    return curhospitalizations,curdeaths,curcases
+    
+def ReconcileOffPopQueueEvents(RegionalList,modelPopNames):
+    ## Get all the Reconcilliation events
+    
+    offPopQueueEvents = []
+    RegionReconciliationEvents = {} 
+    testRegionValues = {} 
+    for i in range(0,len(RegionalList)):
+        testRegionValues[i] = 0
+        RegionReconciliationEvents[i] = []
         
+    # Now get the off-pop queues
+    for i in range(0,len(RegionalList)):
+        testRegionValues[i] = 0
+        RegionReconciliationEvents[i] = []
+        try:
+            OPQE = Utils.PickleFileRead(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"))
+        except:
+           OPQE = None 
+        if OPQE:
+            offPopQueueEvents.extend(OPQE)
+        try:
+            os.remove(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"))
+        except:
+            pass
 
+    for QE in offPopQueueEvents:
+        Rid = QE.RegionId
+        testRegionValues[Rid]+=1
+        RegionReconciliationEvents[Rid].append(QE) 
+    
+    for i in range(0,len(RegionalList)):
+        if testRegionValues[i] > 0:
+            Utils.PickleFileWrite(os.path.join(ParameterSet.QueueFolder,str(modelPopNames)+str(i)+"Queue.pickle"), RegionReconciliationEvents[i])
+                    
+        
+    
     
 def fittingAnalysis(numFitDeaths,numFitHospitalizations,numFitCases,hospitalizations,deaths,cases,tend,fitdates,fitper):
     # This does the fitting process if fitting values are enabled and passed in
