@@ -42,6 +42,9 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     DiseaseParameters['InterventionStartEndLiftCalcDays'] = int(interventions[intname]['InterventionStartEndLiftCalcDays'])
     DiseaseParameters['finaldate'] = int(interventions[intname]['finaldate'])
     DiseaseParameters['InterventionEndPerIncrease'] = interventions[intname]['InterventionEndPerIncrease']
+    DiseaseParameters['IntPerDec'] = interventions[intname]['IntPerDec']
+    DiseaseParameters['IntStartDate'] = interventions[intname]['IntStartDate']
+    DiseaseParameters['IntEndDate'] = interventions[intname]['IntEndDate']
 
     startingprobdate = 0
     
@@ -59,7 +62,7 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     encvals = []
     intnumval = []
     
-    numdays = 90
+    numdays = DiseaseParameters['InterventionStartEndLiftCalcDays'] - DiseaseParameters['InterventionStartEndLift']
     intinc = float(DiseaseParameters['InterventionEndPerIncrease'])
     addvalint = intinc / numdays
     minmaxmean = random.random()
@@ -70,24 +73,39 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
         if humiditydata[ahdate]['ReportDateVal'] >= DiseaseParameters['startdate'] and humiditydata[ahdate]['ReportDateVal'] <= DiseaseParameters['enddate']:
             ahvals.append(humiditydata[ahdate][ahdateval])
             
-    addingval = 1
-    
+    addingval = 0
+    intval = 0
+    intPerDec = float(DiseaseParameters['IntPerDec'])
     for encdate in encountersdata.keys():
         if encountersdata[encdate]['Date'] >= DiseaseParameters['startdate'] and encountersdata[encdate]['Date'] <= DiseaseParameters['enddate']:
             encvals.append(encountersdata[encdate]['VisitEnc'])
-            if (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['InterventionStartEndLiftCalcDays']:
-                addingval += addvalint
-                if addingval > (1+intinc):
-                    addingval = 1+intinc
+            if (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['IntEndDate']:
+                addingval -= intPerDec / 7.0
+                if addingval > 0:
+                    addingval = 0
                 intnumval.append(addingval)
-            elif (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['InterventionStartEndLift']:
-                addingval += 1.5/82
-                if addingval > 1.5:
-                    addingval = 1+intinc
+            elif (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['IntStartDate']:
+                addingval += intPerDec / 7.0
+                if addingval < intPerDec:
+                    addingval = intPerDec
                 intnumval.append(addingval)
             else:
-                intnumval.append(1)
-                    
+                intnumval.append(addingval)
+                
+            #if (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['InterventionStartEndLiftCalcDays']:
+            #    addingval += addvalint
+            #    if addingval > (1+intinc):
+            #        addingval = 1+intinc
+            #    intnumval.append(addingval)
+            #elif (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['InterventionStartEndLift']:
+            #    addingval += 1.5/82
+            #    if addingval > 1.5:
+            #        addingval = 1+intinc
+            #    intnumval.append(addingval)
+            #else:
+            #    intnumval.append(1)
+    
+    
     probtrans = DiseaseParameters['ProbabilityOfTransmissionPerContact']	
     probtransscale = probtrans/(1/float(ahvals[0]))
     #if DiseaseParameters['humidityversion'] < 0:
@@ -101,11 +119,7 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     version = 1    
     print(DiseaseParameters['humidityversion'], version)
     for i in range(0,len(ahvals)):
-        if version == 0:
-            transprobval = 1/float(ahvals[i])*probtransscale*(1+float(encvals[i])*intnumval[i])
-        else:
-            transprobval = (1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale*(1+float(encvals[i])*intnumval[i])
-            
+        transprobval = (1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale*(1+float(encvals[i])+intnumval[i])            
         if transprobval < .001:
             transprobval = .001
         DiseaseParameters['TransProb'].append(transprobval)
@@ -475,7 +489,7 @@ def InterventionsParameters(Model,intfilename,startdate,submodel=''):
     
     intdatevals = ['InterventionDate','SchoolCloseDate','SchoolOpenDate','InterventionStartReductionDate',
                     'InterventionStartReductionDateCalcDays','InterventionStartEndLift','InterventionStartEndLiftCalcDays'
-                    ,'QuarantineStartDate','TestingAvailabilityDateHosp','TestingAvailabilityDateComm','finaldate']
+                    ,'QuarantineStartDate','TestingAvailabilityDateHosp','TestingAvailabilityDateComm','finaldate','IntStartDate','IntEndDate']
 
     interventions = {}
     try:
@@ -508,7 +522,7 @@ def InterventionsParameters(Model,intfilename,startdate,submodel=''):
             print(traceback.format_exc())
         exit()   
     
-        
+    #print(interventions)   
     return interventions
 
 

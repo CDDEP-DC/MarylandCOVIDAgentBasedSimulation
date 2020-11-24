@@ -62,133 +62,21 @@ def main(argv):
             print(traceback.format_exc())
         exit()
     
+    
     # check that the model exists
-    try:
-        ModelFileInfo = os.path.join('data','Models.csv')
-        modelfound = False
-        with open(ModelFileInfo, mode='r') as infile:
-            reader = csv.reader(infile)
-            headers = next(reader)            
-            ModelFileData = {}
-            for rows in reader:
-                modelname = rows[headers.index('Model')]
-                if modelname == Model:
-                    modelvals = {}
-                    for i in range(0,len(headers)):
-                        if headers[i] == 'startdate':
-                            startdate = Utils.dateparser(rows[i])
-                        elif headers[i] == 'enddate':
-                            enddate = Utils.dateparser(rows[i])
-                        else:
-                            modelvals[headers[i]] = rows[i]
-                            
-                    if int(modelvals['UseHospital']) == 0:
-                        ParameterSet.SaveHospitalData = False
-                    if startdate > enddate:
-                        print("Parameter input error. Start date is greater than end date. Please correct in the parameters file.")
-                        raise Exception("Parameter Error")
-                    modelfound = True
-        if not modelfound:
-            print("Specified model does not exist. Please ensure that the model is correctly specified in the Models.csv file")
-            raise("Model not found error")
-    except:
-        print("Model input error. Please confirm the Models.csv file exists and is correctly specified")
-        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
-            print(traceback.format_exc())
-        exit()
+    modelvals,startdate,enddate = Utils.getModelVals(Model)
+    
     
     # load the humidity data
-    humiditydata = {}
-    if os.path.exists(os.path.join('data',Model,modelvals['humiditydatafile'])):
-        try: 
-            mindate = Utils.dateparser('2030-12-31')
-            maxdate = Utils.dateparser('1976-05-31')
-            maxdatestr = ''
-            with open(os.path.join('data',Model,modelvals['humiditydatafile']),mode='r') as infile:
-                reader = csv.reader(infile)      
-                headers = next(reader,None)
-                for rows in reader:
-                    dateval = rows[headers.index('Date')]
-                    addrow = False
-                    try:
-                        testdate = Utils.dateparser(dateval)
-                        addrow = True
-                    except:
-                        pass
-                    if addrow:
-                        if testdate < mindate:
-                            mindate = testdate
-                        if testdate > maxdate:
-                            maxdate = testdate
-                            maxdatestr = dateval
-                        if dateval not in humiditydata.keys():
-                            humiditydata[dateval] = {}
-                        humiditydata[dateval]['ReportDateVal'] = testdate
-                        for i in range(1,23):
-                            nameval = 'Rand'+str(i)
-                            humiditydata[dateval][nameval] = rows[headers.index(nameval)]
-            print("HumidityDataMaxDate:",maxdate)
-    
-        except Exception as e:
-            print("Humidity values error. Please confirm the Humidity file exists and is correctly specified")
-            if ParameterSet.logginglevel == "debug":
-                print(traceback.format_exc())
-            exit()    
-    
+    humiditydata = Utils.getHumidityData(Model,modelvals)
+            
         
     # load the essentialvisit file
-    encountersdata = {}
-    if os.path.exists(os.path.join('data',Model,modelvals['encountersfile'])):
-        try: 
-            mindate = Utils.dateparser('2030-12-31')
-            maxdate = Utils.dateparser('1976-05-31')
-            maxdatestr = ''
-            with open(os.path.join('data',Model,modelvals['encountersfile']),mode='r') as infile:
-                reader = csv.reader(infile)      
-                headers = next(reader,None)
-                for rows in reader:
-                    dateval = rows[headers.index('Date')]
-                    addrow = False
-                    try:
-                        testdate = Utils.dateparser(dateval)
-                        addrow = True
-                    except:
-                        pass
-                    if addrow:
-                        if testdate < mindate:
-                            mindate = testdate
-                        if testdate > maxdate:
-                            maxdate = testdate
-                            maxdatestr = dateval
-                        if dateval not in encountersdata.keys():
-                            encountersdata[dateval] = {}
-                        encountersdata[dateval]['Date'] = testdate
-                        encountersdata[dateval]['VisitEnc'] = rows[headers.index('VisitEnc')]
-                            
-        except Exception as e:
-            print("Encounters values error. Please confirm the Encounters file exists and is correctly specified")
-            if ParameterSet.logginglevel == "debug":
-                print(traceback.format_exc())
-            exit()    
-    
+    encountersdata = Utils.getEncountersData(Model,modelvals)
+
+        
     # Load the parameters
-    input_df = None
-    try:
-        ParametersFileName = os.path.join('data','Parameters.csv')
-        with open(ParametersFileName, mode='r') as infile:
-            reader = csv.reader(infile)
-            ParametersInputData = {}
-            for rows in reader:
-                minmaxvals = {}                    
-                minmaxvals['min'] = rows[1]
-                minmaxvals['max'] = rows[2]
-                ParametersInputData[rows[0]] = minmaxvals
-                
-    except Exception as e:
-        print("Parameter input error. Please confirm the parameter file exists and is correctly specified")
-        if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
-            print(traceback.format_exc())
-        exit()
+    ParametersInputData = Utils.getParametersFile()
     
     ##### Do not delete
     modelPopNames = 'ZipCodes' # variable for namic files, is not important what it is - this left here for compatibility - deprecated
@@ -196,78 +84,7 @@ def main(argv):
     
     
     #### For loading history data to start at
-    historyCaseData = {}
-    currentHospitalData = []
-    if ParameterSet.LoadHistory:
-        if not os.path.exists(os.path.join('data',Model,modelvals['historyCaseFile'])):
-            print("Case history file does not exists")
-            exit()
-            
-        try: 
-            mindate = Utils.dateparser('2030-12-31')
-            maxdate = Utils.dateparser('1976-05-31')
-            maxdatestr = ''
-            with open(os.path.join('data',Model,modelvals['historyCaseFile']),mode='r') as infile:
-                reader = csv.reader(infile)      
-                headers = next(reader,None)
-                for rows in reader:
-                    dateval = rows[headers.index('ReportDate')]
-                    addrow = False
-                    try:
-                        testdate = Utils.dateparser(dateval)
-                        addrow = True
-                    except:
-                        pass
-                    if addrow:
-                        if testdate < mindate:
-                            mindate = testdate
-                        if testdate > maxdate:
-                            maxdate = testdate
-                            maxdatestr = dateval
-                        if dateval not in historyCaseData.keys():
-                            historyCaseData[dateval] = {}
-                        historyCaseData[dateval]['ReportDateVal'] = testdate
-                        historyCaseData[dateval][rows[headers.index('ZipCode')]] = {}
-                        historyCaseData[dateval][rows[headers.index('ZipCode')]]['ReportedNewCases'] = rows[headers.index('ReportedNewCases')]
-                        historyCaseData[dateval][rows[headers.index('ZipCode')]]['EstimatedMildCases'] = rows[headers.index('EstimatedMildCases')]
-            
-        except Exception as e:
-            print("History values error. Please confirm the history case file exists and is correctly specified")
-            if ParameterSet.logginglevel == "debug":
-                print(traceback.format_exc())
-            exit()       	
-
-        if os.path.exists(os.path.join('data',Model,modelvals['currentHospitalFile'])):            
-            try: 
-                currentHospitalData = {}
-                with open(os.path.join('data',Model,modelvals['currentHospitalFile']),mode='r') as infile:
-                    reader = csv.reader(infile)   
-                    headers = next(reader,None)   
-                    for rows in reader:
-                        currentHospitalData[rows[headers.index('ProviderNames')]] = int(rows[headers.index('Pats')])
-                
-                
-                historyCaseData['currentHospitalData'] = {}
-                
-                ComHosAdj = pd.read_csv(os.path.join("data",Model,modelvals['HospitalMatrixFile']), index_col=0)
-                
-                
-                for hosp in currentHospitalData.keys():
-                    curVal = currentHospitalData[hosp]
-                    hospperlist = ComHosAdj[hosp].tolist()
-                    while curVal > 0:
-                        j = Utils.Multinomial(hospperlist)
-                        if str(list(ComHosAdj.index.values)[j]) in historyCaseData['currentHospitalData']:
-                            historyCaseData['currentHospitalData'][str(list(ComHosAdj.index.values)[j])] += 1
-                        else:
-                            historyCaseData['currentHospitalData'][str(list(ComHosAdj.index.values)[j])] = 1
-                        curVal -= 1
-                                               
-            except Exception as e:
-                print("History hospital values error. Please confirm the hospital history data file exists and is correctly specified")
-                if ParameterSet.logginglevel == "debug":
-                    print(traceback.format_exc())
-                exit()       	
+    historyCaseData,currentHospitalData = Utils.getHistoryData(Model,modelvals)
                 
     # This sets the interventions
     interventions = ParameterInput.InterventionsParameters(Model,modelvals['intfile'],startdate)
