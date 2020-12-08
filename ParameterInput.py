@@ -45,6 +45,7 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     DiseaseParameters['IntPerDec'] = interventions[intname]['IntPerDec']
     DiseaseParameters['IntStartDate'] = interventions[intname]['IntStartDate']
     DiseaseParameters['IntEndDate'] = interventions[intname]['IntEndDate']
+    DiseaseParameters['InterventionRestType'] = interventions[intname]['RestType']
 
     startingprobdate = 0
     
@@ -78,7 +79,16 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     intPerDec = float(DiseaseParameters['IntPerDec'])
     for encdate in encountersdata.keys():
         if encountersdata[encdate]['Date'] >= DiseaseParameters['startdate'] and encountersdata[encdate]['Date'] <= DiseaseParameters['enddate']:
-            encvals.append(encountersdata[encdate]['VisitEnc'])
+            if DiseaseParameters['InterventionRestType'] == 'RestNum50':
+                estmatevals = (float(encountersdata[encdate]['VisitEnc'])*80 + float(encountersdata[encdate]['RestNum50'])*20)/100
+            elif DiseaseParameters['InterventionRestType'] == 'RestNum25':
+                estmatevals = (float(encountersdata[encdate]['VisitEnc'])*80 + float(encountersdata[encdate]['RestNum25'])*20)/100
+            elif DiseaseParameters['InterventionRestType'] == 'RestNumClosed':
+                estmatevals = (float(encountersdata[encdate]['VisitEnc'])*80 + float(encountersdata[encdate]['RestNumClosed'])*20)/100
+            else:
+                estmatevals = float(encountersdata[encdate]['VisitEnc'])
+                
+            encvals.append(estmatevals)
             if (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['IntEndDate']:
                 addingval -= intPerDec / 7.0
                 if addingval > 0:
@@ -122,8 +132,10 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
         transprobval = (1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale*(1+float(encvals[i])+intnumval[i])            
         if transprobval < .001:
             transprobval = .001
-        DiseaseParameters['TransProb'].append(transprobval)
-        DiseaseParameters['TransProbLow'].append(transprobval)
+        transprobvallow = transprobval*.5
+        transprobvalhigh = (transprobval - transprobvallow*.4)/.6
+        DiseaseParameters['TransProb'].append(transprobvalhigh)
+        DiseaseParameters['TransProbLow'].append(transprobvallow)
         DiseaseParameters['TransProbSchool'].append(transprobval)
     
     for i in range(0,interventions[intname]['InterventionStartReductionDate']):

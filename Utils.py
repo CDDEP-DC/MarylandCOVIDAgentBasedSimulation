@@ -381,12 +381,26 @@ def getEncountersData(Model,modelvals):
                             encountersdata[dateval] = {}
                         encountersdata[dateval]['Date'] = testdate
                         encountersdata[dateval]['VisitEnc'] = rows[headers.index('VisitEnc')]
+                        try:
+                            encountersdata[dateval]['RestNum50'] = rows[headers.index('RestNum50')]
+                        except:
+                            encountersdata[dateval]['RestNum50'] = 0
+                        try:
+                            encountersdata[dateval]['RestNum25'] = rows[headers.index('RestNum25')]
+                        except:
+                            encountersdata[dateval]['RestNum25'] = 0
+                        try:
+                            encountersdata[dateval]['RestNumClosed'] = rows[headers.index('RestNumClosed')]
+                        except:
+                            encountersdata[dateval]['RestNumClosed'] = 0
+
                             
         except Exception as e:
             print("Encounters values error. Please confirm the Encounters file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":
                 print(traceback.format_exc())
             exit()    
+    
     return encountersdata
 
 def getParametersFile():

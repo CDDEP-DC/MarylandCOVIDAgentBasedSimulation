@@ -72,7 +72,7 @@ def main(argv):
         print("Error! Invalid fit file. Cannot find: '" + modelvals['FitValFile'] + "'. Please check that file exists and try running again!")
         exit()
     
-    ParameterVals = FitModelInits.getFitModelParameters(Model,ParameterSet.FitModelRuns,append=True)
+    ParameterVals = FitModelInits.getFitModelParameters(Model,ParameterSet.FitModelRuns,append=False)
     
     if len(ParameterVals) < 1:
         print("Error creating parametervals for fitting")
@@ -125,7 +125,7 @@ def main(argv):
             if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
                 print(traceback.format_exc())
                 
-        PERIOD_OF_TIME = 39600 # 11 hours
+        PERIOD_OF_TIME = 25200 #7 39600 # 11 hours
     
         if time.time() > starttimer + PERIOD_OF_TIME : exit()         
             

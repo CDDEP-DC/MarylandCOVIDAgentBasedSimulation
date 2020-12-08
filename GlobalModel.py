@@ -251,7 +251,7 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
         GL = GlobalLocationSetup.\
             GlobalLocationSetup(G, PopulationData[G], HHSizeDist,HHSizeAgeDist, 
                                 DiseaseParameters, LPNames[G],RegionalNames[G],
-                                (1-BAProportion[G])+HealthcareWorkerPercent[G],NursingCareFacilities[G]+AssistedLivingFacilities[G]+LTCF[G],newdeclinevals,newdeclinevalsLow)
+                                BAProportion[G]-HealthcareWorkerPercent[G],NursingCareFacilities[G]+AssistedLivingFacilities[G]+LTCF[G],newdeclinevals,newdeclinevalsLow)
         GlobalLocations.append(GL)
     print("Loaded Populations")    
     return PopulationData, InteractionMatrix, HospitalTransitionRate, HospitalColNames,GlobalLocations

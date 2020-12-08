@@ -239,6 +239,7 @@ def main(argv):
                 DiseaseParameters['TransProbSchool'] = copy.deepcopy(DiseaseParametersCur['TransProbSchool'])
                 DiseaseParameters['InterventionMobilityEffect'] = copy.deepcopy(DiseaseParametersCur['InterventionMobilityEffect'])
                 DiseaseParameters['InterventionDate'] = interventions[key]['InterventionStartReductionDate']
+                DiseaseParameters['RestType'] = interventions[key]['RestType']
                 DiseaseParameters['QuarantineType'] = interventions[key]['QuarantineType']
 
                 DiseaseParameters['TestingAvailabilityDateHosp'] = interventions[key]['TestingAvailabilityDateHosp']
@@ -278,7 +279,7 @@ def main(argv):
             
             fitted = fitinfo['fitted']
             
-            PERIOD_OF_TIME = 39600 # 11 hours
+            PERIOD_OF_TIME = 36000 # 10 hours
     
             if time.time() > starttimer + PERIOD_OF_TIME : exit()   
                
