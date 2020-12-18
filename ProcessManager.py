@@ -413,7 +413,6 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             
             if (len(hospitalizations) > 0 or len(deaths) > 0 or len(cases) > 0) and tend == max(fitdates):
                 SLSH, SLSD, SLSC, avgperdiffhosp, avgperdiffdeaths, avgperdiffcases, fitted = fittingAnalysis(numFitDeaths,numFitHospitalizations,numFitCases,hospitalizations,deaths,cases,tend,fitdates,fitper)
-                fitted = True
                 fitinfo['SLSH'] = SLSH
                 fitinfo['SLSD'] = SLSD
                 fitinfo['SLSC'] = SLSC
