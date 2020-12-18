@@ -49,6 +49,7 @@ import FitModelInits
 
 def main(argv):
         
+    
     import time
 
     starttimer = time.time()
@@ -85,7 +86,7 @@ def main(argv):
     
     #### For loading history data to start at
     historyCaseData,currentHospitalData = Utils.getHistoryData(Model,modelvals)
-                
+    
     # This sets the interventions
     interventions = ParameterInput.InterventionsParameters(Model,modelvals['intfile'],startdate)
     if len(interventions) == 0:
@@ -241,6 +242,8 @@ def main(argv):
                 DiseaseParameters['InterventionDate'] = interventions[key]['InterventionStartReductionDate']
                 DiseaseParameters['RestType'] = interventions[key]['RestType']
                 DiseaseParameters['QuarantineType'] = interventions[key]['QuarantineType']
+                DiseaseParameters['TransProb_AH'] = copy.deepcopy(DiseaseParametersCur['TransProb_AH'])
+                DiseaseParameters['TransProb_intnumval'] = copy.deepcopy(DiseaseParametersCur['TransProb_intnumval'])
 
                 DiseaseParameters['TestingAvailabilityDateHosp'] = interventions[key]['TestingAvailabilityDateHosp']
                 DiseaseParameters['TestingAvailabilityDateComm'] = interventions[key]['TestingAvailabilityDateComm']

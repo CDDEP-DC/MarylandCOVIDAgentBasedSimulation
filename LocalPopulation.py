@@ -662,41 +662,38 @@ class LocalPopulation:
         numpriorcases = 0
         numnewcases = 0
         for reportdate in LPHistory.keys():
-            if reportdate == 'currentHospitalData':
-                pass            
-            else:
-                numinfected = int(LPHistory[reportdate]['ReportedNewCases'])+int(LPHistory[reportdate]['EstimatedMildCases'])
-                if LPHistory[reportdate]['timeval'] < -4:            
-                    numpriorcases += numinfected
-                    confirmedcases += int(LPHistory[reportdate]['ReportedNewCases'])
-                    while numinfected > 0:
-                        HHID = -1
-                        while HHID < 0:
-                            person = random.randint(0,self.npersons-1)
-                            if person < (self.DefinedAgents+self.EphermeralAgents):
-                                if person < self.DefinedAgents:
-                                    HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
-                            else:
-                                HHID = self.BuildSingleHousehold()
-                            pid = self.hhset[HHID].getRandomAgent()
-                            if self.hhset[HHID].getHouseholdPersonStatus(pid) != ParameterSet.Susceptible:
-                                HHID=-1
-                        
-                        
-                        if random.random() < .005:
-                            self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
-                            self.numDead += 1
+            numinfected = int(LPHistory[reportdate]['ReportedNewCases'])+int(float(LPHistory[reportdate]['EstimatedMildCases'])*1.5)
+            if LPHistory[reportdate]['live'] == 0:            
+                numpriorcases += numinfected
+                confirmedcases += int(LPHistory[reportdate]['ReportedNewCases'])
+                while numinfected > 0:
+                    HHID = -1
+                    while HHID < 0:
+                        person = random.randint(0,self.npersons-1)
+                        if person < (self.DefinedAgents+self.EphermeralAgents):
+                            if person < self.DefinedAgents:
+                                HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
                         else:
-                            self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Recovered)
-                            self.numRecovered += 1
-                        
-                        self.numSusceptible -= 1
-                        numinfected -= 1
-                else:
-                    numnewcases += numinfected
-                    op = self.setCurrentCases(numinfected,LPHistory[reportdate]['timeval'])
-                    offPopQueueEvents.extend(op)       
-                
+                            HHID = self.BuildSingleHousehold()
+                        pid = self.hhset[HHID].getRandomAgent()
+                        if self.hhset[HHID].getHouseholdPersonStatus(pid) != ParameterSet.Susceptible:
+                            HHID=-1
+                    
+                    
+                    if random.random() < .005:
+                        self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
+                        self.numDead += 1
+                    else:
+                        self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Recovered)
+                        self.numRecovered += 1
+                    
+                    self.numSusceptible -= 1
+                    numinfected -= 1
+            else:
+                numnewcases += numinfected
+                op = self.setCurrentCases(numinfected,LPHistory[reportdate]['timeval'])
+                offPopQueueEvents.extend(op)       
+            
         self.confirmedcases += confirmedcases
         return numpriorcases,numnewcases,offPopQueueEvents
         

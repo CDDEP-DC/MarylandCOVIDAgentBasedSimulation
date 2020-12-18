@@ -156,8 +156,7 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
     if DiseaseParameters['UseCountyLevel'] == 1:
         # Get the county level phonse use data if using
         dfPhoneData = pd.read_csv(os.path.join("data",ModelType,DiseaseParameters['CountyEncountersFile']), index_col = 'county_fips')
-        minval = abs(min(dfPhoneData['APRIL.mean']))+1
-    
+        print("Using County Level Data")
     
     # Now load the global locations
     GlobalLocations = []
@@ -169,84 +168,76 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
         
         if DiseaseParameters['UseCountyLevel'] == 1:
             
-            premean = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('PRE.mean')]+minval
-            aprilmean = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('APRIL.mean')]+minval
-            maylatest = dfPhoneData.loc[CountyFIP[G],:].values.tolist()[dfPhoneData.columns.tolist().index('LastWeek.mean')]+minval
+            countyrows = dfPhoneData.loc[CountyFIP[G],:]
+            visitrate = countyrows.iloc[:,dfPhoneData.columns.tolist().index('daily_visitation_diff')].values.tolist()
             
-            perreduc = (premean-aprilmean)/premean
-            perreducLow = perreduc*DiseaseParameters['InterventionReductionPerLow']
-            mayopen = ((premean-maylatest)/premean)*.5
-            if mayopen < 0:
-                mayopen = 0
-            #mayopenLow = mayopen*DiseaseParameters['InterventionReductionPerLow']    
+            unacaststdate = Utils.dateparser('2020-02-24')
+            day_count = (unacaststdate - DiseaseParameters['startdate']).days
             
-            #transmissonmodifier=1-math.exp(-premean/DiseaseParameters['pdscale1'])+math.log1p(PopulationDensity[G])/DiseaseParamet ers['pdscale2'] ## pdscale1 = .25  / pdscale2 = 50
-            transmissonmodifier = 1/(1+ DiseaseParameters['pdscale1']*math.exp(-1*DiseaseParameters['pdscale2']*PopulationDensity[G]))  ## pdscale1 = .25  / pdscale2 = .001
+            TransProbC = []
+            TransProbCLow = []
+            for i in range(0,day_count):
+                TransProbC.append(DiseaseParameters['TransProb'][i])
+                TransProbCLow.append(DiseaseParameters['TransProbLow'][i])
             
-            for i in range(0,DiseaseParameters['InterventionStartReductionDate']):
-                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier)
-                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier)
-            
-            intdays = int(DiseaseParameters['InterventionStartReductionDateCalcDays'])-int(DiseaseParameters['InterventionStartReductionDate'])    
-            intredred = perreduc/intdays
-            intredredLow = perreducLow/intdays
-            intredval = 1
-            intredvalLow = 1
-            
-            for i in range(int(DiseaseParameters['InterventionStartReductionDate']),int(DiseaseParameters['InterventionStartReductionDateCalcDays'])):
-                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
-                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
-                intredval -= intredred
-                intredvalLow -= intredredLow
-            
-            for i in range(int(DiseaseParameters['InterventionStartReductionDateCalcDays'])+1,int(DiseaseParameters['InterventionStartEndLift'])):
-                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
-                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
-            
-            OpenDateNow = (Utils.dateparser("2020-05-18") - DiseaseParameters['startdate']).days    
-            opendays = OpenDateNow - (int(DiseaseParameters['InterventionStartEndLift'])+1)
-            openinc = (((1-mayopen)-(1-perreduc))/opendays)*.5
-            #openincLow = ((1-mayopenLow)-(1-perreducLow))/opendays
-            
-            for i in range(int(DiseaseParameters['InterventionStartEndLift']+1),OpenDateNow):
-                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
-                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
-                intredval+=openinc
-                #intredvalLow+=openincLow
-            
-            RestOfOpenDays = int(DiseaseParameters['InterventionStartEndLiftCalcDays']) - OpenDateNow
-            lefttoincrease = (perreduc)*float(DiseaseParameters['InterventionEndPerIncrease']) - intredval
-            #lefttoincreaseLow = (perreducLow)*float(DiseaseParameters['InterventionEndPerIncrease']) - intredvalLow
-            #print(lefttoincrease,(perreduc),DiseaseParameters['InterventionEndPerIncrease'], intredval)
-            if lefttoincrease > 0:
-                openinc = lefttoincrease / RestOfOpenDays
-            else:
-                openinc = 0
-            
-            for i in range(OpenDateNow+1),int(DiseaseParameters['InterventionStartEndLiftCalcDays']):
-                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
-                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
-                intredval+=openinc
-                #intredvalLow+=openincLow
-                                          
-            opendays = (int(DiseaseParameters['finaldate']) - int(DiseaseParameters['InterventionStartEndLiftCalcDays']+1))
-            openinc = (1-intredval)/opendays
-            openincLow = (1-intredvalLow)/opendays
-            for i in range(int(DiseaseParameters['InterventionStartEndLiftCalcDays']+1),int(DiseaseParameters['finaldate'])):
-                newdeclinevals.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredval)    
-                newdeclinevalsLow.append(DiseaseParameters['ProbabilityOfTransmissionPerContact']*transmissonmodifier*intredvalLow)
-                intredval+=openinc
-                intredvalLow+=openincLow
+            lastseven = []
+            for i in range(0,len(visitrate)):
+                #DiseaseParameters['TransProb_AH'].append((1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale)
+                #DiseaseParameters['TransProb_intnumval'].append(intnumval[i])
+                day_count+=1
+                transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(visitrate[i])+DiseaseParameters['TransProb_intnumval'][day_count])            
+                if transprobval < .001:
+                    transprobval = .001
+                transprobvallow = transprobval*.5
+                transprobvalhigh = (transprobval - transprobvallow*.4)/.6
+                TransProbC.append(transprobvalhigh)
+                TransProbCLow.append(transprobvallow)
+                if i >= (len(visitrate)-7):
+                    lastseven.append(visitrate[i])
+                unacaststdate += timedelta(days=1)   
                 
-        else:    
-            if DiseaseParameters['AdjustPopDensity']:
-                transmissonmodifier = 1/(1+ DiseaseParameters['pdscale1']*math.exp(-1*DiseaseParameters['pdscale2']*PopulationDensity[G]))  ## pdscale1 = .25  / pdscale2 = .001
-                for TP in range(0,len(DiseaseParameters['TransProb'])):
-                    newdeclinevals.append(DiseaseParameters['TransProb'][TP]*transmissonmodifier)
-                    newdeclinevalsLow.append(DiseaseParameters['TransProbLow'][TP]*transmissonmodifier)
-            else:                  
-                newdeclinevals = DiseaseParameters['TransProb'].copy()
-                newdeclinevalsLow = DiseaseParameters['TransProbLow'].copy()
+            lson = 0
+            lastval = 0
+            day_count+=1
+            while unacaststdate < Utils.dateparser('2021-03-01'):
+                unacaststdate += timedelta(days=1)   
+                transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(lastseven[lson])+DiseaseParameters['TransProb_intnumval'][day_count])            
+                lastval = lastseven[lson]
+                transprobvallow = transprobval*.5
+                transprobvalhigh = (transprobval - transprobvallow*.4)/.6
+                TransProbC.append(transprobvalhigh)
+                TransProbCLow.append(transprobvallow)
+                if lson >= (len(lastseven)-1):
+                    lson = 0
+                else:
+                    lson+=1
+                day_count+=1
+                
+            delta = lastval/15/2
+            while day_count < len(DiseaseParameters['TransProb_AH']):
+                unacaststdate += timedelta(days=1)
+                if unacaststdate < Utils.dateparser('2021-03-15'):
+                    lastval -= delta
+                if unacaststdate > Utils.dateparser('2021-04-15') and unacaststdate < Utils.dateparser('2021-05-01'):
+                    lastval -= delta
+                transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(lastval)+DiseaseParameters['TransProb_intnumval'][day_count])            
+                transprobvallow = transprobval*.5
+                transprobvalhigh = (transprobval - transprobvallow*.4)/.6
+                TransProbC.append(transprobvalhigh)
+                TransProbCLow.append(transprobvallow)
+                day_count+=1
+
+            DiseaseParameters['TransProb'] = TransProbC.copy()
+            DiseaseParameters['TransProbLow'] = TransProbCLow.copy()        
+    
+        if DiseaseParameters['AdjustPopDensity']:
+            transmissonmodifier = 1/(1+ DiseaseParameters['pdscale1']*math.exp(-1*DiseaseParameters['pdscale2']*PopulationDensity[G]))  ## pdscale1 = .25  / pdscale2 = .001
+            for TP in range(0,len(DiseaseParameters['TransProb'])):
+                newdeclinevals.append(DiseaseParameters['TransProb'][TP]*transmissonmodifier)
+                newdeclinevalsLow.append(DiseaseParameters['TransProbLow'][TP]*transmissonmodifier)
+        else:                  
+            newdeclinevals = DiseaseParameters['TransProb'].copy()
+            newdeclinevalsLow = DiseaseParameters['TransProbLow'].copy()
 
         GL = GlobalLocationSetup.\
             GlobalLocationSetup(G, PopulationData[G], HHSizeDist,HHSizeAgeDist, 

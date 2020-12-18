@@ -46,6 +46,9 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     DiseaseParameters['IntStartDate'] = interventions[intname]['IntStartDate']
     DiseaseParameters['IntEndDate'] = interventions[intname]['IntEndDate']
     DiseaseParameters['InterventionRestType'] = interventions[intname]['RestType']
+    DiseaseParameters['IntHoganStartDate'] = interventions[intname]['IntHoganStartDate']
+    DiseaseParameters['IntHoganDec'] = interventions[intname]['IntHoganDec']
+
 
     startingprobdate = 0
     
@@ -90,14 +93,19 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
                 
             encvals.append(estmatevals)
             if (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['IntEndDate']:
-                addingval -= intPerDec / 7.0
+                addingval -= (intPerDec+float(DiseaseParameters['IntHoganDec'])) / 7.0
                 if addingval > 0:
                     addingval = 0
                 intnumval.append(addingval)
+            elif (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['IntHoganStartDate'] and (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days < DiseaseParameters['IntStartDate']:
+                addingval += float(DiseaseParameters['IntHoganDec']) / 7.0
+                if addingval < float(DiseaseParameters['IntHoganDec']):
+                    addingval = float(DiseaseParameters['IntHoganDec'])
+                intnumval.append(addingval)
             elif (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['IntStartDate']:
                 addingval += intPerDec / 7.0
-                if addingval < intPerDec:
-                    addingval = intPerDec
+                if addingval < (intPerDec+float(DiseaseParameters['IntHoganDec'])):
+                    addingval = (intPerDec+float(DiseaseParameters['IntHoganDec']))
                 intnumval.append(addingval)
             else:
                 intnumval.append(addingval)
@@ -115,9 +123,9 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
             #else:
             #    intnumval.append(1)
     
-    
     probtrans = DiseaseParameters['ProbabilityOfTransmissionPerContact']	
     probtransscale = probtrans/(1/float(ahvals[0]))
+    
     #if DiseaseParameters['humidityversion'] < 0:
     #    version = 0
     #    if random.random() < .5:
@@ -126,9 +134,11 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     #else:
     #    version = int(DiseaseParameters['humidityversion'])
     DiseaseParameters['humidityversion'] = 1
-    version = 1    
-    print(DiseaseParameters['humidityversion'], version)
+    DiseaseParameters['TransProb_AH'] = []
+    DiseaseParameters['TransProb_intnumval'] = []
     for i in range(0,len(ahvals)):
+        DiseaseParameters['TransProb_AH'].append((1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale)
+        DiseaseParameters['TransProb_intnumval'].append(intnumval[i])
         transprobval = (1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale*(1+float(encvals[i])+intnumval[i])            
         if transprobval < .001:
             transprobval = .001
@@ -501,7 +511,7 @@ def InterventionsParameters(Model,intfilename,startdate,submodel=''):
     
     intdatevals = ['InterventionDate','SchoolCloseDate','SchoolOpenDate','InterventionStartReductionDate',
                     'InterventionStartReductionDateCalcDays','InterventionStartEndLift','InterventionStartEndLiftCalcDays'
-                    ,'QuarantineStartDate','TestingAvailabilityDateHosp','TestingAvailabilityDateComm','finaldate','IntStartDate','IntEndDate']
+                    ,'QuarantineStartDate','TestingAvailabilityDateHosp','TestingAvailabilityDateComm','finaldate','IntStartDate','IntEndDate','IntHoganStartDate']
 
     interventions = {}
     try:

@@ -459,6 +459,7 @@ def getHistoryData(Model,modelvals):
                         historyCaseData[dateval][rows[headers.index('ZipCode')]] = {}
                         historyCaseData[dateval][rows[headers.index('ZipCode')]]['ReportedNewCases'] = rows[headers.index('ReportedNewCases')]
                         historyCaseData[dateval][rows[headers.index('ZipCode')]]['EstimatedMildCases'] = rows[headers.index('EstimatedMildCases')]
+                        
         except Exception as e:
             print("History values error. Please confirm the history case file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":

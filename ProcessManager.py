@@ -111,16 +111,19 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                 modelPopNames='zipcodes',fitdates=[],hospitalizations=[],
                 deaths=[],cases=[],fitper=.3,burnin=False,StartInfected=-1,
                 historyData={},FolderContainer='',saveRun=False,SavedRegionFolder=''):
-
+   
     fitted = True
     RegionalList = []
     # set the time of the simulation
     timeNow = 0
-    fithistoryhospitalizations = -1
-    
+    fithistorycases = False
+    fitenddate = datetime(2020,7,31).date()
     
     timeRange = []
     timeRangeFull = []
+    numFitDeaths = []
+    numFitHospitalizations = []
+    numFitCases = []
     
     if ParameterSet.UseSavedRegion:
         
@@ -132,7 +135,17 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
             tN += stepLength
             timeRangeFull.append(tN)
                     
-    
+    else:
+        if burnin and len(historyData) > 0:
+            fithistorycases = True
+            daysadd = (fitenddate - startDate).days
+            for i in range(0,daysadd):
+                timeNow += 1
+                numFitDeaths.append(0)
+                numFitHospitalizations.append(0)
+                numFitCases.append(0)
+            
+            
     while timeNow < endTime:
         timeNow += stepLength
         timeRange.append(timeNow)
@@ -214,7 +227,49 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                         historyData,os.path.join(SavedRegionFolder,FolderContainer),GlobalLocations)
             procs.append(proc)
                     
-              
+        if fithistorycases:
+            curhospitalizations = 0
+            curdeaths = 0
+            curcases = 0
+            try:
+                for i in range(0,len(RegionalList)):
+                    procdict = {}
+                    procdict['startdate'] = startDate
+                    procdict['fitenddate'] = fitenddate
+                    eventqueues[i].safe_put(GBQueue.EventMessage("history", "history", procdict))
+                
+                curhospitalizations,curdeaths,curcases = RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases)
+            except BaseException as exc:
+                # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
+                #self.log(logging.ERROR, f"Exception Shutdown: {exc}", exc_info=True)
+                print("Model run error:")
+                print(traceback.format_exc())
+                print(f"Run Exception Shutdown: {exc}")
+                responseq.drain()
+                responseq.safe_close()
+                if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
+                    raise Exception("Known error while running models")
+                else:
+                    raise Exception("UNKNOWN error while running models")
+        
+            # Reconciliation ------------------------------------------------------------------------
+            try: 
+                ReconcileOffPopQueueEvents(RegionalList,modelPopNames)
+                for i in range(0,len(RegionalList)):
+                    eventqueues[i].safe_put(GBQueue.EventMessage("main", "reconciliation", "Reconcile Msg"))
+                curhospitalizations,curdeaths,curcases = RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases)
+                
+            except BaseException as exc:
+            # -- Catch ALL exceptions, even Terminate and Keyboard interrupt
+                print(f"Reconcilining Exception Shutdown: {exc}")
+                responseq.drain()
+                responseq.safe_close()
+                if type(exc) in (ProcWorker.TerminateInterrupt, KeyboardInterrupt):
+                    raise Exception("Known error while reconciling queues")
+                else:
+                    raise Exception("UNKNOWN error while reconciling queues")
+            #-------------------------------------------------------------------------
+            
         results = {}
         numInfList = {}
         
@@ -223,9 +278,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
         InfPrior = 1
         HosPrior = 1  
           
-        numFitDeaths = []
-        numFitHospitalizations = []
-        numFitCases = []
+
         for tend in timeRange:
         
             initinfect = {} #[0]*len(RegionalList)
@@ -445,7 +498,7 @@ def RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,cu
                 curdeaths += fitval[1]
                 curcases += fitval[2]
                 
-            if item.msg_type == "finishedrec" or item.msg_type == "finishedsave":
+            if item.msg_type == "finishedrec" or item.msg_type == "finishedsave" or item.msg_type == "finishedhistoryinit":
                 doneprocs[item.msg_src] = 1
             
             if item.msg_type == "FATAL":
@@ -501,7 +554,9 @@ def ReconcileOffPopQueueEvents(RegionalList,modelPopNames):
     
 def fittingAnalysis(numFitDeaths,numFitHospitalizations,numFitCases,hospitalizations,deaths,cases,tend,fitdates,fitper):
     # This does the fitting process if fitting values are enabled and passed in
-    
+    print("getting here")
+    print(numFitHospitalizations)
+    print(hospitalizations)
     SLSH = 0
     SLSD = 0
     SLSC = 0

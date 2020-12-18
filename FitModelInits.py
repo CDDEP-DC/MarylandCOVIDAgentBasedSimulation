@@ -131,6 +131,7 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000, append=False):
     PostICUTimeLL = float(ParametersInputData['PostICUTime']['min'])
     ICUtimeUL = float(ParametersInputData['ICUtime']['max'])
     ICUtimeLL = float(ParametersInputData['ICUtime']['min'])
+    
     preHospTimeUL = float(ParametersInputData['preHospTime']['max'])
     preHospTimeLL = float(ParametersInputData['preHospTime']['min'])
     EDVisitUL = float(ParametersInputData['EDVisit']['max'])
@@ -260,7 +261,7 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000, append=False):
         hospitalSymptomaticTime = random.random()*(hospitalSymptomaticTimeUL - hospitalSymptomaticTimeLL) + hospitalSymptomaticTimeLL
         
         ICURate = random.random()*(ICURateUL - ICURateLL) + ICURateLL
-        ICUtime = random.random()*(ICUtimeUL - ICUtimeLL) + ICUtimeLL + hospitalSymptomaticTime
+        ICUtime = random.random()*(ICUtimeUL - ICUtimeLL) + ICUtimeLL 
         PostICUTime = random.random()*(PostICUTimeUL - PostICUTimeLL) + PostICUTimeLL
         
         preHospTime = random.random()*(preHospTimeUL - preHospTimeLL) + preHospTimeLL

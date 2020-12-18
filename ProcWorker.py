@@ -177,9 +177,27 @@ class ProcWorker:
     def initHistory(self, procdict):
         try:
             if len(self.historyData) > 0:
-                offPopQueueEvents, numpriorcases, numnewcases = self.ProcRegion.initializeHistory(self.historyData)
+                
+                offPopQueueEvents, numpriorcases, numnewcases = self.ProcRegion.initializeHistory(self.historyData,procdict['startdate'],procdict['fitenddate'])
+                # Reconcile the current region events 
+                offRegionEvents = []
+                RegionReconciliationEvents = []
+                for QE in offPopQueueEvents:
+                    if self.name == QE.RegionId:
+                        RegionReconciliationEvents.append(QE) 
+                    else:
+                        offRegionEvents.append(QE)
+                
+                if len(RegionReconciliationEvents) > 0:
+                    self.ProcRegion.addEventsFromOtherLocalPopulations(RegionReconciliationEvents)
+                    RegionReconciliationEvents.clear()
+                    
+                # Write the off-pop queues to disk for assessing in the merge       
+                Utils.PickleFileWrite(os.path.join(ParameterSet.QueueFolder,str(self.modelPopNames)+str(self.name)+"Queue.pickle"), offRegionEvents)
+                    
                 if ParameterSet.logginglevel == 'debug':
                     print(str(self.name)+" setup "+str(numpriorcases)+" prior cases "+str(numnewcases)+" new cases")
+                    
             self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedhistoryinit", numpriorcases))
         except Exception as e:
             print("Error in ProcWorker.initHistory.")

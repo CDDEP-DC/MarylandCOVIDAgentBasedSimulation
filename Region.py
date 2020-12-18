@@ -25,6 +25,7 @@ import math
 import LocalPopulation
 import events.SimulationEvent as SimEvent
 import ParameterSet
+from datetime import timedelta 
 
 
 class Region:
@@ -148,7 +149,7 @@ class Region:
                 
         return self.getRegionStats()
                     
-    def initializeHistory(self,historyData):
+    def initializeHistory(self,historyData,startdate,fitenddate):
         numpriorcases = 0
         numnewcases = 0 
         offPopQueueEvents = []
@@ -156,15 +157,19 @@ class Region:
             LP = self.Locations[LPKey]
             LPHistory = {}
             for reportdate in historyData.keys():
-                if LP.LocalIdentification in historyData[reportdate].keys():
-                    LPHistory[reportdate] = {}
-                    if reportdate == 'currentHospitalData':
-                        LPHistory[reportdate]['currentHospitalData'] = historyData[reportdate][LP.LocalIdentification]
-                    else:
-                        LPHistory[reportdate]['timeval'] = historyData[reportdate]['timeval']
-                        LPHistory[reportdate]['ReportedNewCases'] = historyData[reportdate][LP.LocalIdentification]['ReportedNewCases']
-                        LPHistory[reportdate]['EstimatedMildCases'] = historyData[reportdate][LP.LocalIdentification]['EstimatedMildCases']
-                
+                if 'ReportDateVal' in historyData[reportdate].keys():                    
+                    reportdateval = historyData[reportdate]['ReportDateVal']
+                    if reportdateval >= startdate and reportdateval <= fitenddate:
+                        if LP.LocalIdentification in historyData[reportdate].keys():
+                            LPHistory[reportdate] = {}
+                            LPHistory[reportdate]['timeval'] = (reportdateval-startdate).days
+                            LPHistory[reportdate]['ReportedNewCases'] = historyData[reportdate][LP.LocalIdentification]['ReportedNewCases']
+                            LPHistory[reportdate]['EstimatedMildCases'] = historyData[reportdate][LP.LocalIdentification]['EstimatedMildCases']
+                            if reportdateval >= fitenddate+timedelta(days=-21):
+                                LPHistory[reportdate]['live'] = 1
+                            else:
+                                LPHistory[reportdate]['live'] = 0
+                            
             numpriorcases,numnewcases,op = LP.initializeHistory(LPHistory)
             #numpriorcases += int(historyData[zipcode]['PriorCases'])
             #op = LP.setCurrentCases(historyData[zipcode]['NewCases'])
