@@ -198,6 +198,23 @@ class ProcWorker:
                 if ParameterSet.logginglevel == 'debug':
                     print(str(self.name)+" setup "+str(numpriorcases)+" prior cases "+str(numnewcases)+" new cases")
                     
+                timeNow = procdict['timeNow']
+                day = 0
+                while day <= timeNow:
+                    regionStats = self.ProcRegion.getRegionStats()
+                    regionStatsX = {}
+                    regionStatsX[self.name] = regionStats
+                    self.RegionStats[day] = regionStatsX
+                    
+                    # Get the hospital stats for printing at the end    
+                    if ParameterSet.SaveHospitalData:
+                        self.CurrentHospOccList[day] = copy.deepcopy(self.ProcRegion.getHospitalOccupancy())
+          
+                    # Save the R0 stats
+                    R0Stats = self.ProcRegion.getR0Stats()
+                    self.R0StatsList[self.name] = R0Stats    
+                    day += 1
+                    
             self.reply_q.safe_put(GBQueue.EventMessage(self.name, "finishedhistoryinit", numpriorcases))
         except Exception as e:
             print("Error in ProcWorker.initHistory.")

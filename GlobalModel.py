@@ -188,8 +188,8 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
                 transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(visitrate[i])+DiseaseParameters['TransProb_intnumval'][day_count])            
                 if transprobval < .001:
                     transprobval = .001
-                transprobvallow = transprobval*.5
-                transprobvalhigh = (transprobval - transprobvallow*.4)/.6
+                transprobvallow = max(transprobval*.5,.001)
+                transprobvalhigh = max((transprobval - transprobvallow*.4)/.6,.001)
                 TransProbC.append(transprobvalhigh)
                 TransProbCLow.append(transprobvallow)
                 if i >= (len(visitrate)-7):
@@ -203,8 +203,8 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
                 unacaststdate += timedelta(days=1)   
                 transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(lastseven[lson])+DiseaseParameters['TransProb_intnumval'][day_count])            
                 lastval = lastseven[lson]
-                transprobvallow = transprobval*.5
-                transprobvalhigh = (transprobval - transprobvallow*.4)/.6
+                transprobvallow = max(transprobval*.5,.001)
+                transprobvalhigh = max((transprobval - transprobvallow*.4)/.6,.001)
                 TransProbC.append(transprobvalhigh)
                 TransProbCLow.append(transprobvallow)
                 if lson >= (len(lastseven)-1):
@@ -221,8 +221,8 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
                 if unacaststdate > Utils.dateparser('2021-04-15') and unacaststdate < Utils.dateparser('2021-05-01'):
                     lastval -= delta
                 transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(lastval)+DiseaseParameters['TransProb_intnumval'][day_count])            
-                transprobvallow = transprobval*.5
-                transprobvalhigh = (transprobval - transprobvallow*.4)/.6
+                transprobvallow = max(transprobval*.5,.001)
+                transprobvalhigh = max((transprobval - transprobvallow*.4)/.6,.001)
                 TransProbC.append(transprobvalhigh)
                 TransProbCLow.append(transprobvallow)
                 day_count+=1

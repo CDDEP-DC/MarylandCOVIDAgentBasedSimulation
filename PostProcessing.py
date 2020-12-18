@@ -37,10 +37,11 @@ def CompileResults(resultsName,modelPopNames,RegionalList,timeRange):
     for i in range(0,len(RegionalList)):
         regionVals = Utils.PickleFileRead(os.path.join(ParameterSet.PopDataFolder,str(modelPopNames)+str(i)+"RegionStats.pickle"))
         for tend in timeRange:
-            dayVals = regionVals[tend]
-            for day in dayVals.keys():
-                rdict = dayVals[day]
-                results[tend][i]=rdict
+            if tend in regionVals:
+                dayVals = regionVals[tend]
+                for day in dayVals.keys():
+                    rdict = dayVals[day]
+                    results[tend][i]=rdict
         
     return results
     
@@ -192,46 +193,47 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
     np.savetxt(csvFileLocal,np.vstack([titles,output]),delimiter=",", fmt='%5s')
     ##############################################################################
     if ParameterSet.SaveHospitalData:
-        hospstatsnames = ['occupancy','admissions','edvisits','ICU']
-    
-        HospitalOccupancyByDay = {}
-        for day in range(0, endTime + 1):
-            hoc = []
-            for hsn in hospstatsnames:
-                for h in range(0, len(HospitalNames)):
-                    hoc.append(0)
-            HospitalOccupancyByDay[day] = hoc
+        if len(HospitalNames) > 0:
+            hospstatsnames = ['occupancy','admissions','edvisits','ICU']
         
-        for i in range(0,len(RegionalList)):
-            if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
-                CurrentHospOccList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
-                for key in CurrentHospOccList.keys():
-                    tydict = CurrentHospOccList[key]
-                    for key2 in tydict.keys():
-                        hsdict = tydict[key2]  
-                        x = 0
-                        for hsn in hospstatsnames: 
-                            lpdict = hsdict[hsn]
-                            for h in range(0,len(lpdict)):
-                                HospitalOccupancyByDay[key][x] += lpdict[h]
-                                x += 1
-    
-        csvFile = writefolder+"/HospitalOccupancyByDay_"+model+"_"+resultsName+".csv"
-        try:
-            with open(csvFile, 'w') as f:
-                f.write("day")
+            HospitalOccupancyByDay = {}
+            for day in range(0, endTime + 1):
+                hoc = []
                 for hsn in hospstatsnames:
-                    for h1 in range(0, len(HospitalNames)):
-                        f.write(",%s_%s" % (HospitalNames[h1],hsn))
-                f.write("\n")        
-                for key in HospitalOccupancyByDay.keys():
-                    f.write("%s" % key)
-                    for h in range(0, len(HospitalOccupancyByDay[key])):
-                        f.write(",%s" % HospitalOccupancyByDay[key][h])
-                    f.write("\n")
+                    for h in range(0, len(HospitalNames)):
+                        hoc.append(0)
+                HospitalOccupancyByDay[day] = hoc
+            
+            for i in range(0,len(RegionalList)):
+                if os.path.exists(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle"):
+                    CurrentHospOccList = Utils.PickleFileRead(ParameterSet.PopDataFolder + "/" + str(modelPopNames) + str(i) + "HOSPLIST.pickle")
+                    for key in CurrentHospOccList.keys():
+                        tydict = CurrentHospOccList[key]
+                        for key2 in tydict.keys():
+                            hsdict = tydict[key2]  
+                            x = 0
+                            for hsn in hospstatsnames: 
+                                lpdict = hsdict[hsn]
+                                for h in range(0,len(lpdict)):
+                                    HospitalOccupancyByDay[key][x] += lpdict[h]
+                                    x += 1
+        
+            csvFile = writefolder+"/HospitalOccupancyByDay_"+model+"_"+resultsName+".csv"
+            try:
+                with open(csvFile, 'w') as f:
+                    f.write("day")
+                    for hsn in hospstatsnames:
+                        for h1 in range(0, len(HospitalNames)):
+                            f.write(",%s_%s" % (HospitalNames[h1],hsn))
+                    f.write("\n")        
+                    for key in HospitalOccupancyByDay.keys():
+                        f.write("%s" % key)
+                        for h in range(0, len(HospitalOccupancyByDay[key])):
+                            f.write(",%s" % HospitalOccupancyByDay[key][h])
+                        f.write("\n")
     
-        except IOError:
-            print("I/O error")
+            except IOError:
+                print("I/O error")
     
     ############
     csvFileR0 = writefolder+"/R0_"+model+"_"+resultsName+".csv"
