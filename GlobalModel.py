@@ -156,7 +156,7 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
     if DiseaseParameters['UseCountyLevel'] == 1:
         # Get the county level phonse use data if using
         dfPhoneData = pd.read_csv(os.path.join("data",ModelType,DiseaseParameters['CountyEncountersFile']), index_col = 'county_fips')
-        print("Using County Level Data")
+        print("Using County Level Data",DiseaseParameters['CountyEncountersFile'])
     
     # Now load the global locations
     GlobalLocations = []
