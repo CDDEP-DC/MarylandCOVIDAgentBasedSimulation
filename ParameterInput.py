@@ -48,8 +48,9 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
     DiseaseParameters['InterventionRestType'] = interventions[intname]['RestType']
     DiseaseParameters['IntHoganStartDate'] = interventions[intname]['IntHoganStartDate']
     DiseaseParameters['IntHoganDec'] = interventions[intname]['IntHoganDec']
-
-
+    DiseaseParameters['SchoolOpenDate'] = interventions[intname]['SchoolOpenDate']
+    print(interventions[intname])
+    DiseaseParameters['SchoolOpenReductionAmt'] = interventions[intname]['SchoolOpenReductionAmt']
     startingprobdate = 0
     
     # get values of intervention amounts
@@ -93,7 +94,7 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
                 
             encvals.append(estmatevals)
             if (encountersdata[encdate]['Date']-DiseaseParameters['startdate']).days > DiseaseParameters['IntEndDate']:
-                addingval -= (intPerDec+float(DiseaseParameters['IntHoganDec'])) / 7.0
+                addingval -= (intPerDec+float(DiseaseParameters['IntHoganDec'])) / 14.0
                 if addingval > 0:
                     addingval = 0
                 intnumval.append(addingval)
@@ -142,12 +143,21 @@ def setInfectionProb2(interventions,intname,DiseaseParameters,Model,fitdates=[],
         transprobval = (1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale*(1+float(encvals[i])+intnumval[i])            
         if transprobval < .001:
             transprobval = .001
+        transprobschool = transprobval   
+        if i > DiseaseParameters['SchoolOpenDate']:
+            transprobschool = (1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale*(1+float(DiseaseParameters['SchoolOpenReductionAmt']))            
+            if transprobschool < .001:
+                transprobschool = .001
+        
         transprobvallow = transprobval*.5
         transprobvalhigh = (transprobval - transprobvallow*.4)/.6
         DiseaseParameters['TransProb'].append(transprobvalhigh)
         DiseaseParameters['TransProbLow'].append(transprobvallow)
-        DiseaseParameters['TransProbSchool'].append(transprobval)
-    
+        DiseaseParameters['TransProbSchool'].append(transprobschool)
+        
+    #for i in range(0,len(DiseaseParameters['TransProbSchool'])):
+    #    print(DiseaseParameters['startdate']+timedelta(days=i),DiseaseParameters['TransProbSchool'][i]," - ",DiseaseParameters['TransProb'][i])
+    #exit()
     for i in range(0,interventions[intname]['InterventionStartReductionDate']):
         if i >= startingprobdate:
             DiseaseParameters['InterventionMobilityEffect'].append(1)    
@@ -354,12 +364,12 @@ def setInfectionProb(interventions,intname,DiseaseParameters,Model,fitdates=[],h
     else:
         DiseaseParameters['AdjustPopDensity'] = 0    
         
-    if 'TestIncreaseLow' in interventions[intname]: 
-        DiseaseParameters['TestIncrease'] = random.random()*(float(interventions[intname]['TestIncreaseHigh']) - float(interventions[intname]['TestIncreaseLow'])) + float(interventions[intname]['TestIncreaseLow'])
-        DiseaseParameters['TestIncreaseDate'] = int(interventions[intname]['InterventionStartEndLiftCalcDays'])
-    else:
-        DiseaseParameters['TestIncrease'] = 0
-        DiseaseParameters['TestIncreaseDate'] = 1000
+    #if 'TestIncreaseLow' in interventions[intname]: 
+    #    DiseaseParameters['TestIncrease'] = random.random()*(float(interventions[intname]['TestIncreaseHigh']) - float(interventions[intname]['TestIncreaseLow'])) + float(interventions[intname]['TestIncreaseLow'])
+    #    DiseaseParameters['TestIncreaseDate'] = int(interventions[intname]['InterventionStartEndLiftCalcDays'])
+    #else:
+    #    DiseaseParameters['TestIncrease'] = 0
+    #    DiseaseParameters['TestIncreaseDate'] = 1000
         
         #print(DiseaseParameters['TransProb'])
     

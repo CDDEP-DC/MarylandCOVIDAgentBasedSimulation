@@ -46,12 +46,8 @@ import ProcessDataForPresentation as PDFP
 import FitModelRegions
 import FitModelInits
 
-
 def main(argv):
-        
     
-    import time
-
     starttimer = time.time()
     
     ## Setup the folder structure and the settings   
@@ -67,11 +63,12 @@ def main(argv):
     # check that the model exists
     modelvals,startdate,enddate = Utils.getModelVals(Model)
     
+    # load the vaccination data
+    vaccinationdata = Utils.getVaccinationData(Model,modelvals)
     
     # load the humidity data
     humiditydata = Utils.getHumidityData(Model,modelvals)
             
-        
     # load the essentialvisit file
     encountersdata = Utils.getEncountersData(Model,modelvals)
 
@@ -89,6 +86,7 @@ def main(argv):
     
     # This sets the interventions
     interventions = ParameterInput.InterventionsParameters(Model,modelvals['intfile'],startdate)
+    
     if len(interventions) == 0:
         print("Interventions input error. Please confirm the intervention file exists and is correctly specified")
         exit()
@@ -115,7 +113,7 @@ def main(argv):
             i = 0
             while not fitted:
                 print(ParameterVals[i])
-                fitinfo, fitdates = FitModelRegions.runRegionFit(FolderContainer,OutputRunsFolder,overallResultsName,Model,modelvals,enddate,ParameterVals[i],historyCaseData=historyCaseData,saveRun=True,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer),encountersdata=encountersdata,humiditydata=humiditydata)
+                fitinfo, fitdates, fitdatesX = FitModelRegions.runRegionFit(FolderContainer,OutputRunsFolder,overallResultsName,Model,modelvals,enddate,ParameterVals[i],historyCaseData=historyCaseData,saveRun=True,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer),encountersdata=encountersdata,humiditydata=humiditydata,vaccinationdata=vaccinationdata)
                 fitted = fitinfo['fitted']
                 
                 i += 1
@@ -278,13 +276,14 @@ def main(argv):
                 DiseaseParameters['TimeToFindContactsLow'] = int(interventions[key]['TimeToFindContactsLow'])
                 DiseaseParameters['TimeToFindContactsHigh'] = int(interventions[key]['TimeToFindContactsHigh'])
             
-            fiinfo = GlobalModel.RunSavedRegionModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer),numregions=numregions,FolderContainer=SavedRegionFolder)
+            DiseaseParameters['VaccinationType'] = interventions[key]['VaccinationType']
+            fiinfo = GlobalModel.RunSavedRegionModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer),numregions=numregions,FolderContainer=SavedRegionFolder,vaccinationdata=vaccinationdata)
             
             fitted = fitinfo['fitted']
             
-            PERIOD_OF_TIME = 36000 # 10 hours
+            
     
-            if time.time() > starttimer + PERIOD_OF_TIME : exit()   
+            if time.time() > starttimer + ParameterSet.PERIOD_OF_TIME : exit()   
                
         #elif ParameterSet.LoadHistory:
             #startdate = maxdate+timedelta(days=1)
@@ -302,7 +301,7 @@ def main(argv):
                     if reportdate != 'currentHospitalData':
                         historyCaseData[reportdate]['timeval'] = (historyCaseData[reportdate]['ReportDateVal'] - startdate).days
                     
-            fitinfo = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,StartInfected=StartInfected,historyData=historyCaseData)
+            fitinfo = GlobalModel.RunDefaultModelType(Model,modelvals,modelPopNames,resultsNameP,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,StartInfected=StartInfected,historyData=historyCaseData,vaccinationdata=vaccinationdata)
             fitted = fitinfo['fitted']
             
         if fitted:

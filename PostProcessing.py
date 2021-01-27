@@ -121,8 +121,8 @@ def WriteAggregatedResults(results,model,resultsName,modelPopNames,RegionalList,
                     
     ###########################################################################
     # Write the regional data and totals for the main buckets out to disk
-    keyvals = ['S','N','I','C','R','D','H','HI','HE','ICU','numTests','numQ','numInfPrev','InfEvtClear','CC']
-    colvals = ['Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','NewAdmissions','EDVisits','ICU','Tests','Quarantined','numHousholdQuarantined','InfectiousEventsPrevented','confirmedcases']
+    keyvals = ['S','N','I','C','R','D','H','HI','HE','ICU','numTests','vid0','vid1','InfEvtClear','CC']
+    colvals = ['Susceptible', 'Incubating', 'Infected', 'Colonized', 'Recovered', 'Dead', 'Hospitalized','NewAdmissions','EDVisits','ICU','Tests','Strain0','Strain1','InfectiousEventsPrevented','confirmedcases']
     colvaltitles = []
     
     if len(regionalvals) > 1:

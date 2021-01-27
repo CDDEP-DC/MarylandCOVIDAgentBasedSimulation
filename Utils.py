@@ -176,10 +176,11 @@ def ModelFolderStructureSetup(argv,paramsfile=False):
                       str(dateTimeObj.minute) + str(dateTimeObj.second) + \
                       str(dateTimeObj.microsecond)
         try:
-            opts, args = getopt.getopt(argv,"j:n:m:dgqf:hr:p:",["job=","nruns=","model="])
+            opts, args = getopt.getopt(argv,"j:n:m:dgqf:hr:p:t:",["job=","nruns=","model="])
         except getopt.GetoptError as e:
             print('Error:',e)
-            sys.exit(2)
+            raise Exception(e)
+            
         for opt, arg in opts:
             if opt == '-j':
                 fname = arg
@@ -222,6 +223,21 @@ def ModelFolderStructureSetup(argv,paramsfile=False):
             if opt == '-p':
                 fname = arg
                 ParametersFileName = clean_filename(fname)
+                
+            if opt == '-t':
+                fval = arg
+                if RepresentsInt(fval):
+                    timeval = int(fval)
+                    if timeval < 168 and timeval >= 1:
+                        ParameterSet.PERIOD_OF_TIME = timeval*60*60
+                        print("Runtime set for max of ",timeval," hours (",ParameterSet.PERIOD_OF_TIME," seconds")
+                    else:
+                        print("Maximum allowed time in hours is 168 and must be greater than 0")
+                        raise Exception("Model setup error")
+                else:
+                        print("Timevalue must be entered as integer between 1 and 168 representing maximum number of hours to run")
+                        raise Exception("Model setup error")
+                
         
         if FolderContainer == ParameterSet.PopDataFolder or \
                 FolderContainer == ParameterSet.QueueFolder or \
@@ -314,6 +330,46 @@ def getModelVals(Model):
         exit()
     return modelvals,startdate,enddate
         
+    
+def getVaccinationData(Model,modelvals):
+    vaccinationdata = {}
+    if os.path.exists(os.path.join('data',Model,modelvals['VaccinationData'])):
+        try: 
+            mindate = dateparser('2030-12-31')
+            maxdate = dateparser('1976-05-31')
+            maxdatestr = ''
+            with open(os.path.join('data',Model,modelvals['VaccinationData']),mode='r') as infile:
+                reader = csv.reader(infile)      
+                headers = next(reader,None)
+                for rows in reader:
+                    dateval = rows[headers.index('Date')]
+                    addrow = False
+                    try:
+                        testdate = dateparser(dateval)
+                        addrow = True
+                    except:
+                        pass
+                    if addrow:
+                        if testdate < mindate:
+                            mindate = testdate
+                        if testdate > maxdate:
+                            maxdate = testdate
+                            maxdatestr = dateval
+                        if dateval not in vaccinationdata.keys():
+                            vaccinationdata[dateval] = {}
+                        vaccinationdata[dateval]['ReportDateVal'] = testdate
+                        vaccinationdata[dateval]['Baseline'] = rows[headers.index('Baseline')]
+                        vaccinationdata[dateval]['High'] = rows[headers.index('High')]
+
+            print("VaccinationDataMaxDate:",maxdate)
+            
+        except Exception as e:
+            print("Vaccination values error. Please confirm the Vaccination file exists and is correctly specified")
+            if ParameterSet.logginglevel == "debug":
+                print(traceback.format_exc())
+            exit()    
+    return vaccinationdata
+    
 def getHumidityData(Model,modelvals):
     humiditydata = {}
     if os.path.exists(os.path.join('data',Model,modelvals['humiditydatafile'])):
@@ -394,7 +450,7 @@ def getEncountersData(Model,modelvals):
                         except:
                             encountersdata[dateval]['RestNumClosed'] = 0
 
-                            
+            print("EncountersDataMaxDate:",maxdate," ",modelvals['encountersfile'])                
         except Exception as e:
             print("Encounters values error. Please confirm the Encounters file exists and is correctly specified")
             if ParameterSet.logginglevel == "debug":

@@ -39,6 +39,7 @@ import Utils
 import ParameterSet
 import GBQueue
 import ProcWorker
+import disease.Virus
 
     
 class Proc:
@@ -110,14 +111,15 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                 startDate=datetime(2020,2,22),stepLength=1,numregions=-1,
                 modelPopNames='zipcodes',fitdates=[],hospitalizations=[],
                 deaths=[],cases=[],fitper=.3,burnin=False,StartInfected=-1,
-                historyData={},FolderContainer='',saveRun=False,SavedRegionFolder=''):
+                historyData={},FolderContainer='',saveRun=False,SavedRegionFolder='',vaccinationdata={}):
    
     fitted = True
     RegionalList = []
     # set the time of the simulation
     timeNow = 0
     fithistorycases = False
-    fitenddate = datetime(2020,7,31).date()
+    
+    
     
     timeRange = []
     timeRangeFull = []
@@ -138,81 +140,126 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
     else:
         if burnin and len(historyData) > 0:
             fithistorycases = True
+            fitenddate = datetime(2020,7,31).date()
+            #for reportdate in historyData.keys():
+            #    if 'ReportDateVal' in historyData[reportdate].keys():                    
+            #        reportdateval = historyData[reportdate]['ReportDateVal']
+            #        if reportdateval > fitenddate:
+            #            fitenddate = reportdateval
+            stfitdate = min(fitdates) - 7
+            fitenddatetest = startDate+timedelta(days=stfitdate)
+            if fitenddatetest > fitenddate:
+               fitenddate = fitenddatetest  
+            print("History Data load to:",fitenddate)
+
             daysadd = (fitenddate - startDate).days
             for i in range(0,daysadd):
                 timeNow += 1
                 numFitDeaths.append(0)
                 numFitHospitalizations.append(0)
                 numFitCases.append(0)
-            
+    
+ 
+    vaccdatavals = {}   
+    if len(vaccinationdata) > 0:
+        print("VaccineType:",DiseaseParameters['VaccinationType'])
+        for vdate in vaccinationdata.keys():
+            vdateval = vaccinationdata[vdate]['ReportDateVal']
+            vdatenum = (vdateval - startDate).days
+            vaccinationdata[vdate]['vacdatenum'] = vdatenum
+            vaccdatavals[vdatenum] = vaccinationdata[vdate][DiseaseParameters['VaccinationType']]
             
     while timeNow < endTime:
         timeNow += stepLength
         timeRange.append(timeNow)
         timeRangeFull.append(timeNow)
         
-    try:
+
+
+    MAX_PROCESS_WAIT_SECS = 600.0
     
-        MAX_PROCESS_WAIT_SECS = 600.0
+    
+    
+    
+    num_regions = mp.cpu_count() * 2
+    
+    if numregions > 0:
+        num_regions = numregions
         
-        
-        
-        
-        num_regions = mp.cpu_count() * 2
-        
-        if numregions > 0:
-            num_regions = numregions
+    
+    if num_regions > len(GlobalLocations):
+        num_regions = len(GlobalLocations)
+    
             
-        
-        if num_regions > len(GlobalLocations):
-            num_regions = len(GlobalLocations)
-        
-                
-        # define the shutdown event
-        shutdown_event = mp.Event()
-        
-        # Response queue for getting results back out
-        responseq = GBQueue.MPQueue()
-        
-        poptotals = {}
-        poptotal = 0
-        for i in range(0,len(GlobalLocations)):
-            poptotal += GlobalLocations[i].populationAmt
-        
-        RegionInteractionMatrixList = []
-        RegionalLocations = []
+    # define the shutdown event
+    shutdown_event = mp.Event()
     
-        RegionListGuide = []
-        HospitalTransitionMatrix = []
-        lpids = []
-        lplocalids = []
-        i = 0
-        for R in range(0,num_regions):
-            popinR = 0
-            tempR = []
-            tempL = []
-            tempH = []
-            ztemp = []
-            ztemp2 = []
-            while popinR < math.ceil(poptotal/num_regions) and i <= (len(GlobalLocations)-1):
-                popinR += GlobalLocations[i].populationAmt
-                tempR.append(GlobalInteractionMatrix[i,:])
-                tempL.append(GlobalLocations[i])
-                ztemp.append(GlobalLocations[i].LocalIdentification)
-                ztemp2.append(GlobalLocations[i].globalId)
-                if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
-                    tempH.append(HospitalTransitionRate[i,:])   
-                RegionListGuide.append(R)
-                i+=1
-            RegionalList.append(R)
-            RegionInteractionMatrixList.append(tempR)
-            RegionalLocations.append(tempL)
-            lplocalids.extend(ztemp)
-            lpids.extend(ztemp2)
+    # Response queue for getting results back out
+    responseq = GBQueue.MPQueue()
+    
+    
+    poptotals = {}
+    poptotal = 0
+    for i in range(0,len(GlobalLocations)):
+        poptotals[i] = GlobalLocations[i].populationAmt
+        poptotal += GlobalLocations[i].populationAmt
+    
+    poptotals_sorted = sorted(poptotals.items(), key = lambda kv:(kv[1], kv[0]))
+    
+    RegionInteractionMatrixList = []
+    RegionalLocations = []
+
+    RegionListGuide = []
+    HospitalTransitionMatrix = []
+    lpids = []
+    lplocalids = []
+    
+    regionassigments = {}
+    for R in range(0,num_regions):
+        regionassigments[R] = []
+    
+    R = 0
+    RegionListGuide = []
+    for ps in poptotals_sorted:
+        i = ps[0]
+        regionassigments[R].append(i)
+        R+=1
+        RegionListGuide.append(-1)
+        #print(GlobalLocations[i].populationAmt)
+        if R == num_regions:
+            R = 0
+    #print(regionassigments)
+    
+    
+    for R in range(0,num_regions):
+        popinR = 0
+        tempR = []
+        tempL = []
+        tempH = []
+        ztemp = []
+        ztemp2 = []
+        GLIDs = regionassigments[R]
+        #print(GLIDs)
+        #while popinR < math.floor(poptotal/num_regions) and i <= (len(GlobalLocations)-1):
+        for i in GLIDs:
+            tempR.append(GlobalInteractionMatrix[i,:])
+            tempL.append(GlobalLocations[i])
+            ztemp.append(GlobalLocations[i].LocalIdentification)
+            ztemp2.append(GlobalLocations[i].globalId)
             if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
-                HospitalTransitionMatrix.append(tempH) 
-        
-              
+                tempH.append(HospitalTransitionRate[i,:])   
+            #RegionListGuide.append(R)
+            RegionListGuide[GlobalLocations[i].globalId] = R
+            
+        RegionalList.append(R)
+        RegionInteractionMatrixList.append(tempR)
+        RegionalLocations.append(tempL)
+        lplocalids.extend(ztemp)
+        lpids.extend(ztemp2)
+        if(len(HospitalTransitionRate) == len(GlobalInteractionMatrix)):
+            HospitalTransitionMatrix.append(tempH) 
+   
+    try:              
         # set up the procs for each region
         procs = []
         eventqueues = []
@@ -237,6 +284,7 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     procdict['startdate'] = startDate
                     procdict['fitenddate'] = fitenddate
                     procdict['timeNow'] = (fitenddate - startDate).days
+                    procdict['virus'] = disease.Virus.SARSCoV2(0,1)
                     eventqueues[i].safe_put(GBQueue.EventMessage("history", "history", procdict))
                 
                 curhospitalizations,curdeaths,curcases = RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases)
@@ -302,8 +350,10 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                             while numfill > 0:
                                 x = Utils.multinomial(zipvals,sum(zipvals))
                                 if int(zipnames[x]) in lplocalids:
-                                    rnum = RegionListGuide[lplocalids.index(int(zipnames[x]))]
-                                    LPIDinfect = lpids[lplocalids.index(int(zipnames[x]))]
+                                    lplocalidindex = lplocalids.index(int(zipnames[x]))
+                                    rnum = RegionListGuide[lpids[lplocalidindex]]
+                                    LPIDinfect = lpids[lplocalidindex]
+                                    
                                     if rnum in initinfect.keys():
                                         if LPIDinfect in initinfect[rnum].keys():
                                             initinfect[rnum][LPIDinfect] += 1
@@ -329,7 +379,12 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     initinfect[rnum] = {}
                     initinfect[rnum][-1] = int(DiseaseParameters['ImportationRate'])
             
-            
+            vacnumperregion = 0
+            if len(vaccdatavals) > 0:
+                if tend in vaccdatavals.keys():
+                    total = int(vaccdatavals[tend])
+                    vacnumperregion = int(total/len(RegionalList))
+                
             #offPopQueueEvents = [] // delete
             curhospitalizations = 0
             curdeaths = 0
@@ -340,8 +395,17 @@ def RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,
                     procdict['tend'] = tend
                     if i in initinfect.keys():
                         procdict['LPIDs'] = initinfect[i]
+                        infectivity = 1
+                        vid = 0
+                        newvariantstdate = (datetime(2020,12,1).date() - startDate).days
+                        if tend > newvariantstdate:
+                            if random.random() < .5:
+                                infectivity = 1.5
+                                vid = 1
+                        procdict['virus'] = disease.Virus.SARSCoV2(vid,infectivity)
                     else:
-                        procdict['LPIDs'] = {}        
+                        procdict['LPIDs'] = {}  
+                    procdict['VacNum'] = vacnumperregion      
                     eventqueues[i].safe_put(GBQueue.EventMessage("main", "startevent", procdict))
                 
                 curhospitalizations,curdeaths,curcases = RunEventProc(procs,RegionalList,eventqueues,responseq,curhospitalizations,curdeaths,curcases)
@@ -659,6 +723,8 @@ def printCurrentState(tend,RegionalList,modelPopNames,startDate,InfPrior,HosPrio
     InfEvtClear = 0
     numTests = 0
     confirmedcases = 0
+    vid0 = 0
+    vid1 = 0
     
     #sorted_d = sorted((value, key) for (key,value) in SortCol.items())
     
@@ -688,6 +754,8 @@ def printCurrentState(tend,RegionalList,modelPopNames,startDate,InfPrior,HosPrio
                 InfEvtClear += lpdict['InfEvtClear']
                 numTests += lpdict['numTests']
                 confirmedcases += lpdict['CC']
+                vid0 += lpdict['vid0']
+                vid1 += lpdict['vid1']
     x = startDate + timedelta(days=tend) 
     
     #print("End:",tend," (",(x.strftime('%Y-%m-%d')),") Time:",t3-t1,"(",t3-t2,") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," NumC:",totC," numR:",totR," numD:",totD," numH:",totH," R0:",round(R0,2)," R0R:",round(R0R,2)," R0HH:",round(R0HH,2)," HI:",totHI," HE:",totHE)
@@ -697,12 +765,12 @@ def printCurrentState(tend,RegionalList,modelPopNames,startDate,InfPrior,HosPrio
     rdenom = 0
     
     if ParameterSet.FitMD:
-        print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numDMD:",totDMD," numHMD:",totHMD,"(" ,str(round(totHMD/HosPrior,3)),") cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
+        print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numDMD:",totDMD," numHMD:",totHMD,"(" ,str(round(totHMD/HosPrior,3)),") cases:",confirmedcases," (",numTests,") V:",vid1," (",vid1/(vid1+vid0),")")
     else:
         #if ParameterSet.FitValue == 'hospitalizations':
         #    print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numH:",totH," cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
         #else:
-        print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numH:",totH," numD:",totD," cases:",confirmedcases," (",numTests,") Q:",numQ," (",numInfPrev,",",InfEvtClear,")")
+        print("End:",tend," (",(x.strftime('%Y-%m-%d')),") num:", totS+totN+totInf+totC+totR+totD," numS:",totS," numN:",totN," NumInf:",totInf," (" + str(round(totInf / InfPrior,3)) +") NumC:",totC," numR:",totR," numH:",totH," numD:",totD," cases:",confirmedcases," (",numTests,") V:",vid1," (",vid1/(vid1+vid0),")")
     if totInf > 0:
         InfPrior = totInf
     if totHMD > 0:

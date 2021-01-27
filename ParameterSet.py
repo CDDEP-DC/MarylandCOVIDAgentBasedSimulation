@@ -44,7 +44,7 @@ QueueFolder = 'Queues'
 ResultsFolder = 'results'
 OutputFolder = 'Output'
 SavedRegionFolder = 'SavedRegions'
-
+PERIOD_OF_TIME = 36000 # 10 hours
 
 MAXIntVal = 9999999999999
 
@@ -74,6 +74,9 @@ Contagious = 2
 Symptomatic = 3
 Recovered = -1
 Dead = -2
+Vaccinated = -3
+
+VaccinationDelay = 14
 
 # Quarantine
 QuarantineTime = 14

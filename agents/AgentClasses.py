@@ -50,7 +50,7 @@ class Household:
                 numRandomContacts = math.floor(random.gammavariate(
                         PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort]))
                 numHouseholdContacts = numRandomContacts
-                person = Person(x, HouseholdId, ageCohort, ParameterSet.Susceptible,
+                person = Person(x, ageCohort, ParameterSet.Susceptible,
                                                     numHouseholdContacts,
                                                     numRandomContacts)
                 self.persons[x] = person
@@ -62,7 +62,7 @@ class Household:
                 numRandomContacts = math.floor(random.gammavariate(
                         PopulationParameters['AGGammaShape'][ageCohort],PopulationParameters['AGGammaScale'][ageCohort]))
                 numHouseholdContacts = PopulationParameters['householdcontactRate']
-                person = Person(x, HouseholdId, ageCohort, ParameterSet.Susceptible,
+                person = Person(x, ageCohort, ParameterSet.Susceptible,
                                                     numHouseholdContacts,
                                                     numRandomContacts)
                 
@@ -98,7 +98,20 @@ class Household:
         for key in self.persons.keys():
             self.persons[key].reset()
         
-    def infectHousehouldMember(self, timeNow, DiseaseParameters, LocalInteractionMatrixList,
+    def vaccinateHousehouldMember(self,vaccinationDay,ageCohort):
+        if len(self.persons.keys()) > 0:
+            if len(self.persons.keys()) == 1:
+                p = list(self.persons.keys())[0]
+            else:
+            
+                # if we are infecting in our household (so pass in agent) then choose someone else in household
+                p = self.getRandomAgent(ageCohort)
+                    
+            self.persons[p].vaccinate(vaccinationDay)
+            
+        return
+    
+    def infectHousehouldMember(self, timeNow,virus, DiseaseParameters, LocalInteractionMatrixList,
                     RegionListGuide, LocalPopulationId,HospitalTransitionMatrixList,TransProb,TransProbLow,
                                currentAgentId=-1, ageCohort=-1,infectingAgent={},ProportionLowIntReduction=0):
         
@@ -122,7 +135,7 @@ class Household:
                 else:
                     p = self.getRandomAgent(ageCohort)
                     
-            outcome, queueEvents, ac = self.persons[p].infect(timeNow, DiseaseParameters, LocalInteractionMatrixList,
+            outcome, queueEvents, ac = self.persons[p].infect(self.HouseholdId, timeNow, virus, DiseaseParameters, LocalInteractionMatrixList,
                                                  RegionListGuide, LocalPopulationId,self.numHouseholdMembersSusceptible(),
                                                  HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow)
         return queueEvents, ac, outcome, p
@@ -152,6 +165,9 @@ class Household:
     def getPersonAgeCohort(self,personId):
         return self.persons[personId].ageCohort
         
+    def getVirusId(self,personId):
+        return self.persons[personId].virus.id
+        
     def getPersonRandomContactRate(self,personId):
         return self.persons[personId].randomContactRate
         
@@ -172,7 +188,7 @@ class Household:
         self.persons[personId].setQuarantineTime(timeNow,QuarantineTime)
         
     def getLocalInfections(self,personId):
-        return  self.persons[personId].LocalInfections
+        return self.persons[personId].LocalInfections
         
     def getNonLocalInfections(self,personId):
         return self.persons[personId].getNonLocalInfections()
@@ -185,7 +201,7 @@ class Household:
         return -1
         
 class Person:
-    def __init__(self,personID, HouseholdId, ageCohort, status, householdContactRate = 1,
+    def __init__(self,personID, ageCohort, status, householdContactRate = 1,
                     randomContactRate=1):
         """
         Initialize person class represent persons in the model block and stores
@@ -196,10 +212,8 @@ class Person:
         self.personID = personID
         self.ageCohort = ageCohort
         self.status = status
-        self.symptom = 0
         self.randomContactRate = randomContactRate
         self.householdContactRate = householdContactRate
-        self.HouseholdId = HouseholdId
         self.hospitalized = 0
         self.hospital = -1
         #self.DiseaseParameters = DiseaseParameters
@@ -211,17 +225,21 @@ class Person:
         self.NonLocalPopsInfected = []
         self.infectingAgentHHID = -1
         self.infectingAgentId = -1
-        self.infectingAgentHHID = -1
-        self.infectingAgentId = -1
         self.infectingAgentLPID = -1
         self.infectingAgentRegionId = -1
+        self.VaccinatedDay = -1
+        self.virus = None
 
     def setQuarantineTime(self,timeNow,QuarantineTime):
         if self.QuarantineStart < timeNow:
             self.QuarantineStart = timeNow
             self.QuarantineEnd = timeNow + QuarantineTime
         
-    def infect(self, timeNow, DiseaseParameters, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow):
+    def vaccinate(self,vaccinationDay):
+        if self.VaccinatedDay < 0:
+            self.VaccinatedDay = vaccinationDay + ParameterSet.VaccinationDelay
+    
+    def infect(self,HouseholdId,  timeNow, virus, DiseaseParameters, LocalInteractionMatrixList, RegionListGuide, LocalPopulationId,numHouseholdMembersSusceptible,HospitalTransitionMatrixList,infectingAgent,ProportionLowIntReduction,TransProb,TransProbLow):
         queueEvents = []
         infectNow = True
         outcome = ''
@@ -233,7 +251,12 @@ class Person:
             if timeNow >= self.QuarantineStart and timeNow <= self.QuarantineEnd:
                 infectNow = False
                 outcome = 'quarantined'
-                 
+
+        if self.VaccinatedDay > 0:
+            if timeNow > self.VaccinatedDay:
+                infectNow = False
+                outcome = 'vaccinated'
+                                            
         if infectNow:
             if 'HHID' in infectingAgent.keys():
                 self.infectingAgentHHID = infectingAgent['HHID']
@@ -242,10 +265,12 @@ class Person:
                 self.infectingAgentRegionId = infectingAgent['RegionId']
             outcome = 'infection'
             self.status = ParameterSet.Incubating
+            self.virus = virus
+
             queueEvents, InfectionsDict = disease.DiseaseProgression.\
-                SetupTransmissableContactEvents(timeNow,DiseaseParameters, LocalInteractionMatrixList,
+                SetupTransmissableContactEvents(timeNow,virus,DiseaseParameters, LocalInteractionMatrixList,
                                                 RegionListGuide,
-                                                self.HouseholdId,
+                                                HouseholdId,
                                                 self.personID,
                                                 LocalPopulationId,
                                                 self.randomContactRate,
@@ -254,10 +279,6 @@ class Person:
                                                 numHouseholdMembersSusceptible,
                                                 HospitalTransitionMatrixList,
                                                 ProportionLowIntReduction,TransProb,TransProbLow)
-                         
-                                                
-        
-        
         
             self.LocalInfections = InfectionsDict['LocalInfections']
             self.NonLocalInfections = InfectionsDict['NonLocalInfections']

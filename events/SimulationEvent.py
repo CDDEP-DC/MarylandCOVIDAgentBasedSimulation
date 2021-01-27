@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from random import gammavariate, random
 import Utils
 import ParameterSet
+import disease.Virus
 
 class SimulationEvent:
     def __init__(self, timestamp):
@@ -29,11 +30,12 @@ class SimulationEvent:
 
 
 class InfectionEvent(SimulationEvent):
-    def __init__(self, timestamp, ageCohort, infectingAgentHHID,infectingAgentId):
+    def __init__(self, timestamp, virus, ageCohort, infectingAgentHHID,infectingAgentId):
         super().__init__(timestamp)
         self.ageCohort = ageCohort
         self.infectingAgentId = infectingAgentId
         self.infectingAgentHHID = infectingAgentHHID
+        self.virus = virus
 
     def IsInfectionBy(self,infectingAgentHHID,infectingAgentId):
         if self.infectingAgentHHID == infectingAgentHHID and self.infectingAgentId == infectingAgentId:
@@ -42,8 +44,8 @@ class InfectionEvent(SimulationEvent):
             return False
     
 class NonLocalInfectionEvent(InfectionEvent):
-    def __init__(self, timestamp, RegionId, LocalPopulationId, ageCohort, infectingAgentHHID,infectingAgentId, infectingAgentRegionId, infectingAgentLocalPopulationId):
-        super().__init__(timestamp, ageCohort, infectingAgentHHID,infectingAgentId)
+    def __init__(self, timestamp, virus, RegionId, LocalPopulationId, ageCohort, infectingAgentHHID,infectingAgentId, infectingAgentRegionId, infectingAgentLocalPopulationId):
+        super().__init__(timestamp,virus, ageCohort, infectingAgentHHID,infectingAgentId)
         self.RegionId = RegionId
         self.LocalPopulationId = LocalPopulationId
         self.InfectingAgentRegionId = infectingAgentRegionId
@@ -90,7 +92,9 @@ class PersonHospTestEvent(PersonHospEvent):
     pass
         
 class HouseholdInfectionEvent(HouseholdEvent):
-    pass
+    def __init__(self, timestamp, virus, HouseholdId, PersonId):
+        super().__init__(timestamp, HouseholdId, PersonId)
+        self.virus = virus
 
 # Change in status event
 class PersonStatusUpdate(HouseholdEvent):

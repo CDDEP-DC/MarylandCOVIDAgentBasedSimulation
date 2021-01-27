@@ -48,6 +48,8 @@ class Region:
         self.savedStats = {}
         self.savedOcc = {}
         
+        self.RegionListGuide = RegionListGuide
+        
         # create local population for each point in the local block
         for i in range(0, len(RegionalLocations)):
             GLP = RegionalLocations[i]
@@ -65,7 +67,8 @@ class Region:
                                 RegionListGuide,HTM,GLP.LocalIdentification,GLP.RegionalIdentification,PopulationParameters,DiseaseParameters,SimEndDate,
                                 GLP.ProportionLowIntReduction,GLP.NursingFacilities,GLP.TransProb,GLP.TransProbLow)
             self.Locations[GLP.globalId] = LP
-            
+        print("Region ",self.RegionId," created with ",len(self.Locations)," Locations")
+        
     def IsThisWhuhanMktRegion(self):
         return self.IsWhuhanMktRegion
     
@@ -114,7 +117,28 @@ class Region:
             infEvents.extend(agentEvents)
         print(infEvents)
         
-    def infectRandomAgents(self,tend,LPIDs={}):
+    def vaccinateRandomAgents(self,tend,numVacc,ageCohort=-1):
+        if len(self.Locations.keys()) > 0:
+            LPIDs = {}
+            for i in range(0,numVacc):
+                LPID = random.choice(list(self.Locations.keys()))
+                if LPID in LPIDs:
+                    LPIDs[LPID] += 1
+                else:
+                    LPIDs[LPID] = 1
+                
+            for LPID in LPIDs:
+                LP = self.Locations[LPID]
+                numVaccinate = LPIDs[LPID]
+                while numVaccinate > 0:
+                    LP.vaccinateRandomAgent(tend,ageCohort)
+                    numVaccinate -= 1
+        else:
+            print("Error: Region ",self.RegionId," has ",len(self.Locations)," Locations - should be zero, which is weird and should not happen")
+            
+        return
+            
+    def infectRandomAgents(self,tend,virus,LPIDs={}):
         # Create off popqueue
         offPopQueueEvents = []
         # If we are only infecting on region
@@ -126,10 +150,15 @@ class Region:
                 LPIDs[LPID] = 1
             
         for LPID in LPIDs:
+            if LPID not in self.Locations:
+                print("Error")
+                print(self.RegionListGuide)
+                print(self.Locations)
+                print(LPID)
             LP = self.Locations[LPID]
             numInfect = LPIDs[LPID]
             while numInfect > 0:
-                op = LP.infectRandomAgent(tend)
+                op = LP.infectRandomAgent(tend,virus)
                 offPopQueueEvents.extend(op)
                 numInfect -= 1
                     
@@ -149,7 +178,7 @@ class Region:
                 
         return self.getRegionStats()
                     
-    def initializeHistory(self,historyData,startdate,fitenddate):
+    def initializeHistory(self,historyData,startdate,fitenddate,virus):
         numpriorcases = 0
         numnewcases = 0 
         offPopQueueEvents = []
@@ -170,7 +199,7 @@ class Region:
                             else:
                                 LPHistory[reportdate]['live'] = 0
                             
-            numpriorcases,numnewcases,op = LP.initializeHistory(LPHistory)
+            numpriorcases,numnewcases,op = LP.initializeHistory(LPHistory,virus)
             #numpriorcases += int(historyData[zipcode]['PriorCases'])
             #op = LP.setCurrentCases(historyData[zipcode]['NewCases'])
             #op = LP.setCurrentCases(0)

@@ -28,7 +28,6 @@ import FitModelInits
 
 def main(argv):
     
-    import time
 
     starttimer = time.time()
     
@@ -43,6 +42,9 @@ def main(argv):
     
     # check that the model exists
     modelvals,startdate,enddate = Utils.getModelVals(Model)
+    
+    # load the vaccination data
+    vaccinationdata = Utils.getVaccinationData(Model,modelvals)
     
     # load the humidity data
     humiditydata = Utils.getHumidityData(Model,modelvals)
@@ -85,7 +87,7 @@ def main(argv):
                   str(dateTimeObj.microsecond)
     for i in range(0,len(ParameterVals)):
         
-        fitinfo, fitdates = runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,ParameterVals[i],historyCaseData=historyCaseData,saveRun=False,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer),encountersdata=encountersdata,humiditydata=humiditydata,burnin=False)
+        fitinfo, fitdates, fitdatesX = runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,ParameterVals[i],historyCaseData=historyCaseData,saveRun=False,SavedRegionFolder=os.path.join("data",Model,ParameterSet.SavedRegionContainer),encountersdata=encountersdata,humiditydata=humiditydata,vaccinationdata=vaccinationdata,burnin=True)
     
         try:
             addHeader = False
@@ -99,13 +101,13 @@ def main(argv):
                     for key2 in lpvals.keys():
                         f.write(key2+",")
                     if len(fitinfo['numFitHospitalizations']) > 0:
-                        for x in range(min(fitdates),max(fitdates)):
+                        for x in range(min(fitdatesX),max(fitdatesX)):
                             f.write("HospDay"+str(x)+",")
                     if len(fitinfo['numFitDeaths']) > 0:
-                        for x in range(min(fitdates),max(fitdates)):
+                        for x in range(min(fitdatesX),max(fitdatesX)):
                             f.write("DeathDay"+str(x)+",")
                     if len(fitinfo['numFitCases']) > 0:
-                        for x in range(min(fitdates),max(fitdates)):
+                        for x in range(min(fitdatesX),max(fitdatesX)):
                             f.write("CaseDay"+str(x)+",")        
                     f.write("\n")
                 for key in lpvals.keys():
@@ -124,12 +126,10 @@ def main(argv):
         except:
             if ParameterSet.logginglevel == "debug" or ParameterSet.logginglevel == "error":
                 print(traceback.format_exc())
-                
-        PERIOD_OF_TIME = 25200 #7 39600 # 11 hours
-    
-        if time.time() > starttimer + PERIOD_OF_TIME : exit()         
+        
+        if time.time() > starttimer + ParameterSet.PERIOD_OF_TIME : exit()         
             
-def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,PVals,historyCaseData={},saveRun=True,SavedRegionFolder=ParameterSet.SavedRegionFolder,encountersdata={},humiditydata={},burnin=True):
+def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,enddate,PVals,historyCaseData={},saveRun=True,SavedRegionFolder=ParameterSet.SavedRegionFolder,encountersdata={},humiditydata={},vaccinationdata={},burnin=True):
     #### Now get all the parameters to fit the model    
     startdate = Utils.dateparser(PVals['startDate'])
        
@@ -183,7 +183,12 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
         exit()        
     for fitdate in fitdatesorig:
         fitdates.append((fitdate - startdate).days)
-    
+        
+    xdate = Utils.dateparser('2020-01-01')
+    fitdatesX = []
+    for fitdateX in fitdatesorig:
+        fitdatesX.append((fitdateX - xdate).days)
+        
     #agecohort 0 -- 0-4
     AG04GammaScale = 6
     AG04GammaShape = 2.1
@@ -250,6 +255,10 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
     
     DiseaseParameters['CommunityTestingRate'] = 0.05    
     DiseaseParameters['humidityversion'] = -1
+    
+    DiseaseParameters['TestIncreaseDate'] = (Utils.dateparser("2020-07-01") - startdate).days
+    DiseaseParameters['TestIncrease'] = float(PVals['TestIncrease'])
+    
            
     # This sets the interventions
     interventions = ParameterInput.InterventionsParameters(Model,modelvals['FitInterventionFile'],startdate)
@@ -266,9 +275,7 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
     #interventions['baseline']['InterventionEndPerIncrease'] = float(PVals['InterventionPerIncrease'])
     #print(interventions)                
     stepLength = 1
-    
-    
-            
+                
     DiseaseParameters['ImportationRate'] = int(PVals['ImportationRate'])
     randomstate = random.getstate()
     mprandomseed = random.randint(100000,99999999)
@@ -279,6 +286,8 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
         
     key = 'baseline'
     DiseaseParameters = ParameterInput.setInfectionProb(interventions,key,DiseaseParameters,Model,fitdates=fitdates,encountersdata=encountersdata,humiditydata=humiditydata)
+    print("FitModelRegions:TransProb_AH Len:",len(DiseaseParameters['TransProb_AH']))
+    DiseaseParameters['VaccinationType'] = interventions['baseline']['VaccinationType']
     
     StartInfected = -1
         
@@ -291,10 +300,10 @@ def runRegionFit(FolderContainer,OutputRunsFolder,resultsName,Model,modelvals,en
             if reportdate != 'currentHospitalData':
                 historyCaseData[reportdate]['timeval'] = (historyCaseData[reportdate]['ReportDateVal'] - startdate).days
 
-                    
-    fitinfo = GlobalModel.RunBurnin(Model,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,FolderContainer=os.path.join(FolderContainer,resultsName),saveRun=saveRun,historyData=historyCaseData,SavedRegionFolder=SavedRegionFolder,burnin=burnin)
+                       
+    fitinfo = GlobalModel.RunBurnin(Model,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder=OutputRunsFolder,startDate=startdate,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,fitper=fitper,FolderContainer=os.path.join(FolderContainer,resultsName),saveRun=saveRun,historyData=historyCaseData,SavedRegionFolder=SavedRegionFolder,burnin=burnin,vaccinationdata=vaccinationdata)
             
-    return fitinfo, fitdates
+    return fitinfo, fitdates, fitdatesX
     
 if __name__ == "__main__":
     # execute only if run as a script    

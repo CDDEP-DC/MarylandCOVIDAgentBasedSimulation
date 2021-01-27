@@ -168,6 +168,9 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000, append=False):
     householdcontactRateUL = float(ParametersInputData['householdcontactRate']['max'])
     householdcontactRateLL = float(ParametersInputData['householdcontactRate']['min'])
 
+    TestIncreaseUL = float(ParametersInputData['TestIncrease']['max'])
+    TestIncreaseLL = float(ParametersInputData['TestIncrease']['min'])
+    
     
     #Initialize Parameters
     ParameterVals = {}
@@ -227,7 +230,8 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000, append=False):
                     'AsymptomaticReducationTrans':row[headers.index('AsymptomaticReducationTrans')],
                     'InterventionPerIncrease':row[headers.index('InterventionPerIncrease')],
                     'locked':0,
-                    'InterventionEndPerIncrease':row[headers.index('InterventionEndPerIncrease')]
+                    'InterventionEndPerIncrease':row[headers.index('InterventionEndPerIncrease')],
+                    'TestIncrease':row[headers.index('TestIncrease')]
                 }
                 startnum += 1
                 
@@ -285,6 +289,8 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000, append=False):
         ProbabilityOfTransmissionPerContact = random.random()*(ProbabilityOfTransmissionPerContactUL - ProbabilityOfTransmissionPerContactLL) + ProbabilityOfTransmissionPerContactLL
         symptomaticContactRateReduction = random.random()*(symptomaticContactRateReductionUL - symptomaticContactRateReductionLL) + symptomaticContactRateReductionLL
         hospitalSymptomaticContactRateReduction = random.random()*(hospitalSymptomaticContactRateReductionUL - hospitalSymptomaticContactRateReductionLL) + hospitalSymptomaticContactRateReductionLL
+        
+        TestIncrease = random.random()*(TestIncreaseUL - TestIncreaseLL) + TestIncreaseLL
 
         ParameterVals[nrun] = { 'startDate':startDate, 
             'AG04AsymptomaticRate':AG04AsymptomaticRate,
@@ -325,7 +331,8 @@ def getFitModelParameters(Model,NumberMeanRuns = 5000, append=False):
             'AsymptomaticReducationTrans':AsymptomaticReducationTrans,
             'InterventionPerIncrease':InterventionPerIncrease,
             'locked':0,
-            'InterventionEndPerIncrease':InterventionEndPerIncrease
+            'InterventionEndPerIncrease':InterventionEndPerIncrease,
+            'TestIncrease':TestIncrease
         }
     print(len(ParameterVals))    
     return ParameterVals

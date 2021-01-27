@@ -99,6 +99,7 @@ class LocalPopulation:
         self.numContagious = 0
         self.numIncubating = 0
         self.numRecovered = 0
+        self.numVaccinated = 0
         self.numHospitalized = 0
         self.numHospitalizedICU = 0
         self.numDead = 0
@@ -110,6 +111,7 @@ class LocalPopulation:
         self.confirmedcases = 0
         
         self.R0Calc = [0]*101
+        self.virustype = [0,0]
             
         #self.infectionEvents = []
         # Event queue is a dictionary
@@ -174,6 +176,8 @@ class LocalPopulation:
         stats['numInfPrev'] = self.InfectiousEventsPrevented
         stats['InfEvtClear'] = self.InfectiousEventsCleared
         stats['CC'] = self.confirmedcases
+        stats['vid0'] = self.virustype[0]
+        stats['vid1'] = self.virustype[1]
         return stats
 
     def getHospitalOccupancy(self):
@@ -229,6 +233,7 @@ class LocalPopulation:
                     infectingAgent = {}
                     infectingAgent['personId'] = SE.infectingAgentId
                     infectingAgent['HHID'] = SE.infectingAgentHHID
+                    virus = SE.virus
                     if isinstance(SE,SimEvent.NonLocalInfectionEvent):
                         infectingAgent['LPID'] = SE.LocalPopulationId
                         infectingAgent['RegionId'] = SE.RegionId
@@ -236,7 +241,7 @@ class LocalPopulation:
                         infectingAgent['LPID'] = self.LocalPopulationId
                         infectingAgent['RegionId'] = self.RegionId
                     
-                    op = self.infectRandomAgent(self.timeNow,SE.ageCohort,infectingAgent)
+                    op = self.infectRandomAgent(self.timeNow,virus,SE.ageCohort,infectingAgent)
                     
                     # add Events to non local pop queue
                     offPopQueueEvents.extend(op)    
@@ -275,6 +280,8 @@ class LocalPopulation:
                         
                     # if updating to recovered could have come from symptomatic or contagious
                     elif SE.Status == ParameterSet.Recovered or SE.Status == ParameterSet.Dead:
+                        vid = self.hhset[HHID].getVirusId(personId)
+                        self.virustype[vid] -= 1
                         
                         if currentStatus == ParameterSet.Symptomatic:
                             self.numInfected -= 1
@@ -387,7 +394,8 @@ class LocalPopulation:
                     #print("house")
                     HHID = SE.HouseholdId
                     agentId = SE.PersonId
-                    op = self.infectAgent(self.timeNow,HHID,agentId=agentId)
+                    virus = SE.virus
+                    op = self.infectAgent(self.timeNow,virus,HHID,agentId=agentId)
                         
                 elif isinstance(SE,SimEvent.ContactTraceEvent):
                     #1. get the number of infections by this person
@@ -497,8 +505,22 @@ class LocalPopulation:
         
         return offPopQueueEvents, numevents 
 
-        
-    def infectRandomAgent(self,infectionTime,ageCohort=-1,infectingAgent={}):
+    def vaccinateRandomAgent(self,vaccinationDay,ageCohort):
+        vaccinatePerson = random.randint(0,self.npersons-1)
+        if vaccinatePerson < (self.DefinedAgents+self.EphermeralAgents):
+            if vaccinatePerson < self.DefinedAgents:
+                HHID = random.choice(list(self.hhset.keys())) # should these be weighted by size?
+            else:
+                HHID = -1
+                # the household is all recovered so don't care
+        else:
+            HHID = self.BuildSingleHousehold()
+
+        self.hhset[HHID].vaccinateHousehouldMember(vaccinationDay,ageCohort)
+        return
+                                                              
+                                                                
+    def infectRandomAgent(self,infectionTime,virus,ageCohort=-1,infectingAgent={}):
         #first determine if we are infecting someone already defined or creating new household
         infectperson = random.randint(0,self.npersons-1)
         if infectperson < (self.DefinedAgents+self.EphermeralAgents):
@@ -510,13 +532,13 @@ class LocalPopulation:
         else:
             HHID = self.BuildSingleHousehold()
 
-        offPopQueueEvents = self.infectAgent(infectionTime,HHID,ageCohort=ageCohort,infectingAgent=infectingAgent)
+        offPopQueueEvents = self.infectAgent(infectionTime,virus,HHID,ageCohort=ageCohort,infectingAgent=infectingAgent)
                           
         return offPopQueueEvents
 
-    def infectAgent(self,infectionTime, HHID, agentId=-1,ageCohort=-1,infectingAgent={}):
+    def infectAgent(self,infectionTime, virus, HHID, agentId=-1,ageCohort=-1,infectingAgent={}):
         #print("Before infection S:",self.numSusceptible," N:",self.numIncubating," C:",self.numContagious," I:",self.numInfected," R:",self.numRecovered," H:",self.numHospitalized)
-        queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(infectionTime,self.DiseaseParameters,self.LocalInteractionMatrixList,
+        queueEvents, acout, outcome, infAgentId = self.hhset[HHID].infectHousehouldMember(infectionTime,virus,self.DiseaseParameters,self.LocalInteractionMatrixList,
                                                                 self.RegionListGuide,self.LocalPopulationId,
                                                                 self.HospitalTransitionMatrixList,self.TransProb,self.TransProbLow,
                                                                 agentId,ageCohort,infectingAgent,self.ProportionLowIntReduction)
@@ -527,6 +549,7 @@ class LocalPopulation:
             self.InfectiousEventsPrevented += 1
         # if they were infected then queue events will be returned
         if queueEvents:
+            self.virustype[virus.id] += 1
             self.numSusceptible -= 1
             self.numIncubating += 1 
             self.ageInfection[acout]+=1
@@ -651,7 +674,7 @@ class LocalPopulation:
             del self.eventQueue[delkeys[i]]
         self.InfectiousEventsCleared += len(delkeys)
         
-    def initializeHistory(self,LPHistory):
+    def initializeHistory(self,LPHistory,virus):
         if self.LocalIdentification == '21208':
             #print(LPHistory)
             for reportdate in LPHistory.keys():
@@ -662,7 +685,7 @@ class LocalPopulation:
         numpriorcases = 0
         numnewcases = 0
         for reportdate in LPHistory.keys():
-            numinfected = int(LPHistory[reportdate]['ReportedNewCases'])+int(float(LPHistory[reportdate]['EstimatedMildCases'])*1.5)
+            numinfected = int(LPHistory[reportdate]['ReportedNewCases'])+int(float(LPHistory[reportdate]['EstimatedMildCases']))
             if LPHistory[reportdate]['live'] == 0:            
                 numpriorcases += numinfected
                 confirmedcases += int(LPHistory[reportdate]['ReportedNewCases'])
@@ -680,7 +703,7 @@ class LocalPopulation:
                             HHID=-1
                     
                     
-                    if random.random() < .005:
+                    if random.random() < .01: ### Remove hardcode here
                         self.hhset[HHID].setHouseholdPersonStatus(pid,ParameterSet.Dead)
                         self.numDead += 1
                     else:
@@ -691,17 +714,27 @@ class LocalPopulation:
                     numinfected -= 1
             else:
                 numnewcases += numinfected
-                op = self.setCurrentCases(numinfected,LPHistory[reportdate]['timeval'])
+                #### NEED TO BACK THIS OUT at some point
+                x = random.random() 
+                if x < .001:
+                    virus.infectivity = 1.5
+                    virus.id = 1
+                    print("new variant")
+                else:
+                    virus.infectivity = 1
+                    virus.id = 0
+                op = self.setCurrentCases(numinfected,LPHistory[reportdate]['timeval'],virus)
                 offPopQueueEvents.extend(op)       
             
         self.confirmedcases += confirmedcases
         return numpriorcases,numnewcases,offPopQueueEvents
         
-    def setCurrentCases(self,CurrentCases,timeval):
+    def setCurrentCases(self,CurrentCases,timeval,virus):
+      
         try:
             offPopQueueEvents = []
             for i in range(0,CurrentCases):
-                op = self.infectRandomAgent(timeval)
+                op = self.infectRandomAgent(timeval,virus)
                 offPopQueueEvents.extend(op)    
                 
             return offPopQueueEvents

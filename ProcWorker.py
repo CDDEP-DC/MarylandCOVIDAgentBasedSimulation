@@ -178,7 +178,7 @@ class ProcWorker:
         try:
             if len(self.historyData) > 0:
                 
-                offPopQueueEvents, numpriorcases, numnewcases = self.ProcRegion.initializeHistory(self.historyData,procdict['startdate'],procdict['fitenddate'])
+                offPopQueueEvents, numpriorcases, numnewcases = self.ProcRegion.initializeHistory(self.historyData,procdict['startdate'],procdict['fitenddate'],procdict['virus'])
                 # Reconcile the current region events 
                 offRegionEvents = []
                 RegionReconciliationEvents = []
@@ -244,13 +244,25 @@ class ProcWorker:
         try:
             tend = int(procdict['tend'])
             LPIDs = procdict['LPIDs']
+            vacnumperregion = 0
+            if 'VacNum' in procdict.keys():
+                 vacnumperregion = int(procdict['VacNum'])
+                 
+            virus = None
+            if 'virus' in procdict.keys():
+                 virus = procdict['virus']
             
             self.reconciliation(procdict,reply=False)
+            
+            ## add vaccinations
+            if vacnumperregion > 0:
+                ac = random.randint(2,4)
+                self.ProcRegion.vaccinateRandomAgents(tend,vacnumperregion,ageCohort=ac)
             
             ## First run the preliminary infections   
             infop = []
             if len(LPIDs) > 0:
-                infop = self.ProcRegion.infectRandomAgents(tend,LPIDs=LPIDs)
+                infop = self.ProcRegion.infectRandomAgents(tend,virus,LPIDs=LPIDs)
                 
             ## Main work done here in running forward one step    
             regionStats, offPopQueueEvents, numEvents, fitval = self.ProcRegion.runTimePeriod(tend)

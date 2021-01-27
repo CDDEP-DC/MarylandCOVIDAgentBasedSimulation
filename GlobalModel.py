@@ -150,7 +150,6 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
     dfHH = dfHH.loc[:,'1.Person.Household':].div(dfHH.Total, axis=0) # get the percentage
     dfNational57 = pd.read_csv(os.path.join("data","AgeAvgHH_Matrix.csv"), index_col = 0)
         
-    
     #county_fips        county_name  PRE.mean  APRIL.mean  MAY.LastWeek.mean
     #print(dfPhoneData)
     if DiseaseParameters['UseCountyLevel'] == 1:
@@ -160,6 +159,8 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
     
     # Now load the global locations
     GlobalLocations = []
+    countytransmissionrates = {}
+    countyvisitrates = {}
     for G in range(0, numpops):
         HHSizeDist, HHSizeAgeDist = getCountyHHsAgesMatrix(dfHH,dfNational57,CountyFIP[G],GeoArea[G])
         
@@ -169,8 +170,28 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
         if DiseaseParameters['UseCountyLevel'] == 1:
             
             countyrows = dfPhoneData.loc[CountyFIP[G],:]
-            visitrate = countyrows.iloc[:,dfPhoneData.columns.tolist().index('daily_visitation_diff')].values.tolist()
+            #try:
+            #    visitrateraw = countyrows.iloc[:,dfPhoneData.columns.tolist().index('AverageDiff')].values.tolist()
+            #except:
+            #    print("AverageDiffMissing")
+            visitrateraw = countyrows.iloc[:,dfPhoneData.columns.tolist().index('daily_visitation_diff')].values.tolist()
+                
+            visitratedateraw = countyrows.iloc[:,dfPhoneData.columns.tolist().index('date')].values.tolist()
+            fixvisitrate = {}
+            for d in range(0,len(visitratedateraw)): 
+                dval = Utils.dateparser(visitratedateraw[d])
+                fixvisitrate[dval] = visitrateraw[d]
+            visitrate = []
+            visitratetest = []
+            for k in sorted (fixvisitrate.keys()) :  
+                visitrate.append(fixvisitrate[k])
+                visitratetest.append(k)
+         
+            #if CountyFIP[G] not in countyvisitrates.keys():
+            #    countyvisitrates[CountyFIP[G]] = visitrate
+                
             
+                
             unacaststdate = Utils.dateparser('2020-02-24')
             day_count = (unacaststdate - DiseaseParameters['startdate']).days
             
@@ -184,8 +205,18 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
             for i in range(0,len(visitrate)):
                 #DiseaseParameters['TransProb_AH'].append((1-1/(1+0.4*math.exp(-float(ahvals[i])*.1)))*probtransscale)
                 #DiseaseParameters['TransProb_intnumval'].append(intnumval[i])
+                if math.isnan(float(visitrate[i])):
+                    visitrate[i] = (visitrate[i-1]+visitrate[i+1])/2
+                    if math.isnan(float(visitrate[i])):
+                        visitrate[i] = visitrate[i-1]
+                    if math.isnan(float(visitrate[i])):
+                        visitrate[i] = visitrate[i+1]
+                    if math.isnan(float(visitrate[i])):
+                        print("Visit rates are not correct. Please check and rerun")
+                        exit()
+                        
                 day_count+=1
-                transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(visitrate[i])+DiseaseParameters['TransProb_intnumval'][day_count])            
+                transprobval = DiseaseParameters['TransProb_AH'][day_count]*(1+float(visitrate[i])+DiseaseParameters['TransProb_intnumval'][day_count])               
                 if transprobval < .001:
                     transprobval = .001
                 transprobvallow = max(transprobval*.5,.001)
@@ -230,6 +261,9 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
             DiseaseParameters['TransProb'] = TransProbC.copy()
             DiseaseParameters['TransProbLow'] = TransProbCLow.copy()        
     
+            #if CountyFIP[G] not in countytransmissionrates.keys():
+            #    countytransmissionrates[CountyFIP[G]] = TransProbC
+                
         if DiseaseParameters['AdjustPopDensity']:
             transmissonmodifier = 1/(1+ DiseaseParameters['pdscale1']*math.exp(-1*DiseaseParameters['pdscale2']*PopulationDensity[G]))  ## pdscale1 = .25  / pdscale2 = .001
             for TP in range(0,len(DiseaseParameters['TransProb'])):
@@ -245,6 +279,21 @@ def LoadModel(ModelType,modelvals,DiseaseParameters,substate=None):
                                 BAProportion[G]-HealthcareWorkerPercent[G],NursingCareFacilities[G]+AssistedLivingFacilities[G]+LTCF[G],newdeclinevals,newdeclinevalsLow)
         GlobalLocations.append(GL)
     print("Loaded Populations")    
+
+    #csvFile = "countytransmissionrates.csv"
+    #with open(csvFile, 'w') as f:
+    #    for key in countytransmissionrates.keys():
+    #        f.write("%s,%s\n" % (key,countytransmissionrates[key]))
+    #    f.write("\n")
+        
+    #csvFile = "countyvisitrates.csv"
+    #with open(csvFile, 'w') as f:
+    #    for key in countyvisitrates.keys():
+    #        f.write("%s,%s\n" % (key,countyvisitrates[key]))
+    #    f.write("\n")
+            
+    
+    
     return PopulationData, InteractionMatrix, HospitalTransitionRate, HospitalColNames,GlobalLocations
 
     
@@ -273,7 +322,7 @@ def modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters,substa
     return PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk
 
 # This is called from main
-def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,StartInfected=-1,historyData={}):
+def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,StartInfected=-1,historyData={},vaccinationdata={}):
     
     cleanUp(modelPopNames)
     ParameterVals = PopulationParameters
@@ -281,7 +330,7 @@ def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,Population
     
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
-    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,stepLength=1,numregions=-1,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=False,StartInfected=StartInfected,historyData=historyData)
+    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,stepLength=1,numregions=-1,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=False,StartInfected=StartInfected,historyData=historyData,vaccinationdata=vaccinationdata)
     
 
     PostProcessing.WriteParameterVals(resultsName,ModelType,ParameterVals,writefolder)
@@ -295,14 +344,14 @@ def RunDefaultModelType(ModelType,modelvals,modelPopNames,resultsName,Population
     return fitinfo
 
 # This is called from main
-def RunSavedRegionModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),SavedRegionFolder='',numregions=-1,FolderContainer=''):
+def RunSavedRegionModelType(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),SavedRegionFolder='',numregions=-1,FolderContainer='',vaccinationdata={}):
     cleanUp(modelPopNames)
     ParameterVals = PopulationParameters
     ParameterVals.update(DiseaseParameters)
     
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
-    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,SavedRegionFolder=SavedRegionFolder,numregions=numregions,FolderContainer=FolderContainer)
+    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,SavedRegionFolder=SavedRegionFolder,numregions=numregions,FolderContainer=FolderContainer,vaccinationdata=vaccinationdata)
     
     if fitinfo['fitted']:
         PostProcessing.WriteFitvals(resultsName,ModelType,fitinfo['SLSH'], fitinfo['SLSD'], fitinfo['SLSC'], fitinfo['avgperdiffhosp'], fitinfo['avgperdiffdeaths'], fitinfo['avgperdiffcases'],writefolder)
@@ -317,7 +366,7 @@ def RunSavedRegionModelType(ModelType,modelvals,modelPopNames,resultsName,Popula
     return fitinfo
     
         
-def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,FolderContainer='',saveRun=False,historyData={},SavedRegionFolder=ParameterSet.SavedRegionFolder,burnin=True):
+def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters,DiseaseParameters,endTime,mprandomseed,stepLength=1,writefolder='',startDate=datetime(2020,2,1),fitdates=[],hospitalizations=[],deaths=[],cases=[],fitper=.3,FolderContainer='',saveRun=False,historyData={},SavedRegionFolder=ParameterSet.SavedRegionFolder,burnin=True,vaccinationdata={}):
     
     if saveRun:
         if not os.path.exists(os.path.join(SavedRegionFolder,FolderContainer)):
@@ -325,12 +374,13 @@ def RunBurnin(ModelType,modelvals,modelPopNames,resultsName,PopulationParameters
             
     cleanUp(modelPopNames)
         
+    print("RunBurnin: TransProb_AH Len:",len(DiseaseParameters['TransProb_AH']))
     PopulationData, GlobalInteractionMatrix, HospitalTransitionRate, HospitalNames, GlobalLocations, LocationImportationRisk = modelSetup(ModelType,modelvals,PopulationParameters,DiseaseParameters)
     
     ParameterVals = PopulationParameters
     ParameterVals.update(DiseaseParameters)
     
-    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=burnin,FolderContainer=FolderContainer,saveRun=saveRun,historyData=historyData,SavedRegionFolder=SavedRegionFolder)
+    RegionalList, timeRange, fitinfo = ProcessManager.RunModel(GlobalLocations, GlobalInteractionMatrix, HospitalTransitionRate,LocationImportationRisk,PopulationParameters,DiseaseParameters,endTime,resultsName,mprandomseed,startDate=startDate,modelPopNames=modelPopNames,fitdates=fitdates,hospitalizations=hospitalizations,deaths=deaths,cases=cases,fitper=fitper,burnin=burnin,FolderContainer=FolderContainer,saveRun=saveRun,historyData=historyData,SavedRegionFolder=SavedRegionFolder,vaccinationdata=vaccinationdata)
 
     if saveRun and fitinfo['fitted']:
         PostProcessing.WriteFitvals(resultsName,ModelType,fitinfo['SLSH'], fitinfo['SLSD'], fitinfo['SLSC'], fitinfo['avgperdiffhosp'], fitinfo['avgperdiffdeaths'], fitinfo['avgperdiffcases'],writefolder)
